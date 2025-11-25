@@ -1,0 +1,19 @@
+node_modules/
+.env
+*.log
+backup/
+.DS_Store
+dist/
+build/
+*.sql.gz
+.vscode/*
+
+# Archivos de respaldo SQL
+backups/*.sql
+backups/**/*.sql
+
+# Test artifacts (videos, screenshots, reports)
+cypress/videos/
+cypress/screenshots/
+cypress/reports/
+playwright/reports/

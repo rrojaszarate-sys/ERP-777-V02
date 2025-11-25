@@ -1,0 +1,395 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reporte de Código Obsoleto</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+    h1 { color: #333; }
+    h2 { color: #666; margin-top: 30px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 10px; background: white; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background-color: #4CAF50; color: white; }
+    tr:nth-child(even) { background-color: #f2f2f2; }
+    .stats { background: #e7f3fe; padding: 15px; border-radius: 5px; margin: 20px 0; }
+    .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Reporte de Código Obsoleto</h1>
+    <div class="stats">
+      <p><strong>Fecha de análisis:</strong> 11/14/2025, 10:17:04 AM</p>
+      <p><strong>Archivos analizados:</strong> 292</p>
+      <p><strong>Archivos obsoletos:</strong> 3</p>
+      <p><strong>Imports no utilizados:</strong> 5</p>
+      <p><strong>Funciones sin referencias:</strong> 164</p>
+    </div>
+
+    <h2>Archivos Obsoletos</h2>
+    <table>
+      <tr><th>Archivo</th><th>Razón</th></tr>
+      
+        <tr><td>supabase_old/functions/ocr-debug/index.ts</td><td>Nombre contiene "old" o "legacy"</td></tr>
+      
+        <tr><td>supabase_old/functions/ocr-process/index.ts</td><td>Nombre contiene "old" o "legacy"</td></tr>
+      
+        <tr><td>supabase_old/functions/ocr-test/index.ts</td><td>Nombre contiene "old" o "legacy"</td></tr>
+      
+    </table>
+
+    <h2>Imports No Utilizados</h2>
+    <table>
+      <tr><th>Archivo</th><th>Import</th></tr>
+      
+        <tr><td>archive_20251105/scripts_mjs/migraciones/ejecutar-migracion-010.mjs</td><td>readFileSync</td></tr>
+      
+        <tr><td>scripts/generar_reporte_validacion.mjs</td><td>readFileSync</td></tr>
+      
+        <tr><td>src/modules/eventos/components/documents/DocumentosEvento.tsx</td><td>Database</td></tr>
+      
+        <tr><td>src/modules/eventos/components/finances/ExpenseForm.tsx</td><td>useAccountsGasto</td></tr>
+      
+        <tr><td>src/modules/ocr/pages/OcrTestPage.tsx</td><td>Separator</td></tr>
+      
+    </table>
+
+    <h2>Funciones Sin Referencias</h2>
+    <table>
+      <tr><th>Archivo</th><th>Función</th></tr>
+      
+        <tr><td>antiguos/scripts/ejecutar-analisis-correccion.mjs</td><td>__dirname</td></tr>
+      
+        <tr><td>antiguos/scripts/ejecutar-analisis-correccion.mjs</td><td>margenReal</td></tr>
+      
+        <tr><td>antiguos/scripts/poblacion-datos-erp777.mjs</td><td>categoriaGastos</td></tr>
+      
+        <tr><td>antiguos/scripts/poblacion-datos-erp777.mjs</td><td>cuentasContables</td></tr>
+      
+        <tr><td>archive_20251105/scripts_mjs/generacion_datos/generar-datos-completo-3-anos.mjs</td><td>TIPOS_EVENTO</td></tr>
+      
+        <tr><td>archive_20251105/scripts_mjs/generacion_datos/populate-test-pool-3-years.mjs</td><td>ESTADOS_EVENTO</td></tr>
+      
+        <tr><td>archive_20251105/scripts_mjs/migraciones/ejecutar-migracion-completa.mjs</td><td>sqlContent</td></tr>
+      
+        <tr><td>archive_20251105/scripts_mjs/migraciones/ejecutar-migracion-directa.mjs</td><td>result</td></tr>
+      
+        <tr><td>scripts/cargar_datos_v2.mjs</td><td>userList</td></tr>
+      
+        <tr><td>server/services/dailyReportService.js</td><td>dailyReportService</td></tr>
+      
+        <tr><td>src/app/api/cron/check-invoices/route.ts</td><td>runtime</td></tr>
+      
+        <tr><td>src/core/config/constants.ts</td><td>APP_CONFIG</td></tr>
+      
+        <tr><td>src/core/config/constants.ts</td><td>MEXICAN_CONFIG</td></tr>
+      
+        <tr><td>src/core/config/constants.ts</td><td>UI_CONFIG</td></tr>
+      
+        <tr><td>src/core/config/constants.ts</td><td>BUSINESS_RULES</td></tr>
+      
+        <tr><td>src/core/config/constants.ts</td><td>PERMISSION_MATRIX</td></tr>
+      
+        <tr><td>src/core/config/constants.ts</td><td>REGIMEN_FISCAL_OPTIONS</td></tr>
+      
+        <tr><td>src/core/config/constants.ts</td><td>USO_CFDI_OPTIONS</td></tr>
+      
+        <tr><td>src/core/config/constants.ts</td><td>METODO_PAGO_OPTIONS</td></tr>
+      
+        <tr><td>src/core/config/constants.ts</td><td>FORMA_PAGO_OPTIONS</td></tr>
+      
+        <tr><td>src/core/config/supabase.ts</td><td>isSupabaseConfiguredForRealData</td></tr>
+      
+        <tr><td>src/core/permissions/usePermissions.ts</td><td>usePermissions</td></tr>
+      
+        <tr><td>src/core/permissions/usePermissions.ts</td><td>requiredPermission</td></tr>
+      
+        <tr><td>src/core/types/events.ts</td><td>CATEGORIAS_GASTO</td></tr>
+      
+        <tr><td>src/core/types/events.ts</td><td>STATUS_WORKFLOW</td></tr>
+      
+        <tr><td>src/core/types/events.ts</td><td>STATUS_GASTO</td></tr>
+      
+        <tr><td>src/core/utils/logger.ts</td><td>workflowLogger</td></tr>
+      
+        <tr><td>src/core/utils/logger.ts</td><td>authLogger</td></tr>
+      
+        <tr><td>src/core/utils/logger.ts</td><td>fileLogger</td></tr>
+      
+        <tr><td>src/core/utils/logger.ts</td><td>dbLogger</td></tr>
+      
+        <tr><td>src/core/utils/logger.ts</td><td>apiLogger</td></tr>
+      
+        <tr><td>src/modules/admin/hooks/useDatabaseAdmin.ts</td><td>useDatabaseStats</td></tr>
+      
+        <tr><td>src/modules/admin/hooks/useDatabaseAdmin.ts</td><td>useClearDatabase</td></tr>
+      
+        <tr><td>src/modules/admin/hooks/useDatabaseAdmin.ts</td><td>useGenerateTestData</td></tr>
+      
+        <tr><td>src/modules/admin/services/dataGeneratorService.ts</td><td>dataGeneratorService</td></tr>
+      
+        <tr><td>src/modules/eventos/components/EventoDetailModal.tsx</td><td>getCurrentState</td></tr>
+      
+        <tr><td>src/modules/eventos/components/EventoDetailModal.tsx</td><td>ingresosCobrados</td></tr>
+      
+        <tr><td>src/modules/eventos/components/EventoDetailModal.tsx</td><td>ingresosPendientes</td></tr>
+      
+        <tr><td>src/modules/eventos/components/EventoDetailModal.tsx</td><td>gastosPagados</td></tr>
+      
+        <tr><td>src/modules/eventos/components/EventoDetailModal.tsx</td><td>gastosPendientes</td></tr>
+      
+        <tr><td>src/modules/eventos/components/EventoDetailModal.tsx</td><td>getStatusBadge</td></tr>
+      
+        <tr><td>src/modules/eventos/components/EventoDetailModal.tsx</td><td>margenEstimadoPct</td></tr>
+      
+        <tr><td>src/modules/eventos/components/EventoDetailModal.tsx</td><td>formatInputValue</td></tr>
+      
+        <tr><td>src/modules/eventos/components/EventoDetailModal.tsx</td><td>parseInputValue</td></tr>
+      
+        <tr><td>src/modules/eventos/components/events/EventDetail.tsx</td><td>handleDocumentUploaded</td></tr>
+      
+        <tr><td>src/modules/eventos/components/events/EventDetail.tsx</td><td>handleDocumentRemoved</td></tr>
+      
+        <tr><td>src/modules/eventos/components/events/EventFinancialComparison.tsx</td><td>gastosTotales</td></tr>
+      
+        <tr><td>src/modules/eventos/components/finances/GoogleVisionExpenseForm.tsx</td><td>processTesseractOCR</td></tr>
+      
+        <tr><td>src/modules/eventos/components/finances/IncomeCard.tsx</td><td>getPaymentStatusColor</td></tr>
+      
+        <tr><td>src/modules/eventos/components/finances/IncomeForm.tsx</td><td>handleFileRemoved</td></tr>
+      
+        <tr><td>src/modules/eventos/components/finances/IncomeForm.tsx</td><td>handleOCRFile</td></tr>
+      
+        <tr><td>src/modules/eventos/components/workflow/WorkflowStatusManager.tsx</td><td>handleStateChange</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useAccountingStates.ts</td><td>useAccountingStates</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useAccountingStates.ts</td><td>useEventAccountingValidation</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useAccountingStates.ts</td><td>useEventsByAccountingState</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useAccounts.ts</td><td>useAccounts</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useAccounts.ts</td><td>useAccountsGasto</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useAccounts.ts</td><td>useAccount</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useAccounts.ts</td><td>useCreateAccount</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useAccounts.ts</td><td>useUpdateAccount</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useAccounts.ts</td><td>useDeactivateAccount</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useAccounts.ts</td><td>useActivateAccount</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useAccounts.ts</td><td>useDeleteAccount</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useAccounts.ts</td><td>useGastosPorCuenta</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useAccounts.ts</td><td>useResumenGastosPorCuenta</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useAccounts.ts</td><td>useResumenGeneralCuentas</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useAccounts.ts</td><td>useValidarCodigoCuenta</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useClients.ts</td><td>useClients</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useClients.ts</td><td>useClientEvents</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useClients.ts</td><td>useClientStats</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useCuentasContables.ts</td><td>useCuentasContables</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useDashboardMetrics.ts</td><td>useDashboardMetrics</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useEventDocuments.ts</td><td>useEventDocuments</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useEventFinancialAnalysis.ts</td><td>useEventFinancialAnalysis</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useEventFinancialAnalysis.ts</td><td>useMarginColor</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useEventFinancialAnalysis.ts</td><td>useVariationColor</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useEventFinancialAnalysis.ts</td><td>useStatusBgColor</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useEventStateValidation.ts</td><td>useEventStateValidation</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useEventStates.ts</td><td>useEventStateFlow</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useEventosFinancialList.ts</td><td>useEventosFinancialList</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useEventosFinancialList.ts</td><td>useEventosFinancialDashboard</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useEvents.ts</td><td>useEvents</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useEvents.ts</td><td>useEvent</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useEvents.ts</td><td>useDashboardMetrics</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useEvents.ts</td><td>useTemporalAnalysis</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useEvents.ts</td><td>useExpensesByCategory</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useFileUpload.ts</td><td>useFileUpload</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useFinances.ts</td><td>useIncomes</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useFinances.ts</td><td>useExpenseCategories</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useFinances.ts</td><td>useFinancialSummary</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useFinances.ts</td><td>useExpenseAnalytics</td></tr>
+      
+        <tr><td>src/modules/eventos/hooks/useFinances.ts</td><td>useIncomeAnalytics</td></tr>
+      
+        <tr><td>src/modules/eventos/services/accountsService.ts</td><td>accountsService</td></tr>
+      
+        <tr><td>src/modules/eventos/services/alertService.ts</td><td>alertService</td></tr>
+      
+        <tr><td>src/modules/eventos/services/clientsService.ts</td><td>clientsService</td></tr>
+      
+        <tr><td>src/modules/eventos/services/eventsService.ts</td><td>eventsService</td></tr>
+      
+        <tr><td>src/modules/eventos/services/invoiceService.ts</td><td>invoiceService</td></tr>
+      
+        <tr><td>src/modules/eventos/services/storageService.ts</td><td>storageService</td></tr>
+      
+        <tr><td>src/modules/eventos/services/workflowService.ts</td><td>workflowService</td></tr>
+      
+        <tr><td>src/modules/eventos/types/Event.ts</td><td>EVENT_STATES</td></tr>
+      
+        <tr><td>src/modules/eventos/types/Event.ts</td><td>PAYMENT_STATUS</td></tr>
+      
+        <tr><td>src/modules/eventos/types/Event.ts</td><td>BILLING_STATUS</td></tr>
+      
+        <tr><td>src/modules/eventos/types/Event.ts</td><td>PROJECT_PHASES</td></tr>
+      
+        <tr><td>src/modules/eventos/types/Event.ts</td><td>PRIORITIES</td></tr>
+      
+        <tr><td>src/modules/eventos/types/Finance.ts</td><td>INCOME_STATES</td></tr>
+      
+        <tr><td>src/modules/eventos/types/Finance.ts</td><td>EXPENSE_CATEGORIES</td></tr>
+      
+        <tr><td>src/modules/eventos/types/Finance.ts</td><td>EXPENSE_APPROVAL_STATUS</td></tr>
+      
+        <tr><td>src/modules/eventos/types/Finance.ts</td><td>PAYMENT_METHODS</td></tr>
+      
+        <tr><td>src/modules/eventos/types/Finance.ts</td><td>SAT_FORMA_PAGO</td></tr>
+      
+        <tr><td>src/modules/eventos/types/Finance.ts</td><td>SAT_METODO_PAGO</td></tr>
+      
+        <tr><td>src/modules/eventos/types/Finance.ts</td><td>SAT_TIPO_COMPROBANTE</td></tr>
+      
+        <tr><td>src/modules/eventos/types/Finance.ts</td><td>SAT_MONEDA</td></tr>
+      
+        <tr><td>src/modules/eventos/types/Finance.ts</td><td>ESTADOS_INGRESO</td></tr>
+      
+        <tr><td>src/modules/eventos/types/Finance.ts</td><td>ESTADOS_INGRESO_COLORS</td></tr>
+      
+        <tr><td>src/modules/eventos/types/Finance.ts</td><td>TIPOS_CUENTA</td></tr>
+      
+        <tr><td>src/modules/eventos/types/Invoice.ts</td><td>COBRO_STATES</td></tr>
+      
+        <tr><td>src/modules/eventos/types/Invoice.ts</td><td>ALERT_TYPES</td></tr>
+      
+        <tr><td>src/modules/ocr/hooks/useOCR.supabase.ts</td><td>useOCRDocuments</td></tr>
+      
+        <tr><td>src/modules/ocr/hooks/useOCRIntegration.ts</td><td>formatProductsForNotes</td></tr>
+      
+        <tr><td>src/modules/ocr/hooks/useOCRIntegration.v2.ts</td><td>useOCRIntegrationV2</td></tr>
+      
+        <tr><td>src/modules/ocr/pages/GoogleVisionOCR.tsx</td><td>getGoogleAccessToken</td></tr>
+      
+        <tr><td>src/modules/ocr/pages/GoogleVisionOCR.tsx</td><td>header</td></tr>
+      
+        <tr><td>src/modules/ocr/pages/GoogleVisionOCR.tsx</td><td>payload</td></tr>
+      
+        <tr><td>src/modules/ocr/pages/GoogleVisionOCR.tsx</td><td>visionRequest</td></tr>
+      
+        <tr><td>src/modules/ocr/services/expenseOCRIntegration.ts</td><td>expenseOCRIntegration</td></tr>
+      
+        <tr><td>src/modules/ocr/services/expenseOCRService.supabase.ts</td><td>expenseOCRSupabaseService</td></tr>
+      
+        <tr><td>src/modules/ocr/services/expenseOCRService.v2.ts</td><td>max</td></tr>
+      
+        <tr><td>src/modules/ocr/services/expenseOCRService.v2.ts</td><td>expenseOCRServiceV2</td></tr>
+      
+        <tr><td>src/modules/ocr/services/googleVisionService.ts</td><td>isTicket</td></tr>
+      
+        <tr><td>src/modules/ocr/services/googleVisionService.ts</td><td>isFactura</td></tr>
+      
+        <tr><td>src/modules/ocr/services/googleVisionService.ts</td><td>googleVisionService</td></tr>
+      
+        <tr><td>src/modules/ocr/services/intelligentOCRClassifier.ts</td><td>IntelligentOCRClassifier</td></tr>
+      
+        <tr><td>src/modules/ocr/services/ocrService.supabase.ts</td><td>ocrSupabaseService</td></tr>
+      
+        <tr><td>src/modules/ocr/services/ocrService.ts</td><td>ocrService</td></tr>
+      
+        <tr><td>src/modules/ocr/services/ocrService.v2.ts</td><td>ocrServiceV2</td></tr>
+      
+        <tr><td>src/modules/ocr/services/tesseractOCRService.ts</td><td>tesseractOCRService</td></tr>
+      
+        <tr><td>src/modules/ocr/services/tesseractOCRService_OPTIMIZED.ts</td><td>tesseractOCRService</td></tr>
+      
+        <tr><td>src/services/accountingStateService.ts</td><td>accountingStateService</td></tr>
+      
+        <tr><td>src/services/auditService.ts</td><td>auditService</td></tr>
+      
+        <tr><td>src/services/exportService.ts</td><td>exportService</td></tr>
+      
+        <tr><td>src/shared/components/tables/DataTable.tsx</td><td>exportToCSV</td></tr>
+      
+        <tr><td>src/shared/components/theme/ThemePalettePicker.tsx</td><td>useTheme</td></tr>
+      
+        <tr><td>src/shared/components/theme/themeConfig.ts</td><td>isValidThemeConfig</td></tr>
+      
+        <tr><td>src/shared/components/theme/themeConfig.ts</td><td>migrateFromLegacyTheme</td></tr>
+      
+        <tr><td>src/shared/components/theme/themeConfig.ts</td><td>resetThemeToDefault</td></tr>
+      
+        <tr><td>src/shared/utils/calculations.ts</td><td>calculateSubtotal</td></tr>
+      
+        <tr><td>src/shared/utils/calculations.ts</td><td>calculateTotal</td></tr>
+      
+        <tr><td>src/shared/utils/calculations.ts</td><td>calculateMargin</td></tr>
+      
+        <tr><td>src/shared/utils/calculations.ts</td><td>calculateDaysOverdue</td></tr>
+      
+        <tr><td>src/shared/utils/calculations.ts</td><td>calculateCollectionRate</td></tr>
+      
+        <tr><td>src/shared/utils/formatters.ts</td><td>formatCurrency</td></tr>
+      
+        <tr><td>src/shared/utils/formatters.ts</td><td>formatDate</td></tr>
+      
+        <tr><td>src/shared/utils/formatters.ts</td><td>formatPercentage</td></tr>
+      
+        <tr><td>src/shared/utils/formatters.ts</td><td>formatNumber</td></tr>
+      
+        <tr><td>src/shared/utils/formatters.ts</td><td>getMonthName</td></tr>
+      
+        <tr><td>src/shared/utils/formatters.ts</td><td>formatFileSize</td></tr>
+      
+        <tr><td>src/shared/utils/formatters.ts</td><td>getFileTypeIcon</td></tr>
+      
+        <tr><td>src/shared/utils/formatters.ts</td><td>isValidFileType</td></tr>
+      
+        <tr><td>src/shared/utils/formatters.ts</td><td>formatDateForInput</td></tr>
+      
+        <tr><td>src/shared/utils/validators.ts</td><td>validateEmail</td></tr>
+      
+        <tr><td>src/shared/utils/validators.ts</td><td>validatePhone</td></tr>
+      
+        <tr><td>src/shared/utils/validators.ts</td><td>validateRFCWithChecksum</td></tr>
+      
+        <tr><td>supabase_old/functions/ocr-process/index.ts</td><td>jwtHeader</td></tr>
+      
+        <tr><td>supabase_old/functions/ocr-process/index.ts</td><td>jwtClaim</td></tr>
+      
+    </table>
+  </div>
+</body>
+</html>
+  

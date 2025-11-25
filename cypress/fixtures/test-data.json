@@ -1,0 +1,190 @@
+{
+  "usuarios": {
+    "admin": {
+      "email": "admin@test.com",
+      "password": "Test123!"
+    },
+    "operador": {
+      "email": "operador@test.com",
+      "password": "Test123!"
+    }
+  },
+
+  "clientes": {
+    "cliente1": {
+      "razon_social": "Empresa Test SA de CV",
+      "nombre_comercial": "Empresa Test",
+      "rfc": "ETE123456ABC",
+      "email": "contacto@empresatest.com",
+      "telefono": "5551234567",
+      "direccion": "Av. Test 123, Col. Centro",
+      "codigo_postal": "06000",
+      "sufijo": "ETT"
+    },
+    "cliente2": {
+      "razon_social": "Cliente Demo SA",
+      "nombre_comercial": "Demo Co",
+      "rfc": "CDE987654XYZ",
+      "email": "info@democlient.com",
+      "telefono": "5559876543",
+      "direccion": "Calle Demo 456",
+      "codigo_postal": "03100",
+      "sufijo": "DMC"
+    }
+  },
+
+  "eventos": {
+    "evento1": {
+      "nombre_proyecto": "Evento de Prueba Cypress",
+      "tipo_evento": "Corporativo",
+      "fecha_evento": "2025-01-15",
+      "lugar": "Centro de Convenciones Test",
+      "presupuesto_estimado": 150000,
+      "descripcion": "Evento de prueba automatizada"
+    },
+    "evento2": {
+      "nombre_proyecto": "Congreso Test 2025",
+      "tipo_evento": "Congreso",
+      "fecha_evento": "2025-02-20",
+      "lugar": "Hotel Test",
+      "presupuesto_estimado": 250000,
+      "descripcion": "Congreso de prueba"
+    }
+  },
+
+  "productos": {
+    "producto1": {
+      "codigo": "PROD-TEST-001",
+      "nombre": "Producto Test 1",
+      "descripcion": "Producto de prueba para Cypress",
+      "precio_venta": 1500.00,
+      "precio_costo": 1000.00,
+      "stock_actual": 100,
+      "stock_minimo": 10,
+      "unidad_medida": "PZA",
+      "categoria": "General"
+    },
+    "producto2": {
+      "codigo": "PROD-TEST-002",
+      "nombre": "Servicio Test",
+      "descripcion": "Servicio de prueba",
+      "precio_venta": 5000.00,
+      "precio_costo": 3000.00,
+      "stock_actual": 0,
+      "stock_minimo": 0,
+      "unidad_medida": "SRV",
+      "categoria": "Servicios"
+    }
+  },
+
+  "proveedores": {
+    "proveedor1": {
+      "razon_social": "Proveedor Test SA",
+      "nombre_comercial": "ProvTest",
+      "rfc": "PTE111111AAA",
+      "email": "ventas@provtest.com",
+      "telefono": "5551112222",
+      "direccion": "Av. Proveedores 100",
+      "codigo_postal": "11000",
+      "dias_credito": 30
+    }
+  },
+
+  "empleados": {
+    "empleado1": {
+      "nombre": "Juan",
+      "apellido_paterno": "Pérez",
+      "apellido_materno": "García",
+      "email": "juan.perez@test.com",
+      "telefono": "5553334444",
+      "fecha_ingreso": "2024-01-01",
+      "salario_mensual": 25000,
+      "departamento": "Operaciones",
+      "puesto": "Coordinador"
+    }
+  },
+
+  "cuentasBancarias": {
+    "cuenta1": {
+      "nombre": "Cuenta Principal Test",
+      "banco": "Banco Test",
+      "numero_cuenta": "1234567890",
+      "clabe": "012345678901234567",
+      "tipo_cuenta": "Cheques",
+      "moneda": "MXN",
+      "saldo_inicial": 100000
+    }
+  },
+
+  "facturas": {
+    "factura1": {
+      "serie": "A",
+      "folio": "001",
+      "rfc_receptor": "ETE123456ABC",
+      "nombre_receptor": "Empresa Test SA de CV",
+      "subtotal": 10000,
+      "iva": 1600,
+      "total": 11600,
+      "forma_pago": "03",
+      "metodo_pago": "PUE",
+      "uso_cfdi": "G03"
+    }
+  },
+
+  "proyectos": {
+    "proyecto1": {
+      "nombre": "Proyecto Test Cypress",
+      "descripcion": "Proyecto de prueba automatizada",
+      "fecha_inicio": "2025-01-01",
+      "fecha_fin_estimada": "2025-03-31",
+      "presupuesto": 500000,
+      "status": "en_progreso"
+    }
+  },
+
+  "polizas": {
+    "poliza1": {
+      "tipo": "ingreso",
+      "concepto": "Póliza de prueba Cypress",
+      "fecha": "2025-01-15",
+      "movimientos": [
+        {
+          "cuenta_codigo": "1101",
+          "concepto": "Cargo a bancos",
+          "debe": 11600,
+          "haber": 0
+        },
+        {
+          "cuenta_codigo": "4101",
+          "concepto": "Ingreso por servicios",
+          "debe": 0,
+          "haber": 10000
+        },
+        {
+          "cuenta_codigo": "2101",
+          "concepto": "IVA trasladado",
+          "debe": 0,
+          "haber": 1600
+        }
+      ]
+    }
+  },
+
+  "validaciones": {
+    "camposRequeridos": {
+      "cliente": ["razon_social", "rfc", "email"],
+      "evento": ["nombre_proyecto", "fecha_evento", "cliente_id"],
+      "producto": ["codigo", "nombre", "precio_venta"],
+      "empleado": ["nombre", "apellido_paterno", "email", "fecha_ingreso"],
+      "factura": ["rfc_receptor", "subtotal", "total"],
+      "proyecto": ["nombre", "fecha_inicio"]
+    },
+    "formatosValidos": {
+      "rfc": "^[A-Z&Ñ]{3,4}[0-9]{6}[A-Z0-9]{3}$",
+      "email": "^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+      "telefono": "^[0-9]{10}$",
+      "codigoPostal": "^[0-9]{5}$",
+      "clabe": "^[0-9]{18}$"
+    }
+  }
+}

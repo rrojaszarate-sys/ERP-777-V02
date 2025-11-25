@@ -1,0 +1,119 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]: MODO DESARROLLO
+    - combobox [ref=e7]:
+      - option "Administrador" [selected]
+      - option "Ejecutivo"
+      - option "Visualizador"
+    - generic [ref=e8]: "Usuario: Admin Usuario"
+  - generic [ref=e9]:
+    - generic [ref=e10]:
+      - generic [ref=e12]:
+        - generic [ref=e14]: M
+        - generic [ref=e15]:
+          - heading "MADE ERP" [level=1] [ref=e16]
+          - paragraph [ref=e17]: v2.0
+      - navigation [ref=e18]:
+        - button "Dashboard" [ref=e20] [cursor=pointer]:
+          - generic [ref=e21]:
+            - img [ref=e22]
+            - generic [ref=e25]: Dashboard
+        - button "Eventos" [ref=e27] [cursor=pointer]:
+          - generic [ref=e28]:
+            - img [ref=e29]
+            - generic [ref=e31]: Eventos
+          - img [ref=e32]
+        - button "Contabilidad" [ref=e35] [cursor=pointer]:
+          - generic [ref=e36]:
+            - img [ref=e37]
+            - generic [ref=e39]: Contabilidad
+          - img [ref=e40]
+        - button "CRM y Ventas" [ref=e43] [cursor=pointer]:
+          - generic [ref=e44]:
+            - img [ref=e45]
+            - generic [ref=e50]: CRM y Ventas
+          - img [ref=e51]
+        - button "Proveedores" [ref=e54] [cursor=pointer]:
+          - generic [ref=e55]:
+            - img [ref=e56]
+            - generic [ref=e61]: Proveedores
+          - img [ref=e62]
+        - button "Inventario" [ref=e65] [cursor=pointer]:
+          - generic [ref=e66]:
+            - img [ref=e67]
+            - generic [ref=e70]: Inventario
+          - img [ref=e71]
+        - button "RRHH y Nómina" [ref=e74] [cursor=pointer]:
+          - generic [ref=e75]:
+            - img [ref=e76]
+            - generic [ref=e79]: RRHH y Nómina
+          - img [ref=e80]
+        - button "Facturación" [ref=e83] [cursor=pointer]:
+          - generic [ref=e84]:
+            - img [ref=e85]
+            - generic [ref=e88]: Facturación
+          - img [ref=e89]
+        - button "Proyectos" [ref=e92] [cursor=pointer]:
+          - generic [ref=e93]:
+            - img [ref=e94]
+            - generic [ref=e96]: Proyectos
+          - img [ref=e97]
+        - button "Tesorería" [ref=e100] [cursor=pointer]:
+          - generic [ref=e101]:
+            - img [ref=e102]
+            - generic [ref=e104]: Tesorería
+          - img [ref=e105]
+        - button "Reportes y BI" [ref=e108] [cursor=pointer]:
+          - generic [ref=e109]:
+            - img [ref=e110]
+            - generic [ref=e113]: Reportes y BI
+          - img [ref=e114]
+        - button "Integraciones" [ref=e117] [cursor=pointer]:
+          - generic [ref=e118]:
+            - img [ref=e119]
+            - generic [ref=e121]: Integraciones
+          - img [ref=e122]
+        - button "IA y Automatización" [ref=e125] [cursor=pointer]:
+          - generic [ref=e126]:
+            - img [ref=e127]
+            - generic [ref=e137]: IA y Automatización
+          - img [ref=e138]
+        - button "Eventos-ERP" [ref=e141] [cursor=pointer]:
+          - generic [ref=e142]:
+            - img [ref=e143]
+            - generic [ref=e146]: Eventos-ERP
+          - img [ref=e147]
+        - button "Desarrollo" [ref=e150] [cursor=pointer]:
+          - generic [ref=e151]:
+            - img [ref=e152]
+            - generic [ref=e155]: Desarrollo
+          - img [ref=e156]
+    - generic [ref=e158]:
+      - banner [ref=e159]:
+        - generic [ref=e160]:
+          - generic [ref=e161]:
+            - button [ref=e162] [cursor=pointer]:
+              - img [ref=e163]
+            - navigation [ref=e164]:
+              - link "Inicio" [ref=e165] [cursor=pointer]:
+                - /url: /
+              - generic [ref=e166]: / eventos
+          - generic [ref=e167]:
+            - generic [ref=e168]:
+              - img [ref=e169]
+              - textbox "Búsqueda global..." [ref=e172]
+            - button [ref=e173] [cursor=pointer]:
+              - img [ref=e174]
+            - button "Cambiar paleta de colores" [ref=e179] [cursor=pointer]:
+              - img [ref=e180]
+            - button "A Admin Usuario Administrador" [ref=e191] [cursor=pointer]:
+              - generic [ref=e193]: A
+              - generic [ref=e194]:
+                - generic [ref=e195]: Admin Usuario
+                - generic [ref=e196]: Administrador
+              - img [ref=e197]
+      - main [ref=e199]
+```

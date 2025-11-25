@@ -1,0 +1,247 @@
+{
+  "fecha": "2025-10-17T16:09:26.750Z",
+  "configuracion": {
+    "NUM_CLIENTES": 20,
+    "EVENTOS_POR_CLIENTE": 12,
+    "INGRESOS_POR_EVENTO": 10,
+    "GASTOS_POR_EVENTO": 10,
+    "UTILIDAD_MIN": 0.15,
+    "UTILIDAD_MAX": 0.3
+  },
+  "estadisticas": {
+    "clientesCreados": 0,
+    "eventosCreados": 0,
+    "ingresosCreados": 0,
+    "gastosCreados": 0,
+    "totalIngresos": 0,
+    "totalGastos": 0,
+    "utilidadTotal": 0,
+    "utilidadPorEvento": [],
+    "erroresTotal": 0,
+    "tiempoInicio": 1760717361968
+  },
+  "utilidadPorEvento": [],
+  "tiempoTotal": "4.78s",
+  "errores": [
+    {
+      "tipo": "CLIENTE",
+      "mensaje": "Error al crear cliente María Teresa Lerma de Tovar",
+      "detalles": {
+        "code": "PGRST204",
+        "details": null,
+        "hint": null,
+        "message": "Could not find the 'ciudad' column of 'evt_clientes' in the schema cache"
+      },
+      "timestamp": "2025-10-17T16:09:22.240Z"
+    },
+    {
+      "tipo": "CLIENTE",
+      "mensaje": "Error al crear cliente Anita Muñiz de Flórez",
+      "detalles": {
+        "code": "PGRST204",
+        "details": null,
+        "hint": null,
+        "message": "Could not find the 'ciudad' column of 'evt_clientes' in the schema cache"
+      },
+      "timestamp": "2025-10-17T16:09:22.471Z"
+    },
+    {
+      "tipo": "CLIENTE",
+      "mensaje": "Error al crear cliente Francisca Arevalo Kanaria",
+      "detalles": {
+        "code": "PGRST204",
+        "details": null,
+        "hint": null,
+        "message": "Could not find the 'ciudad' column of 'evt_clientes' in the schema cache"
+      },
+      "timestamp": "2025-10-17T16:09:22.697Z"
+    },
+    {
+      "tipo": "CLIENTE",
+      "mensaje": "Error al crear cliente Juan Carlos Calderón Karen",
+      "detalles": {
+        "code": "PGRST204",
+        "details": null,
+        "hint": null,
+        "message": "Could not find the 'ciudad' column of 'evt_clientes' in the schema cache"
+      },
+      "timestamp": "2025-10-17T16:09:22.921Z"
+    },
+    {
+      "tipo": "CLIENTE",
+      "mensaje": "Error al crear cliente Tomás Saucedo Jimínez",
+      "detalles": {
+        "code": "PGRST204",
+        "details": null,
+        "hint": null,
+        "message": "Could not find the 'ciudad' column of 'evt_clientes' in the schema cache"
+      },
+      "timestamp": "2025-10-17T16:09:23.149Z"
+    },
+    {
+      "tipo": "CLIENTE",
+      "mensaje": "Error al crear cliente Liliana Zambrana Beltrán",
+      "detalles": {
+        "code": "PGRST204",
+        "details": null,
+        "hint": null,
+        "message": "Could not find the 'ciudad' column of 'evt_clientes' in the schema cache"
+      },
+      "timestamp": "2025-10-17T16:09:23.360Z"
+    },
+    {
+      "tipo": "CLIENTE",
+      "mensaje": "Error al crear cliente Mariano Delacrúz de Baeza",
+      "detalles": {
+        "code": "PGRST204",
+        "details": null,
+        "hint": null,
+        "message": "Could not find the 'ciudad' column of 'evt_clientes' in the schema cache"
+      },
+      "timestamp": "2025-10-17T16:09:23.589Z"
+    },
+    {
+      "tipo": "CLIENTE",
+      "mensaje": "Error al crear cliente Saúl Villaseñor Khalid",
+      "detalles": {
+        "code": "PGRST204",
+        "details": null,
+        "hint": null,
+        "message": "Could not find the 'ciudad' column of 'evt_clientes' in the schema cache"
+      },
+      "timestamp": "2025-10-17T16:09:23.811Z"
+    },
+    {
+      "tipo": "CLIENTE",
+      "mensaje": "Error al crear cliente Juan Gallardo de Ayala",
+      "detalles": {
+        "code": "PGRST204",
+        "details": null,
+        "hint": null,
+        "message": "Could not find the 'ciudad' column of 'evt_clientes' in the schema cache"
+      },
+      "timestamp": "2025-10-17T16:09:24.041Z"
+    },
+    {
+      "tipo": "CLIENTE",
+      "mensaje": "Error al crear cliente Brayan Blanco Varela",
+      "detalles": {
+        "code": "PGRST204",
+        "details": null,
+        "hint": null,
+        "message": "Could not find the 'ciudad' column of 'evt_clientes' in the schema cache"
+      },
+      "timestamp": "2025-10-17T16:09:24.284Z"
+    },
+    {
+      "tipo": "CLIENTE",
+      "mensaje": "Error al crear cliente Jazmin Delafuente Estrada",
+      "detalles": {
+        "code": "PGRST204",
+        "details": null,
+        "hint": null,
+        "message": "Could not find the 'ciudad' column of 'evt_clientes' in the schema cache"
+      },
+      "timestamp": "2025-10-17T16:09:24.507Z"
+    },
+    {
+      "tipo": "CLIENTE",
+      "mensaje": "Error al crear cliente Brandon Ramos Flores",
+      "detalles": {
+        "code": "PGRST204",
+        "details": null,
+        "hint": null,
+        "message": "Could not find the 'ciudad' column of 'evt_clientes' in the schema cache"
+      },
+      "timestamp": "2025-10-17T16:09:24.744Z"
+    },
+    {
+      "tipo": "CLIENTE",
+      "mensaje": "Error al crear cliente Marilu Rangel Quintana",
+      "detalles": {
+        "code": "PGRST204",
+        "details": null,
+        "hint": null,
+        "message": "Could not find the 'ciudad' column of 'evt_clientes' in the schema cache"
+      },
+      "timestamp": "2025-10-17T16:09:24.975Z"
+    },
+    {
+      "tipo": "CLIENTE",
+      "mensaje": "Error al crear cliente María Eugenia Karan Vega",
+      "detalles": {
+        "code": "PGRST204",
+        "details": null,
+        "hint": null,
+        "message": "Could not find the 'ciudad' column of 'evt_clientes' in the schema cache"
+      },
+      "timestamp": "2025-10-17T16:09:25.185Z"
+    },
+    {
+      "tipo": "CLIENTE",
+      "mensaje": "Error al crear cliente María Fernanda Yebra de Coronado",
+      "detalles": {
+        "code": "PGRST204",
+        "details": null,
+        "hint": null,
+        "message": "Could not find the 'ciudad' column of 'evt_clientes' in the schema cache"
+      },
+      "timestamp": "2025-10-17T16:09:25.409Z"
+    },
+    {
+      "tipo": "CLIENTE",
+      "mensaje": "Error al crear cliente Alejandra Benítez Porras",
+      "detalles": {
+        "code": "PGRST204",
+        "details": null,
+        "hint": null,
+        "message": "Could not find the 'ciudad' column of 'evt_clientes' in the schema cache"
+      },
+      "timestamp": "2025-10-17T16:09:25.647Z"
+    },
+    {
+      "tipo": "CLIENTE",
+      "mensaje": "Error al crear cliente Rebeca Ñañez Rojas",
+      "detalles": {
+        "code": "PGRST204",
+        "details": null,
+        "hint": null,
+        "message": "Could not find the 'ciudad' column of 'evt_clientes' in the schema cache"
+      },
+      "timestamp": "2025-10-17T16:09:25.904Z"
+    },
+    {
+      "tipo": "CLIENTE",
+      "mensaje": "Error al crear cliente Alberto González Agosto",
+      "detalles": {
+        "code": "PGRST204",
+        "details": null,
+        "hint": null,
+        "message": "Could not find the 'ciudad' column of 'evt_clientes' in the schema cache"
+      },
+      "timestamp": "2025-10-17T16:09:26.144Z"
+    },
+    {
+      "tipo": "CLIENTE",
+      "mensaje": "Error al crear cliente Timoteo Lucero Kindelan",
+      "detalles": {
+        "code": "PGRST204",
+        "details": null,
+        "hint": null,
+        "message": "Could not find the 'ciudad' column of 'evt_clientes' in the schema cache"
+      },
+      "timestamp": "2025-10-17T16:09:26.394Z"
+    },
+    {
+      "tipo": "CLIENTE",
+      "mensaje": "Error al crear cliente Luz Gastélum Alicea",
+      "detalles": {
+        "code": "PGRST204",
+        "details": null,
+        "hint": null,
+        "message": "Could not find the 'ciudad' column of 'evt_clientes' in the schema cache"
+      },
+      "timestamp": "2025-10-17T16:09:26.649Z"
+    }
+  ]
+}

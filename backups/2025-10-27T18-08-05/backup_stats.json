@@ -1,0 +1,22 @@
+{
+  "timestamp": "2025-10-27T18:08:08.503Z",
+  "url": "https://gomnouwackzvthpwyric.supabase.co",
+  "tables": {
+    "core_companies": 1,
+    "core_users": 3,
+    "evt_tipos_evento": 5,
+    "evt_estados": 8,
+    "evt_estados_ingreso": 4,
+    "evt_categorias_gastos": 5,
+    "evt_cuentas_contables": 11,
+    "evt_clientes": 71,
+    "evt_eventos": 15,
+    "evt_ingresos": 15,
+    "evt_gastos": 75,
+    "evt_documentos": 0,
+    "evt_documentos_ocr": 0
+  },
+  "totalRecords": 213,
+  "totalTables": 13,
+  "duration": 2828
+}

@@ -1,0 +1,736 @@
+{
+  "fecha": "24/11/2025, 2:41:57 p.m.",
+  "tablas": {
+    "evt_eventos": {
+      "count": 144,
+      "module": "Eventos"
+    },
+    "evt_gastos": {
+      "count": 1152,
+      "module": "Eventos"
+    },
+    "evt_ingresos": {
+      "count": 1152,
+      "module": "Eventos"
+    },
+    "evt_clientes": {
+      "count": 6,
+      "module": "Eventos"
+    },
+    "evt_estados": {
+      "count": 12,
+      "module": "Eventos"
+    },
+    "evt_estados_ingreso": {
+      "count": 4,
+      "module": "Eventos"
+    },
+    "evt_tipos_evento": {
+      "count": 5,
+      "module": "Eventos"
+    },
+    "evt_categorias_gastos": {
+      "count": 4,
+      "module": "Eventos"
+    },
+    "evt_categorias_ingresos": {
+      "count": 6,
+      "module": "Eventos"
+    },
+    "evt_cuentas_bancarias": {
+      "count": 5,
+      "module": "Eventos"
+    },
+    "evt_cuentas_contables": {
+      "count": 13,
+      "module": "Eventos"
+    },
+    "evt_roles": {
+      "count": 4,
+      "module": "Eventos"
+    },
+    "evt_documentos": {
+      "count": 0,
+      "module": "Eventos"
+    },
+    "evt_alertas_enviadas": {
+      "count": 0,
+      "module": "Eventos"
+    },
+    "evt_configuracion_alertas": {
+      "count": 0,
+      "module": "Eventos"
+    },
+    "evt_movimientos_bancarios": {
+      "count": 0,
+      "module": "Eventos"
+    },
+    "core_users": {
+      "count": 3,
+      "module": "Core"
+    },
+    "core_roles": {
+      "count": 3,
+      "module": "Core"
+    },
+    "core_companies": {
+      "count": 1,
+      "module": "Core"
+    },
+    "core_audit_log": {
+      "count": 10,
+      "module": "Core"
+    },
+    "core_user_roles": {
+      "count": 3,
+      "module": "Core"
+    },
+    "core_system_config": {
+      "count": 5,
+      "module": "Core"
+    },
+    "core_security_config": {
+      "count": 2,
+      "module": "Core"
+    },
+    "nom_empleados": {
+      "count": 1,
+      "module": "Nómina"
+    },
+    "nom_nominas": {
+      "count": 1,
+      "module": "Nómina"
+    },
+    "nom_conceptos": {
+      "count": 9,
+      "module": "Nómina"
+    },
+    "nom_periodos": {
+      "count": 1,
+      "module": "Nómina"
+    },
+    "nom_departamentos": {
+      "count": 0,
+      "module": "Nómina"
+    },
+    "nom_puestos": {
+      "count": 0,
+      "module": "Nómina"
+    },
+    "prj_proyectos": {
+      "count": 0,
+      "module": "Proyectos"
+    },
+    "prj_fases": {
+      "count": 0,
+      "module": "Proyectos"
+    },
+    "prj_hitos": {
+      "count": 0,
+      "module": "Proyectos"
+    },
+    "prj_tipos_proyecto": {
+      "count": 6,
+      "module": "Proyectos"
+    },
+    "prj_estados_proyecto": {
+      "count": 6,
+      "module": "Proyectos"
+    },
+    "prj_prioridades": {
+      "count": 4,
+      "module": "Proyectos"
+    },
+    "prj_roles": {
+      "count": 4,
+      "module": "Proyectos"
+    },
+    "con_cuentas": {
+      "count": 1,
+      "module": "Contabilidad"
+    },
+    "con_polizas": {
+      "count": 1,
+      "module": "Contabilidad"
+    },
+    "con_movimientos": {
+      "count": 1,
+      "module": "Contabilidad"
+    },
+    "con_balanza": {
+      "count": 0,
+      "module": "Contabilidad"
+    },
+    "alm_almacenes": {
+      "count": 1,
+      "module": "Almacén"
+    },
+    "alm_productos": {
+      "count": 1,
+      "module": "Almacén"
+    },
+    "alm_categorias": {
+      "count": 1,
+      "module": "Almacén"
+    },
+    "alm_movimientos": {
+      "count": 0,
+      "module": "Almacén"
+    },
+    "alm_tipos_movimiento": {
+      "count": 9,
+      "module": "Almacén"
+    },
+    "alm_unidades_medida": {
+      "count": 8,
+      "module": "Almacén"
+    }
+  },
+  "estadisticas": {
+    "estados": [
+      {
+        "id": 1,
+        "nombre": "Borrador",
+        "descripcion": "Evento en borrador inicial",
+        "color": "#6B7280",
+        "orden": 1,
+        "workflow_step": 1
+      },
+      {
+        "id": 2,
+        "nombre": "Acuerdo",
+        "descripcion": "Acuerdo firmado con el cliente",
+        "color": "#3B82F6",
+        "orden": 2,
+        "workflow_step": 2
+      },
+      {
+        "id": 3,
+        "nombre": "Orden de Compra",
+        "descripcion": "Orden de compra generada",
+        "color": "#10B981",
+        "orden": 3,
+        "workflow_step": 3
+      },
+      {
+        "id": 4,
+        "nombre": "En Ejecución",
+        "descripcion": "Evento en ejecución",
+        "color": "#F59E0B",
+        "orden": 4,
+        "workflow_step": 4
+      },
+      {
+        "id": 5,
+        "nombre": "Finalizado",
+        "descripcion": "Evento finalizado exitosamente",
+        "color": "#059669",
+        "orden": 5,
+        "workflow_step": 5
+      },
+      {
+        "id": 6,
+        "nombre": "Facturado",
+        "descripcion": "Todos los ingresos han sido facturados",
+        "color": "#7C3AED",
+        "orden": 6,
+        "workflow_step": 6
+      },
+      {
+        "id": 7,
+        "nombre": "Pagado",
+        "descripcion": "Todos los ingresos han sido pagados",
+        "color": "#059669",
+        "orden": 7,
+        "workflow_step": 7
+      },
+      {
+        "id": 8,
+        "nombre": "Cancelado",
+        "descripcion": "Evento cancelado (solo admin, no revierte ingresos/gastos)",
+        "color": "#f90000",
+        "orden": 8,
+        "workflow_step": 0
+      },
+      {
+        "id": 9,
+        "nombre": "Cerrado",
+        "descripcion": "Evento finalizado, listo para facturación",
+        "color": "#6B7280",
+        "orden": 90,
+        "workflow_step": 9
+      },
+      {
+        "id": 10,
+        "nombre": "Pagos Pendiente",
+        "descripcion": "Facturado, pendiente de cobro",
+        "color": "#F59E0B",
+        "orden": 100,
+        "workflow_step": 10
+      },
+      {
+        "id": 11,
+        "nombre": "Pagados",
+        "descripcion": "Todos los pagos cobrados",
+        "color": "#10B981",
+        "orden": 110,
+        "workflow_step": 11
+      },
+      {
+        "id": 12,
+        "nombre": "Pagos Vencidos",
+        "descripcion": "Con pagos vencidos sin cobrar",
+        "color": "#EF4444",
+        "orden": 105,
+        "workflow_step": 10
+      }
+    ],
+    "estadosIngreso": [
+      {
+        "id": 1,
+        "nombre": "PLANEADO",
+        "descripcion": "Ingreso planeado/proyectado",
+        "orden": 1,
+        "color": "blue",
+        "created_at": "2025-10-23T22:30:27.587167"
+      },
+      {
+        "id": 2,
+        "nombre": "ORDEN_COMPRA",
+        "descripcion": "Orden de compra recibida",
+        "orden": 2,
+        "color": "indigo",
+        "created_at": "2025-10-23T22:30:27.587167"
+      },
+      {
+        "id": 3,
+        "nombre": "FACTURADO",
+        "descripcion": "Factura emitida al cliente",
+        "orden": 3,
+        "color": "yellow",
+        "created_at": "2025-10-23T22:30:27.587167"
+      },
+      {
+        "id": 4,
+        "nombre": "PAGADO",
+        "descripcion": "Pago recibido y comprobado",
+        "orden": 4,
+        "color": "green",
+        "created_at": "2025-10-23T22:30:27.587167"
+      }
+    ],
+    "tiposEvento": [
+      {
+        "id": 21,
+        "company_id": "00000000-0000-0000-0000-000000000001",
+        "nombre": "Boda",
+        "descripcion": "Celebración matrimonial",
+        "color": "#E91E63",
+        "activo": true,
+        "created_at": "2025-09-30T00:29:40.843285+00:00"
+      },
+      {
+        "id": 22,
+        "company_id": "00000000-0000-0000-0000-000000000001",
+        "nombre": "XV Años",
+        "descripcion": "Celebración de quinceañera",
+        "color": "#9C27B0",
+        "activo": true,
+        "created_at": "2025-09-30T00:29:40.843285+00:00"
+      },
+      {
+        "id": 23,
+        "company_id": "00000000-0000-0000-0000-000000000001",
+        "nombre": "Corporativo",
+        "descripcion": "Evento empresarial",
+        "color": "#2196F3",
+        "activo": true,
+        "created_at": "2025-09-30T00:29:40.843285+00:00"
+      },
+      {
+        "id": 24,
+        "company_id": "00000000-0000-0000-0000-000000000001",
+        "nombre": "Social",
+        "descripcion": "Evento social general",
+        "color": "#4CAF50",
+        "activo": true,
+        "created_at": "2025-09-30T00:29:40.843285+00:00"
+      },
+      {
+        "id": 25,
+        "company_id": "00000000-0000-0000-0000-000000000001",
+        "nombre": "Graduación",
+        "descripcion": "Ceremonia de graduación",
+        "color": "#FF9800",
+        "activo": true,
+        "created_at": "2025-09-30T00:29:40.843285+00:00"
+      }
+    ],
+    "categoriasGastos": [
+      {
+        "id": 6,
+        "company_id": "00000000-0000-0000-0000-000000000001",
+        "nombre": "SPs (Solicitudes de Pago)",
+        "descripcion": "Honorarios, consultorías, servicios especializados",
+        "color": "#E91E63",
+        "activo": true,
+        "created_at": "2025-09-29T07:49:25.960784+00:00"
+      },
+      {
+        "id": 7,
+        "company_id": "00000000-0000-0000-0000-000000000001",
+        "nombre": "RH (Recursos Humanos)",
+        "descripcion": "Nómina temporal, prestaciones, capacitación",
+        "color": "#9C27B0",
+        "activo": true,
+        "created_at": "2025-09-29T07:49:25.960784+00:00"
+      },
+      {
+        "id": 8,
+        "company_id": "00000000-0000-0000-0000-000000000001",
+        "nombre": "Materiales",
+        "descripcion": "Insumos, equipamiento, papelería",
+        "color": "#2196F3",
+        "activo": true,
+        "created_at": "2025-09-29T07:49:25.960784+00:00"
+      },
+      {
+        "id": 9,
+        "company_id": "00000000-0000-0000-0000-000000000001",
+        "nombre": "Combustible/Peaje",
+        "descripcion": "Gasolina, casetas, viáticos de transporte",
+        "color": "#FF9800",
+        "activo": true,
+        "created_at": "2025-09-29T07:49:25.960784+00:00"
+      }
+    ],
+    "categoriasIngresos": [
+      {
+        "id": 1,
+        "nombre": "Servicios de Evento",
+        "descripcion": "Pago por servicios de organización de eventos",
+        "activo": true,
+        "created_at": "2025-10-27T22:31:18.026224+00:00"
+      },
+      {
+        "id": 2,
+        "nombre": "Paquetes",
+        "descripcion": "Paquetes predefinidos de servicios",
+        "activo": true,
+        "created_at": "2025-10-27T22:31:18.026224+00:00"
+      },
+      {
+        "id": 3,
+        "nombre": "Extras",
+        "descripcion": "Servicios adicionales",
+        "activo": true,
+        "created_at": "2025-10-27T22:31:18.026224+00:00"
+      },
+      {
+        "id": 4,
+        "nombre": "Anticipos",
+        "descripcion": "Pagos adelantados",
+        "activo": true,
+        "created_at": "2025-10-27T22:31:18.026224+00:00"
+      },
+      {
+        "id": 5,
+        "nombre": "Liquidación",
+        "descripcion": "Pagos finales",
+        "activo": true,
+        "created_at": "2025-10-27T22:31:18.026224+00:00"
+      },
+      {
+        "id": 6,
+        "nombre": "Otros Ingresos",
+        "descripcion": "Ingresos diversos",
+        "activo": true,
+        "created_at": "2025-10-27T22:31:18.026224+00:00"
+      }
+    ],
+    "roles": [
+      {
+        "id": 1,
+        "nombre": "admin",
+        "descripcion": "Administrador del sistema",
+        "permisos": {
+          "all": true
+        },
+        "activo": true,
+        "created_at": "2025-10-27T22:31:18.026224+00:00"
+      },
+      {
+        "id": 2,
+        "nombre": "contador",
+        "descripcion": "Contador/Finanzas",
+        "permisos": {
+          "finanzas": true,
+          "reportes": true
+        },
+        "activo": true,
+        "created_at": "2025-10-27T22:31:18.026224+00:00"
+      },
+      {
+        "id": 3,
+        "nombre": "operador",
+        "descripcion": "Operador de eventos",
+        "permisos": {
+          "gastos": true,
+          "eventos": true,
+          "ingresos": true
+        },
+        "activo": true,
+        "created_at": "2025-10-27T22:31:18.026224+00:00"
+      },
+      {
+        "id": 4,
+        "nombre": "viewer",
+        "descripcion": "Solo lectura",
+        "permisos": {
+          "view": true
+        },
+        "activo": true,
+        "created_at": "2025-10-27T22:31:18.026224+00:00"
+      }
+    ],
+    "empresa": {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "nombre": "MADE Events SA de CV",
+      "rfc": "MEV123456ABC",
+      "email": "info@madeevents.mx",
+      "telefono": "+52 55 1234 5678",
+      "direccion": null,
+      "logo_url": null,
+      "activo": true,
+      "created_at": "2025-09-29T07:37:50.402268+00:00",
+      "updated_at": "2025-09-29T07:37:50.402268+00:00"
+    },
+    "usuarios": 3,
+    "clientes": [
+      {
+        "id": 192,
+        "company_id": null,
+        "razon_social": "Constructora del Valle México SA de CV",
+        "nombre_comercial": "CDV Construcciones",
+        "rfc": "CDV850622CD9",
+        "email": "info@cdvmx.com",
+        "telefono": "5559876543",
+        "direccion_fiscal": "Blvd. Manuel Ávila Camacho 456, Col. Polanco, CDMX 11560",
+        "contacto_principal": "María Elena González López",
+        "telefono_contacto": "5559876543",
+        "email_contacto": "maria.gonzalez@cdvmx.com",
+        "regimen_fiscal": null,
+        "uso_cfdi": null,
+        "metodo_pago": null,
+        "forma_pago": null,
+        "dias_credito": null,
+        "limite_credito": null,
+        "activo": true,
+        "notas": null,
+        "created_at": "2025-10-31T16:35:45.247152+00:00",
+        "updated_at": "2025-10-31T16:35:45.247152+00:00",
+        "created_by": null,
+        "sufijo": "3"
+      },
+      {
+        "id": 191,
+        "company_id": null,
+        "razon_social": "Corporativo Empresarial Phoenix SA de CV",
+        "nombre_comercial": "Phoenix Corp",
+        "rfc": "CEP920315AB7",
+        "email": "contacto@phoenixcorp.mx",
+        "telefono": "5551234567",
+        "direccion_fiscal": "Av. Paseo de la Reforma 1234, Col. Juárez, CDMX 06600",
+        "contacto_principal": "Roberto Martínez García",
+        "telefono_contacto": "5551234567",
+        "email_contacto": "roberto.martinez@phoenixcorp.mx",
+        "regimen_fiscal": null,
+        "uso_cfdi": null,
+        "metodo_pago": null,
+        "forma_pago": null,
+        "dias_credito": null,
+        "limite_credito": null,
+        "activo": true,
+        "notas": null,
+        "created_at": "2025-10-31T16:35:45.247152+00:00",
+        "updated_at": "2025-10-31T16:35:45.247152+00:00",
+        "created_by": null,
+        "sufijo": "3"
+      },
+      {
+        "id": 194,
+        "company_id": null,
+        "razon_social": "Corporativo Horizonte Internacional SA de CV",
+        "nombre_comercial": "Horizonte Corp",
+        "rfc": "CHI880915GH4",
+        "email": "info@horizonteintl.mx",
+        "telefono": "5553698521",
+        "direccion_fiscal": "Torre Corporativa Santa Fe, Piso 12, CDMX 01210",
+        "contacto_principal": "Ana Patricia Flores Medina",
+        "telefono_contacto": "5553698521",
+        "email_contacto": "ana.flores@horizonteintl.mx",
+        "regimen_fiscal": null,
+        "uso_cfdi": null,
+        "metodo_pago": null,
+        "forma_pago": null,
+        "dias_credito": null,
+        "limite_credito": null,
+        "activo": true,
+        "notas": null,
+        "created_at": "2025-10-31T16:35:45.247152+00:00",
+        "updated_at": "2025-10-31T16:35:45.247152+00:00",
+        "created_by": null,
+        "sufijo": "3"
+      },
+      {
+        "id": 195,
+        "company_id": null,
+        "razon_social": "Desarrollos Inmobiliarios Luna SA de CV",
+        "nombre_comercial": "DIL México",
+        "rfc": "DIL900725IJ6",
+        "email": "contacto@dilmx.com",
+        "telefono": "5557412589",
+        "direccion_fiscal": "Av. Constituyentes 1111, Col. Lomas Altas, CDMX 11950",
+        "contacto_principal": "Jorge Luis Torres Ramírez",
+        "telefono_contacto": "5557412589",
+        "email_contacto": "jtorres@dilmx.com",
+        "regimen_fiscal": null,
+        "uso_cfdi": null,
+        "metodo_pago": null,
+        "forma_pago": null,
+        "dias_credito": null,
+        "limite_credito": null,
+        "activo": true,
+        "notas": null,
+        "created_at": "2025-10-31T16:35:45.247152+00:00",
+        "updated_at": "2025-10-31T16:35:45.247152+00:00",
+        "created_by": null,
+        "sufijo": "3"
+      },
+      {
+        "id": 193,
+        "company_id": null,
+        "razon_social": "Eventos Premier de México SA de CV",
+        "nombre_comercial": "Eventos Premier",
+        "rfc": "EPM910408EF2",
+        "email": "contacto@eventospremier.mx",
+        "telefono": "5552468135",
+        "direccion_fiscal": "Av. Santa Fe 789, Col. Santa Fe, CDMX 01219",
+        "contacto_principal": "Carlos Alberto Ramírez Sánchez",
+        "telefono_contacto": "5552468135",
+        "email_contacto": "carlos@eventospremier.mx",
+        "regimen_fiscal": null,
+        "uso_cfdi": null,
+        "metodo_pago": null,
+        "forma_pago": null,
+        "dias_credito": null,
+        "limite_credito": null,
+        "activo": true,
+        "notas": null,
+        "created_at": "2025-10-31T16:35:45.247152+00:00",
+        "updated_at": "2025-10-31T16:35:45.247152+00:00",
+        "created_by": null,
+        "sufijo": "3"
+      },
+      {
+        "id": 196,
+        "company_id": null,
+        "razon_social": "Grupo Industrial Vanguardia SA de CV",
+        "nombre_comercial": "Vanguardia Group",
+        "rfc": "GIV870530KL8",
+        "email": "info@vanguardiagroup.mx",
+        "telefono": "5558523697",
+        "direccion_fiscal": "Periférico Sur 2345, Col. Jardines del Pedregal, CDMX 04500",
+        "contacto_principal": "Mónica Alejandra Ruiz Hernández",
+        "telefono_contacto": "5558523697",
+        "email_contacto": "mruiz@vanguardiagroup.mx",
+        "regimen_fiscal": null,
+        "uso_cfdi": null,
+        "metodo_pago": null,
+        "forma_pago": null,
+        "dias_credito": null,
+        "limite_credito": null,
+        "activo": true,
+        "notas": null,
+        "created_at": "2025-10-31T16:35:45.247152+00:00",
+        "updated_at": "2025-10-31T16:35:45.247152+00:00",
+        "created_by": null,
+        "sufijo": "3"
+      }
+    ],
+    "cuentasBancarias": [
+      {
+        "id": 1,
+        "nombre": "Banco BBVA - Cuenta Principal",
+        "banco": "BBVA",
+        "numero_cuenta": "0123456789",
+        "tipo": "banco",
+        "moneda": "MXN",
+        "saldo_inicial": 0,
+        "activo": true,
+        "created_at": "2025-10-27T22:31:18.026224+00:00",
+        "updated_at": "2025-10-27T22:31:18.026224+00:00"
+      },
+      {
+        "id": 2,
+        "nombre": "Banco Santander - Operativa",
+        "banco": "Santander",
+        "numero_cuenta": "9876543210",
+        "tipo": "banco",
+        "moneda": "MXN",
+        "saldo_inicial": 0,
+        "activo": true,
+        "created_at": "2025-10-27T22:31:18.026224+00:00",
+        "updated_at": "2025-10-27T22:31:18.026224+00:00"
+      },
+      {
+        "id": 3,
+        "nombre": "Banco HSBC - Nómina",
+        "banco": "HSBC",
+        "numero_cuenta": "1122334455",
+        "tipo": "banco",
+        "moneda": "MXN",
+        "saldo_inicial": 0,
+        "activo": true,
+        "created_at": "2025-10-27T22:31:18.026224+00:00",
+        "updated_at": "2025-10-27T22:31:18.026224+00:00"
+      },
+      {
+        "id": 4,
+        "nombre": "Caja General",
+        "banco": "N/A",
+        "numero_cuenta": null,
+        "tipo": "caja",
+        "moneda": "MXN",
+        "saldo_inicial": 0,
+        "activo": true,
+        "created_at": "2025-10-27T22:31:18.026224+00:00",
+        "updated_at": "2025-10-27T22:31:18.026224+00:00"
+      },
+      {
+        "id": 5,
+        "nombre": "Caja Chica",
+        "banco": "N/A",
+        "numero_cuenta": null,
+        "tipo": "caja",
+        "moneda": "MXN",
+        "saldo_inicial": 0,
+        "activo": true,
+        "created_at": "2025-10-27T22:31:18.026224+00:00",
+        "updated_at": "2025-10-27T22:31:18.026224+00:00"
+      }
+    ]
+  },
+  "resumen": {
+    "empresa": "MADE Events SA de CV",
+    "totalEventos": 144,
+    "totalGastos": 1000,
+    "totalIngresos": 1000,
+    "totalClientes": 6,
+    "totalUsuarios": 3,
+    "montoIngresos": 19746981.80000005,
+    "montoGastos": 12463193.510000013,
+    "utilidadBruta": 7283788.290000036,
+    "margenPromedio": "36.89"
+  }
+}

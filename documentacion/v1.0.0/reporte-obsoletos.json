@@ -1,0 +1,704 @@
+{
+  "fecha": "2025-11-14T16:17:04.393Z",
+  "archivosAnalizados": 292,
+  "archivosObsoletos": [
+    {
+      "archivo": "supabase_old/functions/ocr-debug/index.ts",
+      "razon": "Nombre contiene \"old\" o \"legacy\""
+    },
+    {
+      "archivo": "supabase_old/functions/ocr-process/index.ts",
+      "razon": "Nombre contiene \"old\" o \"legacy\""
+    },
+    {
+      "archivo": "supabase_old/functions/ocr-test/index.ts",
+      "razon": "Nombre contiene \"old\" o \"legacy\""
+    }
+  ],
+  "codigoDuplicado": [],
+  "importsNoUtilizados": [
+    {
+      "archivo": "archive_20251105/scripts_mjs/migraciones/ejecutar-migracion-010.mjs",
+      "import": "readFileSync",
+      "linea": "import { readFileSync } from 'fs'"
+    },
+    {
+      "archivo": "scripts/generar_reporte_validacion.mjs",
+      "import": "readFileSync",
+      "linea": "import { readFileSync } from 'fs'"
+    },
+    {
+      "archivo": "src/modules/eventos/components/documents/DocumentosEvento.tsx",
+      "import": "Database",
+      "linea": "import { Database } from '../../types/database.types'"
+    },
+    {
+      "archivo": "src/modules/eventos/components/finances/ExpenseForm.tsx",
+      "import": "useAccountsGasto",
+      "linea": "import { useAccountsGasto } from '../../hooks/useAccounts'"
+    },
+    {
+      "archivo": "src/modules/ocr/pages/OcrTestPage.tsx",
+      "import": "Separator",
+      "linea": "import { Separator } from '../../../components/ui/separator'"
+    }
+  ],
+  "funcionesSinReferencias": [
+    {
+      "archivo": "antiguos/scripts/ejecutar-analisis-correccion.mjs",
+      "funcion": "__dirname"
+    },
+    {
+      "archivo": "antiguos/scripts/ejecutar-analisis-correccion.mjs",
+      "funcion": "margenReal"
+    },
+    {
+      "archivo": "antiguos/scripts/poblacion-datos-erp777.mjs",
+      "funcion": "categoriaGastos"
+    },
+    {
+      "archivo": "antiguos/scripts/poblacion-datos-erp777.mjs",
+      "funcion": "cuentasContables"
+    },
+    {
+      "archivo": "archive_20251105/scripts_mjs/generacion_datos/generar-datos-completo-3-anos.mjs",
+      "funcion": "TIPOS_EVENTO"
+    },
+    {
+      "archivo": "archive_20251105/scripts_mjs/generacion_datos/populate-test-pool-3-years.mjs",
+      "funcion": "ESTADOS_EVENTO"
+    },
+    {
+      "archivo": "archive_20251105/scripts_mjs/migraciones/ejecutar-migracion-completa.mjs",
+      "funcion": "sqlContent"
+    },
+    {
+      "archivo": "archive_20251105/scripts_mjs/migraciones/ejecutar-migracion-directa.mjs",
+      "funcion": "result"
+    },
+    {
+      "archivo": "scripts/cargar_datos_v2.mjs",
+      "funcion": "userList"
+    },
+    {
+      "archivo": "server/services/dailyReportService.js",
+      "funcion": "dailyReportService"
+    },
+    {
+      "archivo": "src/app/api/cron/check-invoices/route.ts",
+      "funcion": "runtime"
+    },
+    {
+      "archivo": "src/core/config/constants.ts",
+      "funcion": "APP_CONFIG"
+    },
+    {
+      "archivo": "src/core/config/constants.ts",
+      "funcion": "MEXICAN_CONFIG"
+    },
+    {
+      "archivo": "src/core/config/constants.ts",
+      "funcion": "UI_CONFIG"
+    },
+    {
+      "archivo": "src/core/config/constants.ts",
+      "funcion": "BUSINESS_RULES"
+    },
+    {
+      "archivo": "src/core/config/constants.ts",
+      "funcion": "PERMISSION_MATRIX"
+    },
+    {
+      "archivo": "src/core/config/constants.ts",
+      "funcion": "REGIMEN_FISCAL_OPTIONS"
+    },
+    {
+      "archivo": "src/core/config/constants.ts",
+      "funcion": "USO_CFDI_OPTIONS"
+    },
+    {
+      "archivo": "src/core/config/constants.ts",
+      "funcion": "METODO_PAGO_OPTIONS"
+    },
+    {
+      "archivo": "src/core/config/constants.ts",
+      "funcion": "FORMA_PAGO_OPTIONS"
+    },
+    {
+      "archivo": "src/core/config/supabase.ts",
+      "funcion": "isSupabaseConfiguredForRealData"
+    },
+    {
+      "archivo": "src/core/permissions/usePermissions.ts",
+      "funcion": "usePermissions"
+    },
+    {
+      "archivo": "src/core/permissions/usePermissions.ts",
+      "funcion": "requiredPermission"
+    },
+    {
+      "archivo": "src/core/types/events.ts",
+      "funcion": "CATEGORIAS_GASTO"
+    },
+    {
+      "archivo": "src/core/types/events.ts",
+      "funcion": "STATUS_WORKFLOW"
+    },
+    {
+      "archivo": "src/core/types/events.ts",
+      "funcion": "STATUS_GASTO"
+    },
+    {
+      "archivo": "src/core/utils/logger.ts",
+      "funcion": "workflowLogger"
+    },
+    {
+      "archivo": "src/core/utils/logger.ts",
+      "funcion": "authLogger"
+    },
+    {
+      "archivo": "src/core/utils/logger.ts",
+      "funcion": "fileLogger"
+    },
+    {
+      "archivo": "src/core/utils/logger.ts",
+      "funcion": "dbLogger"
+    },
+    {
+      "archivo": "src/core/utils/logger.ts",
+      "funcion": "apiLogger"
+    },
+    {
+      "archivo": "src/modules/admin/hooks/useDatabaseAdmin.ts",
+      "funcion": "useDatabaseStats"
+    },
+    {
+      "archivo": "src/modules/admin/hooks/useDatabaseAdmin.ts",
+      "funcion": "useClearDatabase"
+    },
+    {
+      "archivo": "src/modules/admin/hooks/useDatabaseAdmin.ts",
+      "funcion": "useGenerateTestData"
+    },
+    {
+      "archivo": "src/modules/admin/services/dataGeneratorService.ts",
+      "funcion": "dataGeneratorService"
+    },
+    {
+      "archivo": "src/modules/eventos/components/EventoDetailModal.tsx",
+      "funcion": "getCurrentState"
+    },
+    {
+      "archivo": "src/modules/eventos/components/EventoDetailModal.tsx",
+      "funcion": "ingresosCobrados"
+    },
+    {
+      "archivo": "src/modules/eventos/components/EventoDetailModal.tsx",
+      "funcion": "ingresosPendientes"
+    },
+    {
+      "archivo": "src/modules/eventos/components/EventoDetailModal.tsx",
+      "funcion": "gastosPagados"
+    },
+    {
+      "archivo": "src/modules/eventos/components/EventoDetailModal.tsx",
+      "funcion": "gastosPendientes"
+    },
+    {
+      "archivo": "src/modules/eventos/components/EventoDetailModal.tsx",
+      "funcion": "getStatusBadge"
+    },
+    {
+      "archivo": "src/modules/eventos/components/EventoDetailModal.tsx",
+      "funcion": "margenEstimadoPct"
+    },
+    {
+      "archivo": "src/modules/eventos/components/EventoDetailModal.tsx",
+      "funcion": "formatInputValue"
+    },
+    {
+      "archivo": "src/modules/eventos/components/EventoDetailModal.tsx",
+      "funcion": "parseInputValue"
+    },
+    {
+      "archivo": "src/modules/eventos/components/events/EventDetail.tsx",
+      "funcion": "handleDocumentUploaded"
+    },
+    {
+      "archivo": "src/modules/eventos/components/events/EventDetail.tsx",
+      "funcion": "handleDocumentRemoved"
+    },
+    {
+      "archivo": "src/modules/eventos/components/events/EventFinancialComparison.tsx",
+      "funcion": "gastosTotales"
+    },
+    {
+      "archivo": "src/modules/eventos/components/finances/GoogleVisionExpenseForm.tsx",
+      "funcion": "processTesseractOCR"
+    },
+    {
+      "archivo": "src/modules/eventos/components/finances/IncomeCard.tsx",
+      "funcion": "getPaymentStatusColor"
+    },
+    {
+      "archivo": "src/modules/eventos/components/finances/IncomeForm.tsx",
+      "funcion": "handleFileRemoved"
+    },
+    {
+      "archivo": "src/modules/eventos/components/finances/IncomeForm.tsx",
+      "funcion": "handleOCRFile"
+    },
+    {
+      "archivo": "src/modules/eventos/components/workflow/WorkflowStatusManager.tsx",
+      "funcion": "handleStateChange"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useAccountingStates.ts",
+      "funcion": "useAccountingStates"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useAccountingStates.ts",
+      "funcion": "useEventAccountingValidation"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useAccountingStates.ts",
+      "funcion": "useEventsByAccountingState"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useAccounts.ts",
+      "funcion": "useAccounts"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useAccounts.ts",
+      "funcion": "useAccountsGasto"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useAccounts.ts",
+      "funcion": "useAccount"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useAccounts.ts",
+      "funcion": "useCreateAccount"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useAccounts.ts",
+      "funcion": "useUpdateAccount"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useAccounts.ts",
+      "funcion": "useDeactivateAccount"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useAccounts.ts",
+      "funcion": "useActivateAccount"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useAccounts.ts",
+      "funcion": "useDeleteAccount"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useAccounts.ts",
+      "funcion": "useGastosPorCuenta"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useAccounts.ts",
+      "funcion": "useResumenGastosPorCuenta"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useAccounts.ts",
+      "funcion": "useResumenGeneralCuentas"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useAccounts.ts",
+      "funcion": "useValidarCodigoCuenta"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useClients.ts",
+      "funcion": "useClients"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useClients.ts",
+      "funcion": "useClientEvents"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useClients.ts",
+      "funcion": "useClientStats"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useCuentasContables.ts",
+      "funcion": "useCuentasContables"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useDashboardMetrics.ts",
+      "funcion": "useDashboardMetrics"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useEventDocuments.ts",
+      "funcion": "useEventDocuments"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useEventFinancialAnalysis.ts",
+      "funcion": "useEventFinancialAnalysis"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useEventFinancialAnalysis.ts",
+      "funcion": "useMarginColor"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useEventFinancialAnalysis.ts",
+      "funcion": "useVariationColor"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useEventFinancialAnalysis.ts",
+      "funcion": "useStatusBgColor"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useEventStateValidation.ts",
+      "funcion": "useEventStateValidation"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useEventStates.ts",
+      "funcion": "useEventStateFlow"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useEventosFinancialList.ts",
+      "funcion": "useEventosFinancialList"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useEventosFinancialList.ts",
+      "funcion": "useEventosFinancialDashboard"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useEvents.ts",
+      "funcion": "useEvents"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useEvents.ts",
+      "funcion": "useEvent"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useEvents.ts",
+      "funcion": "useDashboardMetrics"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useEvents.ts",
+      "funcion": "useTemporalAnalysis"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useEvents.ts",
+      "funcion": "useExpensesByCategory"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useFileUpload.ts",
+      "funcion": "useFileUpload"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useFinances.ts",
+      "funcion": "useIncomes"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useFinances.ts",
+      "funcion": "useExpenseCategories"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useFinances.ts",
+      "funcion": "useFinancialSummary"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useFinances.ts",
+      "funcion": "useExpenseAnalytics"
+    },
+    {
+      "archivo": "src/modules/eventos/hooks/useFinances.ts",
+      "funcion": "useIncomeAnalytics"
+    },
+    {
+      "archivo": "src/modules/eventos/services/accountsService.ts",
+      "funcion": "accountsService"
+    },
+    {
+      "archivo": "src/modules/eventos/services/alertService.ts",
+      "funcion": "alertService"
+    },
+    {
+      "archivo": "src/modules/eventos/services/clientsService.ts",
+      "funcion": "clientsService"
+    },
+    {
+      "archivo": "src/modules/eventos/services/eventsService.ts",
+      "funcion": "eventsService"
+    },
+    {
+      "archivo": "src/modules/eventos/services/invoiceService.ts",
+      "funcion": "invoiceService"
+    },
+    {
+      "archivo": "src/modules/eventos/services/storageService.ts",
+      "funcion": "storageService"
+    },
+    {
+      "archivo": "src/modules/eventos/services/workflowService.ts",
+      "funcion": "workflowService"
+    },
+    {
+      "archivo": "src/modules/eventos/types/Event.ts",
+      "funcion": "EVENT_STATES"
+    },
+    {
+      "archivo": "src/modules/eventos/types/Event.ts",
+      "funcion": "PAYMENT_STATUS"
+    },
+    {
+      "archivo": "src/modules/eventos/types/Event.ts",
+      "funcion": "BILLING_STATUS"
+    },
+    {
+      "archivo": "src/modules/eventos/types/Event.ts",
+      "funcion": "PROJECT_PHASES"
+    },
+    {
+      "archivo": "src/modules/eventos/types/Event.ts",
+      "funcion": "PRIORITIES"
+    },
+    {
+      "archivo": "src/modules/eventos/types/Finance.ts",
+      "funcion": "INCOME_STATES"
+    },
+    {
+      "archivo": "src/modules/eventos/types/Finance.ts",
+      "funcion": "EXPENSE_CATEGORIES"
+    },
+    {
+      "archivo": "src/modules/eventos/types/Finance.ts",
+      "funcion": "EXPENSE_APPROVAL_STATUS"
+    },
+    {
+      "archivo": "src/modules/eventos/types/Finance.ts",
+      "funcion": "PAYMENT_METHODS"
+    },
+    {
+      "archivo": "src/modules/eventos/types/Finance.ts",
+      "funcion": "SAT_FORMA_PAGO"
+    },
+    {
+      "archivo": "src/modules/eventos/types/Finance.ts",
+      "funcion": "SAT_METODO_PAGO"
+    },
+    {
+      "archivo": "src/modules/eventos/types/Finance.ts",
+      "funcion": "SAT_TIPO_COMPROBANTE"
+    },
+    {
+      "archivo": "src/modules/eventos/types/Finance.ts",
+      "funcion": "SAT_MONEDA"
+    },
+    {
+      "archivo": "src/modules/eventos/types/Finance.ts",
+      "funcion": "ESTADOS_INGRESO"
+    },
+    {
+      "archivo": "src/modules/eventos/types/Finance.ts",
+      "funcion": "ESTADOS_INGRESO_COLORS"
+    },
+    {
+      "archivo": "src/modules/eventos/types/Finance.ts",
+      "funcion": "TIPOS_CUENTA"
+    },
+    {
+      "archivo": "src/modules/eventos/types/Invoice.ts",
+      "funcion": "COBRO_STATES"
+    },
+    {
+      "archivo": "src/modules/eventos/types/Invoice.ts",
+      "funcion": "ALERT_TYPES"
+    },
+    {
+      "archivo": "src/modules/ocr/hooks/useOCR.supabase.ts",
+      "funcion": "useOCRDocuments"
+    },
+    {
+      "archivo": "src/modules/ocr/hooks/useOCRIntegration.ts",
+      "funcion": "formatProductsForNotes"
+    },
+    {
+      "archivo": "src/modules/ocr/hooks/useOCRIntegration.v2.ts",
+      "funcion": "useOCRIntegrationV2"
+    },
+    {
+      "archivo": "src/modules/ocr/pages/GoogleVisionOCR.tsx",
+      "funcion": "getGoogleAccessToken"
+    },
+    {
+      "archivo": "src/modules/ocr/pages/GoogleVisionOCR.tsx",
+      "funcion": "header"
+    },
+    {
+      "archivo": "src/modules/ocr/pages/GoogleVisionOCR.tsx",
+      "funcion": "payload"
+    },
+    {
+      "archivo": "src/modules/ocr/pages/GoogleVisionOCR.tsx",
+      "funcion": "visionRequest"
+    },
+    {
+      "archivo": "src/modules/ocr/services/expenseOCRIntegration.ts",
+      "funcion": "expenseOCRIntegration"
+    },
+    {
+      "archivo": "src/modules/ocr/services/expenseOCRService.supabase.ts",
+      "funcion": "expenseOCRSupabaseService"
+    },
+    {
+      "archivo": "src/modules/ocr/services/expenseOCRService.v2.ts",
+      "funcion": "max"
+    },
+    {
+      "archivo": "src/modules/ocr/services/expenseOCRService.v2.ts",
+      "funcion": "expenseOCRServiceV2"
+    },
+    {
+      "archivo": "src/modules/ocr/services/googleVisionService.ts",
+      "funcion": "isTicket"
+    },
+    {
+      "archivo": "src/modules/ocr/services/googleVisionService.ts",
+      "funcion": "isFactura"
+    },
+    {
+      "archivo": "src/modules/ocr/services/googleVisionService.ts",
+      "funcion": "googleVisionService"
+    },
+    {
+      "archivo": "src/modules/ocr/services/intelligentOCRClassifier.ts",
+      "funcion": "IntelligentOCRClassifier"
+    },
+    {
+      "archivo": "src/modules/ocr/services/ocrService.supabase.ts",
+      "funcion": "ocrSupabaseService"
+    },
+    {
+      "archivo": "src/modules/ocr/services/ocrService.ts",
+      "funcion": "ocrService"
+    },
+    {
+      "archivo": "src/modules/ocr/services/ocrService.v2.ts",
+      "funcion": "ocrServiceV2"
+    },
+    {
+      "archivo": "src/modules/ocr/services/tesseractOCRService.ts",
+      "funcion": "tesseractOCRService"
+    },
+    {
+      "archivo": "src/modules/ocr/services/tesseractOCRService_OPTIMIZED.ts",
+      "funcion": "tesseractOCRService"
+    },
+    {
+      "archivo": "src/services/accountingStateService.ts",
+      "funcion": "accountingStateService"
+    },
+    {
+      "archivo": "src/services/auditService.ts",
+      "funcion": "auditService"
+    },
+    {
+      "archivo": "src/services/exportService.ts",
+      "funcion": "exportService"
+    },
+    {
+      "archivo": "src/shared/components/tables/DataTable.tsx",
+      "funcion": "exportToCSV"
+    },
+    {
+      "archivo": "src/shared/components/theme/ThemePalettePicker.tsx",
+      "funcion": "useTheme"
+    },
+    {
+      "archivo": "src/shared/components/theme/themeConfig.ts",
+      "funcion": "isValidThemeConfig"
+    },
+    {
+      "archivo": "src/shared/components/theme/themeConfig.ts",
+      "funcion": "migrateFromLegacyTheme"
+    },
+    {
+      "archivo": "src/shared/components/theme/themeConfig.ts",
+      "funcion": "resetThemeToDefault"
+    },
+    {
+      "archivo": "src/shared/utils/calculations.ts",
+      "funcion": "calculateSubtotal"
+    },
+    {
+      "archivo": "src/shared/utils/calculations.ts",
+      "funcion": "calculateTotal"
+    },
+    {
+      "archivo": "src/shared/utils/calculations.ts",
+      "funcion": "calculateMargin"
+    },
+    {
+      "archivo": "src/shared/utils/calculations.ts",
+      "funcion": "calculateDaysOverdue"
+    },
+    {
+      "archivo": "src/shared/utils/calculations.ts",
+      "funcion": "calculateCollectionRate"
+    },
+    {
+      "archivo": "src/shared/utils/formatters.ts",
+      "funcion": "formatCurrency"
+    },
+    {
+      "archivo": "src/shared/utils/formatters.ts",
+      "funcion": "formatDate"
+    },
+    {
+      "archivo": "src/shared/utils/formatters.ts",
+      "funcion": "formatPercentage"
+    },
+    {
+      "archivo": "src/shared/utils/formatters.ts",
+      "funcion": "formatNumber"
+    },
+    {
+      "archivo": "src/shared/utils/formatters.ts",
+      "funcion": "getMonthName"
+    },
+    {
+      "archivo": "src/shared/utils/formatters.ts",
+      "funcion": "formatFileSize"
+    },
+    {
+      "archivo": "src/shared/utils/formatters.ts",
+      "funcion": "getFileTypeIcon"
+    },
+    {
+      "archivo": "src/shared/utils/formatters.ts",
+      "funcion": "isValidFileType"
+    },
+    {
+      "archivo": "src/shared/utils/formatters.ts",
+      "funcion": "formatDateForInput"
+    },
+    {
+      "archivo": "src/shared/utils/validators.ts",
+      "funcion": "validateEmail"
+    },
+    {
+      "archivo": "src/shared/utils/validators.ts",
+      "funcion": "validatePhone"
+    },
+    {
+      "archivo": "src/shared/utils/validators.ts",
+      "funcion": "validateRFCWithChecksum"
+    },
+    {
+      "archivo": "supabase_old/functions/ocr-process/index.ts",
+      "funcion": "jwtHeader"
+    },
+    {
+      "archivo": "supabase_old/functions/ocr-process/index.ts",
+      "funcion": "jwtClaim"
+    }
+  ]
+}

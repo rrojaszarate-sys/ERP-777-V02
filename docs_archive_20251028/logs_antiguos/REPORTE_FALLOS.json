@@ -1,0 +1,28 @@
+{
+  "fecha": "2025-10-27T20:43:50.570Z",
+  "totalTests": 4,
+  "passed": 0,
+  "failed": 4,
+  "failures": [
+    {
+      "name": "Vista NO incluye ingresos pendientes",
+      "details": "Vista: $3,630,398.18 vs Real cobrado: $2,806,771.04",
+      "severity": "CRÍTICA"
+    },
+    {
+      "name": "Vista NO incluye gastos pendientes",
+      "details": "Vista: $1,492,041.28 vs Real pagado: $420,483.21",
+      "severity": "CRÍTICA"
+    },
+    {
+      "name": "Master NO incluye ingresos pendientes",
+      "details": "Master: $3,630,398.18 vs Real cobrado: $2,806,771.04",
+      "severity": "CRÍTICA"
+    },
+    {
+      "name": "Master NO incluye gastos pendientes",
+      "details": "Master: $1,492,041.28 vs Real pagado: $420,483.21",
+      "severity": "CRÍTICA"
+    }
+  ]
+}
