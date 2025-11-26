@@ -27,20 +27,36 @@ export const Layout: React.FC = () => {
       color: 'text-mint-600'
     },
     {
-      id: 'eventos',
-      name: 'Eventos',
+      id: 'eventos-erp',
+      name: 'Eventos-ERP',
       icon: Calendar,
       active: true,
-      color: 'text-blue-600',
+      color: 'text-orange-600',
       submenu: [
-        { name: 'Lista de Eventos', path: '/eventos', icon: List },
-        { name: 'Clientes', path: '/eventos/clientes', icon: Users },
-        { name: 'Proyectos y Gantt', path: '/eventos/proyectos', icon: FolderKanban },
-        { name: 'Análisis Financiero', path: '/eventos/analisis-financiero', icon: BarChart3 },
-        { name: 'Flujo de Estados', path: '/eventos/workflow', icon: Settings },
-        { name: 'Catálogos', path: '/eventos/catalogos', icon: FolderOpen }
+        { name: 'Lista de Eventos', path: '/eventos-erp', icon: List },
+        { name: 'Clientes', path: '/eventos-erp/clientes', icon: Users },
+        { name: 'Proyectos y Gantt', path: '/eventos-erp/proyectos', icon: FolderKanban },
+        { name: 'Análisis Financiero', path: '/eventos-erp/analisis-financiero', icon: BarChart3 },
+        { name: 'Flujo de Estados', path: '/eventos-erp/workflow', icon: Settings },
+        { name: 'Catálogos', path: '/eventos-erp/catalogos', icon: FolderOpen }
       ]
     },
+    // OCULTO: Módulo de producción - usar Eventos-ERP
+    // {
+    //   id: 'eventos',
+    //   name: 'Eventos (Producción)',
+    //   icon: Calendar,
+    //   active: false,
+    //   color: 'text-blue-600',
+    //   submenu: [
+    //     { name: 'Lista de Eventos', path: '/eventos', icon: List },
+    //     { name: 'Clientes', path: '/eventos/clientes', icon: Users },
+    //     { name: 'Proyectos y Gantt', path: '/eventos/proyectos', icon: FolderKanban },
+    //     { name: 'Análisis Financiero', path: '/eventos/analisis-financiero', icon: BarChart3 },
+    //     { name: 'Flujo de Estados', path: '/eventos/workflow', icon: Settings },
+    //     { name: 'Catálogos', path: '/eventos/catalogos', icon: FolderOpen }
+    //   ]
+    // },
     {
       id: 'contabilidad',
       name: 'Contabilidad',

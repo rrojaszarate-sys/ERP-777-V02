@@ -216,3 +216,204 @@ Cypress.Commands.add('cleanupTestData', (module, id) => {
     }
   });
 });
+
+// ============================================================
+// EVENTOS-ERP ESPECÍFICOS
+// ============================================================
+
+Cypress.Commands.add('navigateToEventosERP', (submodule = '') => {
+  const routes = {
+    '': '/eventos-erp',
+    'panel': '/eventos-erp',
+    'eventos': '/eventos-erp/eventos',
+    'clientes': '/eventos-erp/clientes',
+    'proyectos': '/eventos-erp/proyectos',
+    'analisis': '/eventos-erp/analisis-financiero',
+    'workflow': '/eventos-erp/workflow',
+    'catalogos': '/eventos-erp/catalogos'
+  };
+
+  const route = routes[submodule.toLowerCase()] || `/eventos-erp/${submodule}`;
+  cy.visit(route);
+  cy.waitForPageLoad();
+});
+
+Cypress.Commands.add('createClienteERP', (clienteData) => {
+  cy.navigateToEventosERP('clientes');
+  cy.contains('button', /nuevo|crear|agregar/i).click();
+  cy.get('[role="dialog"], .modal').should('be.visible');
+
+  // Llenar formulario
+  if (clienteData.razon_social) {
+    cy.get('input[name="razon_social"], input[placeholder*="razón"]')
+      .clear()
+      .type(clienteData.razon_social);
+  }
+  if (clienteData.rfc) {
+    cy.get('input[name="rfc"]').clear().type(clienteData.rfc);
+  }
+  if (clienteData.email) {
+    cy.get('input[name="email"], input[type="email"]').clear().type(clienteData.email);
+  }
+  if (clienteData.sufijo) {
+    cy.get('input[name="sufijo"]').clear().type(clienteData.sufijo);
+  }
+
+  cy.contains('button', /guardar|crear/i).click();
+  cy.get('.Toastify__toast--success', { timeout: 10000 }).should('be.visible');
+});
+
+Cypress.Commands.add('createEventoERP', (eventoData) => {
+  cy.navigateToEventosERP('eventos');
+  cy.contains('button', /nuevo|crear/i).click();
+
+  cy.get('input[name="nombre"]').clear().type(eventoData.nombre);
+
+  if (eventoData.descripcion) {
+    cy.get('textarea[name="descripcion"]').clear().type(eventoData.descripcion);
+  }
+  if (eventoData.cliente) {
+    cy.get('[name="cliente_id"]').click();
+    cy.contains(eventoData.cliente).click();
+  }
+  if (eventoData.fecha_evento) {
+    cy.get('input[name="fecha_evento"]').clear().type(eventoData.fecha_evento);
+  }
+
+  cy.contains('button', /guardar|crear/i).click();
+  cy.get('.Toastify__toast--success', { timeout: 10000 }).should('be.visible');
+});
+
+Cypress.Commands.add('addIngresoERP', (eventoNombre, ingresoData) => {
+  cy.navigateToEventosERP('eventos');
+  cy.contains(eventoNombre).click();
+  cy.contains(/ingresos/i).click();
+  cy.contains('button', /nuevo|agregar/i).click();
+
+  cy.get('input[name="concepto"]').clear().type(ingresoData.concepto);
+  cy.get('input[name="monto"], input[type="number"]').first().clear().type(ingresoData.monto.toString());
+
+  if (ingresoData.fecha) {
+    cy.get('input[name="fecha_pago"], input[type="date"]').first().clear().type(ingresoData.fecha);
+  }
+
+  cy.contains('button', /guardar|crear/i).click();
+  cy.get('.Toastify__toast--success', { timeout: 10000 }).should('be.visible');
+});
+
+Cypress.Commands.add('addGastoERP', (eventoNombre, gastoData, archivoPath = null) => {
+  cy.navigateToEventosERP('eventos');
+  cy.contains(eventoNombre).click();
+  cy.contains(/gastos/i).click();
+  cy.contains('button', /nuevo|agregar/i).click();
+
+  cy.get('input[name="concepto"]').clear().type(gastoData.concepto);
+  cy.get('input[name="total"], input[name="monto"]').first().clear().type(gastoData.monto.toString());
+
+  if (gastoData.fecha) {
+    cy.get('input[name="fecha"], input[type="date"]').first().clear().type(gastoData.fecha);
+  }
+
+  // Cargar archivo si se proporciona
+  if (archivoPath) {
+    cy.get('input[type="file"]').selectFile(archivoPath, { force: true });
+    cy.wait(2000);
+  }
+
+  cy.contains('button', /guardar|crear/i).click();
+  cy.get('.Toastify__toast--success', { timeout: 10000 }).should('be.visible');
+});
+
+Cypress.Commands.add('changeEventoStateERP', (eventoNombre, nuevoEstado = null) => {
+  cy.navigateToEventosERP('eventos');
+  cy.contains(eventoNombre).click();
+
+  // Si se especifica estado, buscarlo, sino usar el siguiente disponible
+  if (nuevoEstado) {
+    cy.contains('button', nuevoEstado).click();
+  } else {
+    cy.get('[data-testid="workflow"], [class*="workflow"]')
+      .find('button')
+      .not('.disabled')
+      .first()
+      .click();
+  }
+
+  // Confirmar si hay modal
+  cy.get('body').then($body => {
+    if ($body.find('[role="dialog"]').length > 0) {
+      cy.contains('button', /confirmar|aceptar/i).click();
+    }
+  });
+
+  cy.get('.Toastify__toast--success', { timeout: 10000 }).should('be.visible');
+});
+
+Cypress.Commands.add('verifyEventoFinancials', (eventoNombre, expected) => {
+  cy.navigateToEventosERP('eventos');
+  cy.contains(eventoNombre).click();
+
+  if (expected.ingresos !== undefined) {
+    cy.contains(/ingresos/i)
+      .parent()
+      .contains(new RegExp(expected.ingresos.toLocaleString(), 'i'))
+      .should('be.visible');
+  }
+
+  if (expected.gastos !== undefined) {
+    cy.contains(/gastos/i)
+      .parent()
+      .contains(new RegExp(expected.gastos.toLocaleString(), 'i'))
+      .should('be.visible');
+  }
+
+  if (expected.utilidad !== undefined) {
+    cy.contains(/utilidad|ganancia/i)
+      .parent()
+      .contains(new RegExp(expected.utilidad.toLocaleString(), 'i'))
+      .should('be.visible');
+  }
+});
+
+// ============================================================
+// ARCHIVOS Y UPLOADS
+// ============================================================
+
+Cypress.Commands.add('uploadFile', (selector, filePath, mimeType = 'application/pdf') => {
+  cy.get(selector).selectFile(filePath, { force: true });
+  cy.wait(1000); // Esperar procesamiento
+});
+
+Cypress.Commands.add('verifyFileUploaded', (fileName) => {
+  cy.contains(fileName).should('be.visible');
+});
+
+// ============================================================
+// UTILIDADES DE PRUEBA
+// ============================================================
+
+Cypress.Commands.add('generateTestData', () => {
+  const timestamp = Date.now();
+  return cy.wrap({
+    cliente: {
+      razon_social: `Cliente Test ${timestamp}`,
+      rfc: 'TEST' + Math.random().toString(36).substring(2, 12).toUpperCase(),
+      email: `test${timestamp}@prueba.com`,
+      sufijo: 'TST'
+    },
+    evento: {
+      nombre: `Evento Test ${new Date().toISOString().split('T')[0]}`,
+      fecha_evento: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    },
+    ingreso: {
+      concepto: `Ingreso Test ${timestamp}`,
+      monto: Math.floor(Math.random() * 100000) + 10000,
+      fecha: new Date().toISOString().split('T')[0]
+    },
+    gasto: {
+      concepto: `Gasto Test ${timestamp}`,
+      monto: Math.floor(Math.random() * 50000) + 5000,
+      fecha: new Date().toISOString().split('T')[0]
+    }
+  });
+});

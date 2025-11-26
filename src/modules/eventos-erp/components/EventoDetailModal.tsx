@@ -45,6 +45,12 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
   // Estados para el modal de ingresos
   const [showIngresoModal, setShowIngresoModal] = useState(false);
   const [editingIngreso, setEditingIngreso] = useState<any | null>(null);
+
+  // Estado para mostrar/ocultar IVA
+  const [showIVA, setShowIVA] = useState(() => {
+    const saved = localStorage.getItem('eventos_erp_show_iva');
+    return saved ? JSON.parse(saved) : false;
+  });
   
   const { canUpdate } = usePermissions();
   const { data: estados } = useEventStates();
@@ -141,6 +147,13 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
       loadFinancialData();
     }
   }, [evento]);
+
+  // Toggle IVA y guardar preferencia
+  const toggleIVA = () => {
+    const newValue = !showIVA;
+    setShowIVA(newValue);
+    localStorage.setItem('eventos_erp_show_iva', JSON.stringify(newValue));
+  };
 
   const loadFinancialData = async () => {
     setLoading(true);
@@ -250,25 +263,38 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
   }
 
   // ============================================================================
-  // CÁLCULOS FINANCIEROS CENTRALIZADOS - ÚNICA FUENTE DE VERDAD
+  // CÁLCULOS FINANCIEROS - FÓRMULA DEL CLIENTE
   // ============================================================================
-  // Usamos SIEMPRE los datos de vw_eventos_analisis_financiero para consistencia
+  // UTILIDAD = INGRESOS - GASTOS - PROVISIONES_DISPONIBLES
+  // PROVISIONES_DISPONIBLES = MAX(0, PROVISIONES - GASTOS)
 
-  // Provisiones
+  // Provisiones totales
   const provisionesTotal = (evento.provision_combustible_peaje || 0) +
                            (evento.provision_materiales || 0) +
                            (evento.provision_recursos_humanos || 0) +
                            (evento.provision_solicitudes_pago || 0);
 
-  // Ingresos (desde la vista)
-  const ingresosTotales = evento.ingresos_totales || 0;
+  // Ingresos totales (cobrados + pendientes)
+  const ingresosTotales = evento.ingresos_totales ||
+                          ((evento.ingresos_cobrados || 0) + (evento.ingresos_pendientes || 0));
 
-  // Gastos (desde la vista)
-  const gastosTotales = evento.gastos_totales || 0;
+  // Gastos totales (pagados + pendientes)
+  const gastosTotales = (evento.gastos_pagados_total || 0) + (evento.gastos_pendientes_total || 0);
 
-  // Disponible y Utilidad
-  const disponibleTotal = provisionesTotal - gastosTotales;
-  const utilidadReal = ingresosTotales - gastosTotales;
+  // FÓRMULA DEL CLIENTE: Provisiones disponibles nunca negativas
+  const provisionesDisponibles = Math.max(0, provisionesTotal - gastosTotales);
+
+  // FÓRMULA DEL CLIENTE: Utilidad = Ingresos - Gastos - Provisiones Disponibles
+  const utilidadReal = ingresosTotales - gastosTotales - provisionesDisponibles;
+
+  // Margen de utilidad
+  const margenUtilidad = ingresosTotales > 0 ? (utilidadReal / ingresosTotales) * 100 : 0;
+
+  // Cálculos de IVA (16%)
+  const IVA_RATE = 0.16;
+  const ivaIngresos = ingresosTotales * IVA_RATE;
+  const ivaGastos = gastosTotales * IVA_RATE;
+  const ivaPorEjercer = provisionesDisponibles * IVA_RATE;
 
   const tabs = [
     { id: 'overview', label: 'Resumen', icon: Eye },
@@ -376,26 +402,50 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
                 </div>
             </div>            {/* COLUMNA DERECHA (50%): RESUMEN FINANCIERO - COMPACTO */}
             <div>
-              <h3 className="text-xs font-semibold text-green-600 uppercase mb-2">
-                💰 Resumen Financiero
-              </h3>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-xs font-semibold text-green-600 uppercase">
+                  💰 Resumen Financiero
+                </h3>
+                {/* Toggle IVA */}
+                <button
+                  onClick={toggleIVA}
+                  className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded transition-colors ${
+                    showIVA
+                      ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                      : 'bg-gray-100 text-gray-500 border border-gray-300 hover:bg-gray-200'
+                  }`}
+                  title={showIVA ? 'Ocultar IVA' : 'Mostrar IVA'}
+                >
+                  <span>{showIVA ? '✓' : '○'}</span>
+                  <span>IVA 16%</span>
+                </button>
+              </div>
               <div className="space-y-1 text-xs">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Ingresos:</span>
-                  <span className="font-bold text-green-700">{formatCurrency(ingresosTotales)}</span>
+                  <div className="text-right">
+                    <span className="font-bold text-green-700">{formatCurrency(ingresosTotales)}</span>
+                    {showIVA && <span className="text-gray-400 text-[10px] ml-1">(+IVA {formatCurrency(ivaIngresos)})</span>}
+                  </div>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Gastos:</span>
-                  <span className="font-bold text-red-700">{formatCurrency(gastosTotales)}</span>
+                  <div className="text-right">
+                    <span className="font-bold text-red-700">{formatCurrency(gastosTotales)}</span>
+                    {showIVA && <span className="text-gray-400 text-[10px] ml-1">(+IVA {formatCurrency(ivaGastos)})</span>}
+                  </div>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Provisiones:</span>
-                  <span className={`font-bold ${disponibleTotal >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                    {formatCurrency(Math.max(0, disponibleTotal))}
-                  </span>
+                  <span className="text-gray-600">Por Ejercer:</span>
+                  <div className="text-right">
+                    <span className={`font-bold ${provisionesDisponibles > 0 ? 'text-amber-600' : 'text-gray-500'}`}>
+                      {formatCurrency(provisionesDisponibles)}
+                    </span>
+                    {showIVA && provisionesDisponibles > 0 && <span className="text-gray-400 text-[10px] ml-1">(+IVA {formatCurrency(ivaPorEjercer)})</span>}
+                  </div>
                 </div>
                 <div className="flex justify-between pt-1 border-t border-gray-300">
-                  <span className="text-gray-900 font-semibold">Utilidad:</span>
+                  <span className="text-gray-900 font-semibold">Utilidad ({margenUtilidad.toFixed(1)}%):</span>
                   <span className={`font-bold ${utilidadReal >= 0 ? 'text-green-700' : 'text-red-700'}`}>
                     {formatCurrency(utilidadReal)}
                   </span>
@@ -429,10 +479,11 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
           </nav>
         </div>
 
-        <div className="flex-1 overflow-auto">
+        {/* Altura fija para contenido de tabs - evita que el modal cambie de tamaño */}
+        <div className="flex-1 overflow-auto" style={{ maxHeight: 'calc(100vh - 280px)' }}>
           <AnimatePresence mode="wait">
             {activeTab === 'overview' && (
-              <OverviewTab evento={evento} />
+              <OverviewTab evento={evento} showIVA={showIVA} />
             )}
             
             {activeTab === 'ingresos' && (
@@ -609,21 +660,42 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
   );
 };
 
-const OverviewTab: React.FC<{ evento: any }> = ({ evento }) => {
-  // Calcular valores
-  const provisionesTotal = (evento.provision_combustible_peaje || 0) + 
-                           (evento.provision_materiales || 0) + 
-                           (evento.provision_recursos_humanos || 0) + 
-                           (evento.provision_solicitudes_pago || 0);
-  
-  const ingresoEstimado = evento.ganancia_estimada || evento.ingreso_estimado || 0;
-  const utilidadEstimada = ingresoEstimado - provisionesTotal;
+const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, showIVA = false }) => {
+  // ============================================================================
+  // CÁLCULOS FINANCIEROS - FÓRMULA DEL CLIENTE
+  // ============================================================================
+  // UTILIDAD = INGRESOS - GASTOS - PROVISIONES_DISPONIBLES
+  // PROVISIONES_DISPONIBLES = MAX(0, PROVISIONES - GASTOS)
 
-  const ingresosTotales = (evento.ingresos_cobrados || 0) + (evento.ingresos_pendientes || 0);
+  // Provisiones totales
+  const provisionesTotal = (evento.provision_combustible_peaje || 0) +
+                           (evento.provision_materiales || 0) +
+                           (evento.provision_recursos_humanos || 0) +
+                           (evento.provision_solicitudes_pago || 0);
+
+  // Estimados (para comparativas)
+  const ingresoEstimado = evento.ganancia_estimada || evento.ingreso_estimado || 0;
+
+  // Ingresos reales (totales = cobrados + pendientes)
+  const ingresosTotales = evento.ingresos_totales ||
+                          ((evento.ingresos_cobrados || 0) + (evento.ingresos_pendientes || 0));
+
+  // Gastos reales (totales = pagados + pendientes)
   const gastosTotales = (evento.gastos_pagados_total || 0) + (evento.gastos_pendientes_total || 0);
-  const disponibleTotal = provisionesTotal - (evento.gastos_pagados_total || 0);
-  const utilidadReal = (evento.ingresos_cobrados || 0) - (evento.gastos_pagados_total || 0);
-  const margenRealPct = (evento.ingresos_cobrados || 0) > 0 ? (utilidadReal / (evento.ingresos_cobrados || 0)) * 100 : 0;
+
+  // FÓRMULA DEL CLIENTE: Provisiones disponibles = MAX(0, Provisiones - Gastos)
+  const provisionesDisponibles = Math.max(0, provisionesTotal - gastosTotales);
+
+  // FÓRMULA DEL CLIENTE: Utilidad = Ingresos - Gastos - Provisiones Disponibles
+  const utilidadReal = ingresosTotales - gastosTotales - provisionesDisponibles;
+
+  // Margen de utilidad
+  const margenRealPct = ingresosTotales > 0 ? (utilidadReal / ingresosTotales) * 100 : 0;
+
+  // Cálculos de IVA (16%)
+  const IVA_RATE = 0.16;
+  const ivaIngresos = ingresosTotales * IVA_RATE;
+  const ivaGastos = gastosTotales * IVA_RATE;
 
   return (
     <motion.div
@@ -639,34 +711,39 @@ const OverviewTab: React.FC<{ evento: any }> = ({ evento }) => {
           Análisis Financiero del Evento
         </h3>
 
-        {/* GRÁFICA COMPARATIVA */}
+        {/* GRÁFICA COMPARATIVA - CONCEPTOS DEL CLIENTE */}
         <div className="bg-white rounded-lg p-6 mb-6 shadow-lg">
-          <h4 className="text-sm font-semibold text-gray-700 mb-4">📊 Comparativa <span className="line-through">Estimado</span> vs Real</h4>
+          <h4 className="text-sm font-semibold text-gray-700 mb-4">📊 Presupuesto vs Ejercido</h4>
           <div className="space-y-4">
             {/* Ingresos Bar */}
             <div>
               <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-medium text-gray-600">INGRESOS</span>
+                <span className="text-xs font-medium text-green-700">💰 INGRESOS</span>
                 <div className="flex gap-4 text-xs">
-                  <span className="text-gray-500">Est: {formatCurrency(ingresoEstimado)}</span>
-                  <span className="text-gray-900 font-bold">Real: {formatCurrency(ingresosTotales)}</span>
+                  <span className="text-gray-500">Presupuesto: {formatCurrency(ingresoEstimado)}</span>
+                  <span className="text-green-700 font-bold">Facturado: {formatCurrency(ingresosTotales)}</span>
                 </div>
               </div>
-              <div className="relative h-8 bg-gray-100 rounded-full overflow-hidden">
+              <div className="relative h-10 bg-gray-100 rounded-lg overflow-hidden">
+                {/* Fondo: Presupuesto */}
+                <div className="absolute inset-0 flex items-center justify-end px-3">
+                  <span className="text-xs font-medium text-gray-400">
+                    Ppto: {formatCurrency(ingresoEstimado)}
+                  </span>
+                </div>
+                {/* Barra: Facturado - SIEMPRE AZUL */}
                 <div
-                  className="absolute h-full bg-gray-300 transition-all duration-500"
-                  style={{ width: `${Math.min((ingresoEstimado / Math.max(ingresoEstimado, ingresosTotales)) * 100, 100)}%` }}
-                />
-                <div
-                  className="absolute h-full transition-all duration-500"
-                  style={{
-                    width: `${Math.min((ingresosTotales / Math.max(ingresoEstimado, ingresosTotales)) * 100, 100)}%`,
-                    backgroundColor: '#1e3a8a' // blue-900 (azul marino)
-                  }}
-                />
+                  className="absolute h-full bg-blue-600 transition-all duration-500 flex items-center"
+                  style={{ width: `${Math.min((ingresosTotales / Math.max(ingresoEstimado, ingresosTotales, 1)) * 100, 100)}%` }}
+                >
+                  <span className="text-xs font-bold text-white px-3 whitespace-nowrap">
+                    Facturado: {formatCurrency(ingresosTotales)}
+                  </span>
+                </div>
+                {/* Porcentaje centrado */}
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span className="text-xs font-bold text-white drop-shadow-md">
-                    {ingresosTotales >= ingresoEstimado ? '✓' : '⚠️'} {((ingresosTotales / ingresoEstimado) * 100).toFixed(0)}%
+                    {ingresoEstimado > 0 ? ((ingresosTotales / ingresoEstimado) * 100).toFixed(0) : 0}%
                   </span>
                 </div>
               </div>
@@ -675,24 +752,69 @@ const OverviewTab: React.FC<{ evento: any }> = ({ evento }) => {
             {/* Gastos Bar */}
             <div>
               <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-medium text-gray-600">GASTOS</span>
+                <span className="text-xs font-medium text-red-700">📉 GASTOS</span>
                 <div className="flex gap-4 text-xs">
-                  <span className="text-gray-500">Prov: {formatCurrency(provisionesTotal)}</span>
-                  <span className="text-gray-900 font-bold">Real: {formatCurrency(gastosTotales)}</span>
+                  <span className="text-gray-500">Provisión: {formatCurrency(provisionesTotal)}</span>
+                  <span className="text-red-700 font-bold">Ejercido: {formatCurrency(gastosTotales)}</span>
                 </div>
               </div>
-              <div className="relative h-8 bg-gray-100 rounded-full overflow-hidden">
-                <div 
-                  className="absolute h-full bg-gray-300 transition-all duration-500"
-                  style={{ width: `${Math.min((provisionesTotal / Math.max(provisionesTotal, gastosTotales)) * 100, 100)}%` }}
-                />
+              <div className="relative h-10 bg-gray-100 rounded-lg overflow-hidden">
+                {/* Fondo: Provisión */}
+                <div className="absolute inset-0 flex items-center justify-end px-3">
+                  <span className="text-xs font-medium text-gray-400">
+                    Prov: {formatCurrency(provisionesTotal)}
+                  </span>
+                </div>
+                {/* Barra: Ejercido - SIEMPRE AZUL */}
                 <div
-                  className={`absolute h-full transition-all duration-500 ${gastosTotales <= provisionesTotal ? 'bg-blue-600' : 'bg-red-600'}`}
-                  style={{ width: `${Math.min((gastosTotales / Math.max(provisionesTotal, gastosTotales)) * 100, 100)}%` }}
-                />
+                  className="absolute h-full bg-blue-600 transition-all duration-500 flex items-center"
+                  style={{ width: `${Math.min((gastosTotales / Math.max(provisionesTotal, gastosTotales, 1)) * 100, 100)}%` }}
+                >
+                  <span className="text-xs font-bold text-white px-3 whitespace-nowrap">
+                    Ejercido: {formatCurrency(gastosTotales)}
+                  </span>
+                </div>
+                {/* Porcentaje e indicador */}
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span className="text-xs font-bold text-white drop-shadow-md">
-                    {gastosTotales <= provisionesTotal ? '✓' : '⚠️'} {((gastosTotales / provisionesTotal) * 100).toFixed(0)}%
+                    {provisionesTotal > 0 ? ((gastosTotales / provisionesTotal) * 100).toFixed(0) : 0}%
+                    {gastosTotales > provisionesTotal && ' ⚠️'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Por Ejercer Bar */}
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-xs font-medium text-amber-700">💼 POR EJERCER</span>
+                <div className="flex gap-4 text-xs">
+                  <span className="text-gray-500">Provisión: {formatCurrency(provisionesTotal)}</span>
+                  <span className="text-amber-700 font-bold">Restante: {formatCurrency(provisionesDisponibles)}</span>
+                </div>
+              </div>
+              <div className="relative h-10 bg-gray-100 rounded-lg overflow-hidden">
+                {/* Fondo: Provisión total */}
+                <div className="absolute inset-0 flex items-center justify-end px-3">
+                  <span className="text-xs font-medium text-gray-400">
+                    {formatCurrency(provisionesTotal)}
+                  </span>
+                </div>
+                {/* Barra: Por Ejercer - SIEMPRE AZUL */}
+                <div
+                  className="absolute h-full bg-blue-600 transition-all duration-500 flex items-center"
+                  style={{ width: `${provisionesTotal > 0 ? Math.min((provisionesDisponibles / provisionesTotal) * 100, 100) : 0}%` }}
+                >
+                  {provisionesDisponibles > 0 && (
+                    <span className="text-xs font-bold text-white px-3 whitespace-nowrap">
+                      {formatCurrency(provisionesDisponibles)}
+                    </span>
+                  )}
+                </div>
+                {/* Porcentaje centrado */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-xs font-bold text-white drop-shadow-md">
+                    {provisionesTotal > 0 ? ((provisionesDisponibles / provisionesTotal) * 100).toFixed(0) : 0}%
                   </span>
                 </div>
               </div>
@@ -701,48 +823,54 @@ const OverviewTab: React.FC<{ evento: any }> = ({ evento }) => {
             {/* Utilidad Bar */}
             <div>
               <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-medium text-gray-600">UTILIDAD</span>
+                <span className="text-xs font-medium text-blue-900">🎯 UTILIDAD</span>
                 <div className="flex gap-4 text-xs">
-                  <span className="text-gray-500">Plan: {formatCurrency(utilidadEstimada)}</span>
-                  <span className={`font-bold ${utilidadReal >= 0 ? 'text-gray-900' : 'text-rose-900'}`}>
-                    Real: {formatCurrency(utilidadReal)}
+                  <span className="text-gray-500">Margen: {margenRealPct.toFixed(1)}%</span>
+                  <span className={`font-bold ${utilidadReal >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                    {formatCurrency(utilidadReal)}
                   </span>
                 </div>
               </div>
-              <div className="relative h-8 bg-gray-100 rounded-full overflow-hidden">
+              <div className="relative h-10 bg-gray-100 rounded-lg overflow-hidden">
+                {/* Barra: Utilidad - COLOR SEGÚN MARGEN */}
                 <div
-                  className="absolute h-full bg-gray-300 transition-all duration-500"
-                  style={{ width: `${Math.min((Math.abs(utilidadEstimada) / Math.max(Math.abs(utilidadEstimada), Math.abs(utilidadReal))) * 100, 100)}%` }}
-                />
-                <div
-                  className={`absolute h-full transition-all duration-500 ${utilidadReal >= utilidadEstimada ? 'bg-blue-600' : 'bg-slate-600'}`}
-                  style={{ width: `${Math.min((Math.abs(utilidadReal) / Math.max(Math.abs(utilidadEstimada), Math.abs(utilidadReal))) * 100, 100)}%` }}
-                />
+                  className={`absolute h-full transition-all duration-500 flex items-center ${
+                    margenRealPct >= 35 ? 'bg-green-600' :
+                    margenRealPct >= 25 ? 'bg-amber-500' :
+                    margenRealPct > 0 ? 'bg-red-500' : 'bg-gray-400'
+                  }`}
+                  style={{ width: `${Math.min(Math.max(margenRealPct, 0), 100)}%` }}
+                >
+                  <span className="text-xs font-bold text-white px-3 whitespace-nowrap">
+                    {formatCurrency(utilidadReal)}
+                  </span>
+                </div>
+                {/* Indicadores de semáforo */}
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span className="text-xs font-bold text-white drop-shadow-md">
-                    {margenRealPct.toFixed(1)}% margen
+                    {margenRealPct >= 35 ? '🟢' : margenRealPct >= 25 ? '🟡' : margenRealPct > 0 ? '🔴' : '⚫'} {margenRealPct.toFixed(1)}%
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Leyenda */}
-            <div className="flex justify-center gap-6 pt-2 text-xs">
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded bg-gray-300" />
-                <span><span className="line-through">Estimado</span>/Planeado</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded" style={{ backgroundColor: '#1e3a8a' }} />
-                <span>Real</span>
-              </div>
+            {/* Leyenda simplificada */}
+            <div className="flex justify-center gap-6 pt-2 text-xs border-t mt-2">
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded bg-blue-600" />
-                <span>Dentro de presupuesto</span>
+                <span>Ejercido/Real</span>
               </div>
               <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded bg-red-600" />
-                <span>Fuera de presupuesto</span>
+                <div className="w-3 h-3 rounded bg-green-600" />
+                <span>≥35% Excelente</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded bg-amber-500" />
+                <span>25-34% Regular</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded bg-red-500" />
+                <span>&lt;25% Bajo</span>
               </div>
             </div>
           </div>
@@ -757,10 +885,15 @@ const OverviewTab: React.FC<{ evento: any }> = ({ evento }) => {
               <div className="font-bold text-blue-900 text-2xl mb-2">
                 {formatCurrency(ingresosTotales)}
               </div>
+              {showIVA && (
+                <div className="text-[10px] text-gray-400 mb-1">
+                  +IVA: {formatCurrency(ivaIngresos)}
+                </div>
+              )}
               <div className="text-xs text-gray-500 border-t pt-2 space-y-1">
                 <div className="text-blue-600">Cobr: {formatCurrency(evento.ingresos_cobrados || 0)}</div>
                 <div className="text-slate-600">Pend: {formatCurrency(evento.ingresos_pendientes || 0)}</div>
-                <div className="text-gray-400">Est: {formatCurrency(ingresoEstimado)}</div>
+                <div className="text-gray-400">Ppto: {formatCurrency(ingresoEstimado)}</div>
               </div>
             </div>
 
@@ -770,6 +903,11 @@ const OverviewTab: React.FC<{ evento: any }> = ({ evento }) => {
               <div className="font-bold text-red-900 text-2xl mb-2">
                 {formatCurrency(gastosTotales)}
               </div>
+              {showIVA && (
+                <div className="text-[10px] text-gray-400 mb-1">
+                  +IVA: {formatCurrency(ivaGastos)}
+                </div>
+              )}
               <div className="text-xs text-gray-500 border-t pt-2 space-y-1">
                 <div>⛽ {formatCurrency((evento.gastos_combustible_pagados || 0) + (evento.gastos_combustible_pendientes || 0))}</div>
                 <div>🛠️ {formatCurrency((evento.gastos_materiales_pagados || 0) + (evento.gastos_materiales_pendientes || 0))}</div>
@@ -778,23 +916,23 @@ const OverviewTab: React.FC<{ evento: any }> = ({ evento }) => {
               </div>
             </div>
 
-            {/* PROVISIONES - Replicando formato del listado */}
+            {/* POR EJERCER - Fórmula del cliente: MAX(0, Provisiones - Gastos) */}
             <div className="border-r pr-4">
-              <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">Provisiones</h4>
-              <div className={`font-bold text-2xl mb-2 ${disponibleTotal > 0 ? 'text-green-700' : disponibleTotal < 0 ? 'text-red-700' : 'text-gray-700'}`}>
-                {formatCurrency(Math.max(0, disponibleTotal))}
+              <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">Por Ejercer</h4>
+              <div className={`font-bold text-2xl mb-2 ${provisionesDisponibles > 0 ? 'text-amber-600' : 'text-gray-500'}`}>
+                {formatCurrency(provisionesDisponibles)}
               </div>
               <div className="text-xs text-gray-500 border-t pt-2 space-y-1">
-                <div className={(evento.provision_combustible_peaje || 0) - ((evento.gastos_combustible_pagados || 0) + (evento.gastos_combustible_pendientes || 0)) >= 0 ? 'text-green-600' : 'text-red-600'}>
+                <div className={(evento.provision_combustible_peaje || 0) - ((evento.gastos_combustible_pagados || 0) + (evento.gastos_combustible_pendientes || 0)) > 0 ? 'text-amber-600' : 'text-gray-400'}>
                   ⛽ {formatCurrency(Math.max(0, (evento.provision_combustible_peaje || 0) - ((evento.gastos_combustible_pagados || 0) + (evento.gastos_combustible_pendientes || 0))))}
                 </div>
-                <div className={(evento.provision_materiales || 0) - ((evento.gastos_materiales_pagados || 0) + (evento.gastos_materiales_pendientes || 0)) >= 0 ? 'text-green-600' : 'text-red-600'}>
+                <div className={(evento.provision_materiales || 0) - ((evento.gastos_materiales_pagados || 0) + (evento.gastos_materiales_pendientes || 0)) > 0 ? 'text-amber-600' : 'text-gray-400'}>
                   🛠️ {formatCurrency(Math.max(0, (evento.provision_materiales || 0) - ((evento.gastos_materiales_pagados || 0) + (evento.gastos_materiales_pendientes || 0))))}
                 </div>
-                <div className={(evento.provision_recursos_humanos || 0) - ((evento.gastos_rh_pagados || 0) + (evento.gastos_rh_pendientes || 0)) >= 0 ? 'text-green-600' : 'text-red-600'}>
+                <div className={(evento.provision_recursos_humanos || 0) - ((evento.gastos_rh_pagados || 0) + (evento.gastos_rh_pendientes || 0)) > 0 ? 'text-amber-600' : 'text-gray-400'}>
                   👥 {formatCurrency(Math.max(0, (evento.provision_recursos_humanos || 0) - ((evento.gastos_rh_pagados || 0) + (evento.gastos_rh_pendientes || 0))))}
                 </div>
-                <div className={(evento.provision_solicitudes_pago || 0) - ((evento.gastos_sps_pagados || 0) + (evento.gastos_sps_pendientes || 0)) >= 0 ? 'text-green-600' : 'text-red-600'}>
+                <div className={(evento.provision_solicitudes_pago || 0) - ((evento.gastos_sps_pagados || 0) + (evento.gastos_sps_pendientes || 0)) > 0 ? 'text-amber-600' : 'text-gray-400'}>
                   💳 {formatCurrency(Math.max(0, (evento.provision_solicitudes_pago || 0) - ((evento.gastos_sps_pagados || 0) + (evento.gastos_sps_pendientes || 0))))}
                 </div>
               </div>
@@ -1142,28 +1280,28 @@ const GastosTab: React.FC<{
           </div>
         </button>
 
-        {/* FICHA 4: Disponible - Clickeable completa */}
+        {/* FICHA 4: Por Ejercer - Clickeable completa */}
         <button
           onClick={() => setIsDesgloseExpanded(!isDesgloseExpanded)}
           className={`rounded-lg p-3 border text-left hover:shadow-md transition-all ${
             totalDisponible >= 0
-              ? 'bg-gradient-to-br from-gray-50 to-gray-100 border-gray-300'
+              ? 'bg-gradient-to-br from-amber-50 to-amber-100 border-amber-300'
               : 'bg-gradient-to-br from-red-50 to-red-100 border-red-200'
           }`}
         >
           <div className="flex items-start justify-between gap-2 mb-0.5">
-            <div className={`text-[10px] font-semibold uppercase tracking-wide ${totalDisponible >= 0 ? 'text-gray-700' : 'text-red-700'}`}>
-              Disponible
+            <div className={`text-[10px] font-semibold uppercase tracking-wide ${totalDisponible >= 0 ? 'text-amber-700' : 'text-red-700'}`}>
+              Por Ejercer
             </div>
-            <div className={`text-[10px] font-semibold ${totalDisponible >= 0 ? 'text-gray-600' : 'text-red-600'}`}>
+            <div className={`text-[10px] font-semibold ${totalDisponible >= 0 ? 'text-amber-600' : 'text-red-600'}`}>
               {totalProvisionado > 0 ? ((totalDisponible / totalProvisionado) * 100).toFixed(0) : 0}%
             </div>
           </div>
-          <div className={`text-xl font-bold ${totalDisponible >= 0 ? 'text-gray-900' : 'text-red-900'}`}>
+          <div className={`text-xl font-bold ${totalDisponible >= 0 ? 'text-amber-900' : 'text-red-900'}`}>
             {formatCurrency(Math.max(0, totalDisponible))}
           </div>
           {isDesgloseExpanded && (
-            <div className={`text-[10px] mt-1.5 space-y-0.5 ${totalDisponible >= 0 ? 'text-gray-600' : 'text-red-600'}`}>
+            <div className={`text-[10px] mt-1.5 space-y-0.5 ${totalDisponible >= 0 ? 'text-amber-600' : 'text-red-600'}`}>
               <div>⛽ {formatCurrency(Math.max(0, dispCombustible))}</div>
               <div>🛠️ {formatCurrency(Math.max(0, dispMateriales))}</div>
               <div>👥 {formatCurrency(Math.max(0, dispRH))}</div>
@@ -1463,32 +1601,32 @@ const ProvisionesTab: React.FC<{
           )}
         </button>
 
-        {/* DISPONIBLE - Clickeable completa */}
+        {/* POR EJERCER - Clickeable completa */}
         <button
           onClick={() => setExpandedKPI(!expandedKPI)}
           className={`bg-gradient-to-br rounded-lg p-3 border hover:shadow-md transition-all text-left ${
-            totalDisponible >= 0 ? 'from-gray-50 to-gray-100 border-gray-300' : 'from-red-50 to-red-100 border-red-200'
+            totalDisponible >= 0 ? 'from-amber-50 to-amber-100 border-amber-300' : 'from-red-50 to-red-100 border-red-200'
           }`}
         >
           <div className="flex items-start justify-between gap-2 mb-0.5">
             <div className={`text-[10px] font-semibold uppercase tracking-wide ${
-              totalDisponible >= 0 ? 'text-gray-700' : 'text-red-700'
-            }`}>Disponible</div>
-            <div className={`text-[10px] font-semibold ${totalDisponible >= 0 ? 'text-gray-600' : 'text-red-600'}`}>
+              totalDisponible >= 0 ? 'text-amber-700' : 'text-red-700'
+            }`}>Por Ejercer</div>
+            <div className={`text-[10px] font-semibold ${totalDisponible >= 0 ? 'text-amber-600' : 'text-red-600'}`}>
               {totalProvision > 0 ? ((totalDisponible / totalProvision) * 100).toFixed(0) : 0}%
             </div>
           </div>
-          <div className={`text-xl font-bold ${totalDisponible >= 0 ? 'text-gray-900' : 'text-red-900'}`}>
+          <div className={`text-xl font-bold ${totalDisponible >= 0 ? 'text-amber-900' : 'text-red-900'}`}>
             {formatCurrency(Math.max(0, totalDisponible))}
           </div>
           {expandedKPI && (
             <div className="space-y-0.5 mt-1.5">
               {provisiones.map(p => {
-                const disponible = p.provision - p.gastado;
+                const porEjercer = p.provision - p.gastado;
                 return (
-                  <div key={p.tipo} className={`flex items-center gap-1.5 text-[10px] ${disponible >= 0 ? 'text-gray-600' : 'text-red-600'}`}>
+                  <div key={p.tipo} className={`flex items-center gap-1.5 text-[10px] ${porEjercer >= 0 ? 'text-amber-600' : 'text-red-600'}`}>
                     <span>{p.icono}</span>
-                    <span className="font-semibold">{formatCurrency(Math.max(0, disponible))}</span>
+                    <span className="font-semibold">{formatCurrency(Math.max(0, porEjercer))}</span>
                   </div>
                 );
               })}
@@ -1509,38 +1647,62 @@ const ProvisionesTab: React.FC<{
       {/* GRID DE 2 COLUMNAS - FICHAS DE CATEGORÍAS */}
       <div className="grid grid-cols-2 gap-4">
         {provisiones.map((prov) => {
-          const disponible = prov.provision - prov.gastado;
+          const porEjercer = prov.provision - prov.gastado;
           const porcentajeGastado = prov.provision > 0 ? (prov.gastado / prov.provision) * 100 : 0;
           const isEditing = editingProvision === prov.tipo;
 
           return (
             <div key={prov.tipo} className="bg-white border-2 border-gray-200 rounded-xl p-4">
-              {/* Header: Ícono + Nombre + Barra de progreso en el mismo renglón */}
+              {/* Header: Ícono + Nombre */}
               <div className="flex items-center gap-3 mb-3">
                 <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${prov.color} flex items-center justify-center text-xl flex-shrink-0`}>
                   {prov.icono}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-bold text-gray-900 text-sm mb-1">{prov.label}</h4>
-                  {/* Barra de progreso */}
-                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full transition-all ${
-                        porcentajeGastado > 100 ? 'bg-red-500' : porcentajeGastado > 80 ? 'bg-slate-500' : 'bg-blue-500'
-                      }`}
-                      style={{ width: `${Math.min(porcentajeGastado, 100)}%` }}
-                    />
-                  </div>
+                <h4 className="font-bold text-gray-900 text-sm flex-1">{prov.label}</h4>
+              </div>
+
+              {/* Barra de progreso grande con etiquetas dentro */}
+              <div className="relative h-8 bg-gray-100 rounded-lg overflow-hidden mb-3">
+                {/* Fondo: Provisión total */}
+                <div className="absolute inset-0 flex items-center justify-end px-3">
+                  <span className="text-xs font-semibold text-gray-500">
+                    Prov: {formatCurrency(prov.provision)}
+                  </span>
                 </div>
-                <div className="text-xs text-gray-500 flex-shrink-0">
-                  {porcentajeGastado.toFixed(0)}%
+                {/* Barra: Gastado - COLOR CONSISTENTE AZUL MADE */}
+                <div
+                  className="absolute h-full bg-blue-600 transition-all duration-500 flex items-center"
+                  style={{ width: `${Math.min(porcentajeGastado, 100)}%` }}
+                >
+                  {porcentajeGastado >= 25 && (
+                    <span className="text-xs font-bold text-white px-3 whitespace-nowrap">
+                      Gastado: {formatCurrency(prov.gastado)}
+                    </span>
+                  )}
+                </div>
+                {/* Etiqueta gastado si la barra es pequeña */}
+                {porcentajeGastado < 25 && porcentajeGastado > 0 && (
+                  <div
+                    className="absolute h-full flex items-center"
+                    style={{ left: `${Math.min(porcentajeGastado, 100)}%` }}
+                  >
+                    <span className="text-xs font-semibold text-blue-700 px-2 whitespace-nowrap">
+                      {formatCurrency(prov.gastado)}
+                    </span>
+                  </div>
+                )}
+                {/* Porcentaje centrado */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className={`text-xs font-bold drop-shadow ${porcentajeGastado > 50 ? 'text-white' : 'text-gray-700'}`}>
+                    {porcentajeGastado.toFixed(0)}%
+                  </span>
                 </div>
               </div>
 
-              {/* Valores en grid 3 columnas */}
-              <div className="grid grid-cols-3 gap-3">
+              {/* Valores en grid 2 columnas: Provisión editable y Por Ejercer */}
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <div className="text-[10px] text-gray-500 uppercase mb-1">Provisionado</div>
+                  <div className="text-[10px] text-gray-500 uppercase mb-1">Provisión</div>
                   {isEditing ? (
                     <input
                       type="text"
@@ -1559,7 +1721,7 @@ const ProvisionesTab: React.FC<{
                       onClick={() => startEditing(prov.tipo, prov.provision)}
                       className="group flex items-center gap-1 w-full"
                     >
-                      <span className="font-bold text-gray-900 group-hover:text-blue-600 text-sm">
+                      <span className="font-bold text-blue-900 group-hover:text-blue-600 text-sm">
                         {formatCurrency(prov.provision)}
                       </span>
                       <Pencil className="w-3 h-3 text-gray-400 group-hover:text-blue-600 opacity-0 group-hover:opacity-100 flex-shrink-0" />
@@ -1568,14 +1730,9 @@ const ProvisionesTab: React.FC<{
                 </div>
 
                 <div>
-                  <div className="text-[10px] text-gray-500 uppercase mb-1">Gastado</div>
-                  <div className="font-bold text-slate-700 text-sm">{formatCurrency(prov.gastado)}</div>
-                </div>
-
-                <div>
-                  <div className="text-[10px] text-gray-500 uppercase mb-1">Disponible</div>
-                  <div className={`font-bold text-sm ${disponible >= 0 ? 'text-gray-700' : 'text-red-700'}`}>
-                    {formatCurrency(Math.max(0, disponible))}
+                  <div className="text-[10px] text-gray-500 uppercase mb-1">Por Ejercer</div>
+                  <div className={`font-bold text-sm ${porEjercer >= 0 ? 'text-gray-700' : 'text-red-700'}`}>
+                    {formatCurrency(Math.max(0, porEjercer))}
                   </div>
                 </div>
               </div>

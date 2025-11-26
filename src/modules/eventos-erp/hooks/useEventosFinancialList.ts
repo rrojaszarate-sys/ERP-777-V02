@@ -349,24 +349,59 @@ export const useEventosFinancialDashboard = (filters?: EventosFinancialFilters) 
           
           // PROVISIONES COMPROMETIDAS Y DISPONIBLES (nuevos campos)
           total_provisiones_comprometidas: eventos.reduce((sum: number, e: any) => sum + (e.gastos_pendientes_total || 0), 0),
-          total_provisiones_disponibles: eventos.reduce((sum: number, e: any) => sum + (
-            ((e.provision_combustible_peaje || 0) +
-             (e.provision_materiales || 0) +
-             (e.provision_recursos_humanos || 0) +
-             (e.provision_solicitudes_pago || 0)) -
-            ((e.gastos_pagados_total || 0) + (e.gastos_pendientes_total || 0))
-          ), 0),
-          
-          // UTILIDAD
+          total_provisiones_disponibles: eventos.reduce((sum: number, e: any) => {
+            const provisionesTotal = (e.provision_combustible_peaje || 0) +
+                                     (e.provision_materiales || 0) +
+                                     (e.provision_recursos_humanos || 0) +
+                                     (e.provision_solicitudes_pago || 0);
+            const gastosTotales = (e.gastos_pagados_total || 0) + (e.gastos_pendientes_total || 0);
+            // FÓRMULA DEL CLIENTE: Provisiones disponibles = MAX(0, PROVISIONES - GASTOS)
+            return sum + Math.max(0, provisionesTotal - gastosTotales);
+          }, 0),
+
+          // UTILIDAD - FÓRMULA DEL CLIENTE:
+          // UTILIDAD = INGRESOS - GASTOS - PROVISIONES_DISPONIBLES
+          // donde PROVISIONES_DISPONIBLES = MAX(0, PROVISIONES - GASTOS)
           total_utilidad_estimada: eventos.reduce((sum: number, e: any) => sum + (e.utilidad_estimada || 0), 0),
-          total_utilidad_real: eventos.reduce((sum: number, e: any) => sum + (e.utilidad_real || 0), 0),
-          total_utilidad_cobrada: eventos.reduce((sum: number, e: any) => sum + (e.utilidad_cobrada || e.utilidad_real || 0), 0),
+          total_utilidad_real: eventos.reduce((sum: number, e: any) => {
+            const ingresosTotales = e.ingresos_totales || 0;
+            const gastosTotales = (e.gastos_pagados_total || 0) + (e.gastos_pendientes_total || 0);
+            const provisionesTotal = (e.provision_combustible_peaje || 0) +
+                                     (e.provision_materiales || 0) +
+                                     (e.provision_recursos_humanos || 0) +
+                                     (e.provision_solicitudes_pago || 0);
+            const provisionesDisponibles = Math.max(0, provisionesTotal - gastosTotales);
+            const utilidadCliente = ingresosTotales - gastosTotales - provisionesDisponibles;
+            return sum + utilidadCliente;
+          }, 0),
+          total_utilidad_cobrada: eventos.reduce((sum: number, e: any) => {
+            const ingresosTotales = e.ingresos_totales || 0;
+            const gastosTotales = (e.gastos_pagados_total || 0) + (e.gastos_pendientes_total || 0);
+            const provisionesTotal = (e.provision_combustible_peaje || 0) +
+                                     (e.provision_materiales || 0) +
+                                     (e.provision_recursos_humanos || 0) +
+                                     (e.provision_solicitudes_pago || 0);
+            const provisionesDisponibles = Math.max(0, provisionesTotal - gastosTotales);
+            return sum + (ingresosTotales - gastosTotales - provisionesDisponibles);
+          }, 0),
           margen_estimado_promedio: total > 0
             ? eventos.reduce((sum: number, e: any) => sum + (e.margen_estimado_pct || 0), 0) / total
             : 0,
-          margen_promedio: total > 0
-            ? eventos.reduce((sum: number, e: any) => sum + (e.margen_real_pct || 0), 0) / total
-            : 0,
+          margen_promedio: (() => {
+            // Calcular margen promedio con fórmula del cliente
+            const totalIngresos = eventos.reduce((sum: number, e: any) => sum + (e.ingresos_totales || 0), 0);
+            const totalUtilidad = eventos.reduce((sum: number, e: any) => {
+              const ingresosTotales = e.ingresos_totales || 0;
+              const gastosTotales = (e.gastos_pagados_total || 0) + (e.gastos_pendientes_total || 0);
+              const provisionesTotal = (e.provision_combustible_peaje || 0) +
+                                       (e.provision_materiales || 0) +
+                                       (e.provision_recursos_humanos || 0) +
+                                       (e.provision_solicitudes_pago || 0);
+              const provisionesDisponibles = Math.max(0, provisionesTotal - gastosTotales);
+              return sum + (ingresosTotales - gastosTotales - provisionesDisponibles);
+            }, 0);
+            return totalIngresos > 0 ? (totalUtilidad / totalIngresos) * 100 : 0;
+          })(),
         };
 
         console.log('✅ Dashboard calculado:', dashboard);

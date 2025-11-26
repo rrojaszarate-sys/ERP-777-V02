@@ -19,6 +19,7 @@ import {
   EventosFinancialFilters
 } from './hooks/useEventosFinancialList';
 import { useClients } from './hooks/useClients';
+import { useConfiguracionERP } from './hooks/useConfiguracionERP';
 
 /**
  * 🎯 MÓDULO DE GESTIÓN DE EVENTOS MEJORADO
@@ -44,8 +45,13 @@ export const EventosListPage: React.FC = () => {
   // Estado para filas expandidas en la tabla (mostrar detalles de categorías)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
-  const [showCentavos, setShowCentavos] = useState(false); // Por defecto ocultos
-  const [moneyFormat, setMoneyFormat] = useState<'normal' | 'miles' | 'millones'>('miles'); // Por defecto en miles
+
+  // 🔧 CONFIGURACIÓN: Usar hook que persiste en localStorage
+  const { config, updateDashboard, toggleCentavos, setFormatoNumeros } = useConfiguracionERP();
+  const showCentavos = config.dashboard.mostrarCentavos;
+  const moneyFormat = config.dashboard.formatoNumeros;
+  const setShowCentavos = (value: boolean) => updateDashboard({ mostrarCentavos: value });
+  const setMoneyFormat = (value: 'normal' | 'miles' | 'millones') => setFormatoNumeros(value);
 
   // Helper para formatear dinero respetando showCentavos y formato (miles/millones)
   const formatMoney = (amount: number, forceDecimals = false): string => {
@@ -460,37 +466,50 @@ export const EventosListPage: React.FC = () => {
     },
     {
       key: 'utilidad_estimada',
-      label: 'Utilidad Real',
+      label: 'Utilidad',
       filterType: 'number' as const,
       align: 'center' as const,
-      width: '140px',
+      width: '130px',
       render: (_value: number, row: any) => {
-        const isExpanded = expandedRows.has(row.id) || hoveredRow === row.id;
-        const ingresoEstimado = row.ingreso_estimado || 0;
+        // FÓRMULA DEL CLIENTE: Utilidad = Ingresos - Gastos - Provisiones Disponibles
+        // PROVISIONES_DISPONIBLES = MAX(0, PROVISIONES - GASTOS) - Nunca negativo
+        const ingresosTotales = row.ingresos_totales || 0;
+        const gastosPagados = row.gastos_pagados_total || 0;
+        const gastosPendientes = row.gastos_pendientes_total || 0;
+        const gastosTotales = gastosPagados + gastosPendientes;
         const provisionesTotal = (row.provision_combustible_peaje || 0) +
                                  (row.provision_materiales || 0) +
                                  (row.provision_recursos_humanos || 0) +
                                  (row.provision_solicitudes_pago || 0);
-        const utilidadPlaneada = ingresoEstimado - provisionesTotal;
-        const margenPlaneado = ingresoEstimado > 0 ? (utilidadPlaneada / ingresoEstimado) * 100 : 0;
 
-        const colorClass = margenPlaneado >= 35 ? 'text-green-600' :
-                          margenPlaneado >= 25 ? 'text-yellow-600' :
-                          margenPlaneado >= 1 ? 'text-red-600' : 'text-gray-600';
+        // Provisiones disponibles = MAX(0, PROVISIONES - GASTOS) - nunca negativas
+        const provisionesDisponibles = Math.max(0, provisionesTotal - gastosTotales);
+        // Utilidad = Ingresos - Gastos - Provisiones Disponibles
+        const utilidadReal = ingresosTotales - gastosTotales - provisionesDisponibles;
+        const margenReal = ingresosTotales > 0 ? (utilidadReal / ingresosTotales) * 100 : 0;
+
+        // Determinar color y etiqueta según margen
+        const getColorInfo = (margen: number) => {
+          if (margen >= 35) return { color: 'text-green-600', bg: 'bg-green-100', label: 'Verde', dotColor: 'bg-green-500' };
+          if (margen >= 25) return { color: 'text-yellow-600', bg: 'bg-yellow-100', label: 'Amarillo', dotColor: 'bg-yellow-500' };
+          if (margen >= 1) return { color: 'text-red-600', bg: 'bg-red-100', label: 'Rojo', dotColor: 'bg-red-500' };
+          return { color: 'text-gray-600', bg: 'bg-gray-100', label: 'Ninguno', dotColor: 'bg-gray-400' };
+        };
+
+        const colorInfo = getColorInfo(margenReal);
 
         return (
           <div className="flex flex-col items-center">
-            <div className={`font-bold text-sm ${colorClass} mb-1`}>
-              ${formatMoney(utilidadPlaneada)}
+            {/* Monto de utilidad arriba */}
+            <div className={`font-bold text-sm ${colorInfo.color}`}>
+              ${formatMoney(utilidadReal)}
             </div>
-            {/* Gauge Chart inline - Visible con hover O expansión (igual que otras columnas) */}
-            {isExpanded && (
-              <GaugeChart
-                value={margenPlaneado}
-                size="sm"
-                showLabel={true}
-              />
-            )}
+            {/* Gauge Chart con porcentaje dentro */}
+            <GaugeChart
+              value={Math.max(0, Math.min(100, margenReal))}
+              size="sm"
+              showLabel={true}
+            />
           </div>
         );
       }
@@ -554,10 +573,11 @@ export const EventosListPage: React.FC = () => {
           </Button>
 
           <Button
-            onClick={() => setShowCentavos(!showCentavos)}
+            onClick={toggleCentavos}
             variant="outline"
             className="border-gray-300"
             disabled={moneyFormat !== 'normal'}
+            title="Mostrar/ocultar centavos"
           >
             {showCentavos ? '💲 .00' : '💲'}
           </Button>
@@ -733,159 +753,148 @@ export const EventosListPage: React.FC = () => {
         </motion.div>
       )}
 
-      {/* Dashboard de Sumatorias - TODO EN 1 FILA */}
+      {/* Dashboard de Sumatorias - Diseño con separadores verticales */}
       {dashboard && (
-        <div className="space-y-4">
-          {/* ESTRUCTURA ACTUALIZADA: 1 Fila con 5 tarjetas */}
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
-          
-          {/* Total Eventos - Compacto */}
-          <div
-            className="bg-white rounded-lg border p-3"
-          >
-            <div className="flex flex-col">
-              <div className="flex items-center gap-1 mb-1">
-                <Calendar className="w-3 h-3 text-blue-600" />
-                <p className="text-xs text-gray-600">Eventos</p>
+        <div
+          className="bg-white rounded-lg border cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setShowAllCardDetails(!showAllCardDetails)}
+        >
+          <div className="flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-gray-200">
+
+            {/* Total Eventos */}
+            <div className="flex-1 p-4">
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2 mb-2">
+                  <Calendar className="w-4 h-4 text-blue-600" />
+                  <p className="text-sm font-medium text-gray-600">Eventos</p>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">
+                  {dashboard.total_eventos}
+                </p>
               </div>
-              <p className="text-xl font-bold text-gray-900">
-                {dashboard.total_eventos}
-              </p>
             </div>
-          </div>
 
-          {/* Ingresos - Colapsable */}
-          <div
-            className="bg-white rounded-lg border p-3 cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => setShowAllCardDetails(!showAllCardDetails)}
-          >
-            <div className="flex flex-col">
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-1">
-                  <p className="text-xs text-gray-600">Ingresos</p>
+            {/* Ingresos */}
+            <div className="flex-1 p-4">
+              <div className="flex flex-col">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-gray-600">Ingresos</p>
+                  <span className="text-xs text-blue-600">{showAllCardDetails ? '▲' : '▼'}</span>
                 </div>
-                <button className="text-xs text-blue-600 hover:text-blue-800">
-                  {showAllCardDetails ? '▲' : '▼'}
-                </button>
+                <p className="text-xl font-bold text-blue-600">
+                  ${formatMoney(dashboard.total_ingresos_reales)}
+                </p>
+                {showAllCardDetails && (
+                  <div className="text-xs text-gray-500 mt-2 pt-2 border-t space-y-1">
+                    <div className="flex justify-between"><span>Cobrados:</span><span className="text-green-600">${formatMoney(dashboard.total_ingresos_cobrados)}</span></div>
+                    <div className="flex justify-between"><span>Pendientes:</span><span className="text-yellow-600">${formatMoney(dashboard.total_ingresos_pendientes)}</span></div>
+                    <div className="flex justify-between"><span>Estimados:</span><span className="text-gray-400">${formatMoney(dashboard.total_ingresos_estimados)}</span></div>
+                  </div>
+                )}
               </div>
-              <p className="text-lg font-bold text-blue-600">
-                {formatMoney(dashboard.total_ingresos_reales)}
-              </p>
-              {showAllCardDetails && (
-                <div className="text-xs text-gray-400 mt-1 border-t pt-1 space-y-0.5">
-                  <div>Cobr: {formatMoney(dashboard.total_ingresos_cobrados)}</div>
-                  <div>Pend: {formatMoney(dashboard.total_ingresos_pendientes)}</div>
-                  <div>Est: {formatMoney(dashboard.total_ingresos_estimados)}</div>
-                </div>
-              )}
             </div>
-          </div>
 
-          {/* Gastos Totales - Colapsable */}
-          <div
-            className="bg-white rounded-lg border p-3 cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => setShowAllCardDetails(!showAllCardDetails)}
-          >
-            <div className="flex flex-col">
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-1">
-                  <p className="text-xs text-gray-600">Gastos</p>
+            {/* Gastos Totales */}
+            <div className="flex-1 p-4">
+              <div className="flex flex-col">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-gray-600">Gastos</p>
+                  <span className="text-xs text-blue-600">{showAllCardDetails ? '▲' : '▼'}</span>
                 </div>
-                <button className="text-xs text-blue-600 hover:text-blue-800">
-                  {showAllCardDetails ? '▲' : '▼'}
-                </button>
+                <p className="text-xl font-bold text-red-600">
+                  ${formatMoney(dashboard.total_gastos_totales)}
+                </p>
+                {showAllCardDetails && (
+                  <div className="text-xs text-gray-500 mt-2 pt-2 border-t space-y-1">
+                    <div className="flex justify-between"><span>🚗⛽ Combustible:</span><span>${formatMoney(dashboard.total_gastos_combustible_pagados + dashboard.total_gastos_combustible_pendientes)}</span></div>
+                    <div className="flex justify-between"><span>🛠️ Materiales:</span><span>${formatMoney(dashboard.total_gastos_materiales_pagados + dashboard.total_gastos_materiales_pendientes)}</span></div>
+                    <div className="flex justify-between"><span>👥 RH:</span><span>${formatMoney(dashboard.total_gastos_rh_pagados + dashboard.total_gastos_rh_pendientes)}</span></div>
+                    <div className="flex justify-between"><span>💳 Solicitudes:</span><span>${formatMoney(dashboard.total_gastos_sps_pagados + dashboard.total_gastos_sps_pendientes)}</span></div>
+                  </div>
+                )}
               </div>
-              <p className="text-lg font-bold text-red-900">
-                {formatMoney(dashboard.total_gastos_totales)}
-              </p>
-              {showAllCardDetails && (
-                <div className="text-xs text-gray-400 mt-1 border-t pt-1 space-y-0.5">
-                  <div>⛽ {formatMoney(dashboard.total_gastos_combustible_pagados + dashboard.total_gastos_combustible_pendientes)}</div>
-                  <div>🛠️ {formatMoney(dashboard.total_gastos_materiales_pagados + dashboard.total_gastos_materiales_pendientes)}</div>
-                  <div>👥 {formatMoney(dashboard.total_gastos_rh_pagados + dashboard.total_gastos_rh_pendientes)}</div>
-                  <div>💳 {formatMoney(dashboard.total_gastos_sps_pagados + dashboard.total_gastos_sps_pendientes)}</div>
-                </div>
-              )}
             </div>
-          </div>
 
-          {/* Provisiones (Provisiones - Gastos Totales) - Colapsable */}
-          <div
-            className="bg-white rounded-lg border p-3 cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => setShowAllCardDetails(!showAllCardDetails)}
-          >
-            <div className="flex flex-col">
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-1">
-                  <p className="text-xs text-gray-600">💰 Provisiones</p>
+            {/* Provisiones */}
+            <div className="flex-1 p-4">
+              <div className="flex flex-col">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-gray-600">Provisiones</p>
+                  <span className="text-xs text-blue-600">{showAllCardDetails ? '▲' : '▼'}</span>
                 </div>
-                <button className="text-xs text-blue-600 hover:text-blue-800">
-                  {showAllCardDetails ? '▲' : '▼'}
-                </button>
-              </div>
-              {(() => {
-                const disponible = dashboard.total_provisiones - dashboard.total_gastos_totales;
-                const disponibleCombustible = dashboard.total_provision_combustible -
-                  (dashboard.total_gastos_combustible_pagados + dashboard.total_gastos_combustible_pendientes);
-                const disponibleMateriales = dashboard.total_provision_materiales -
-                  (dashboard.total_gastos_materiales_pagados + dashboard.total_gastos_materiales_pendientes);
-                const disponibleRH = dashboard.total_provision_rh -
-                  (dashboard.total_gastos_rh_pagados + dashboard.total_gastos_rh_pendientes);
-                const disponibleSPs = dashboard.total_provision_sps -
-                  (dashboard.total_gastos_sps_pagados + dashboard.total_gastos_sps_pendientes);
+                {(() => {
+                  const disponible = dashboard.total_provisiones - dashboard.total_gastos_totales;
+                  const disponibleCombustible = dashboard.total_provision_combustible -
+                    (dashboard.total_gastos_combustible_pagados + dashboard.total_gastos_combustible_pendientes);
+                  const disponibleMateriales = dashboard.total_provision_materiales -
+                    (dashboard.total_gastos_materiales_pagados + dashboard.total_gastos_materiales_pendientes);
+                  const disponibleRH = dashboard.total_provision_rh -
+                    (dashboard.total_gastos_rh_pagados + dashboard.total_gastos_rh_pendientes);
+                  const disponibleSPs = dashboard.total_provision_sps -
+                    (dashboard.total_gastos_sps_pagados + dashboard.total_gastos_sps_pendientes);
 
-                return (
-                  <>
-                    <p className={`text-lg font-bold ${disponible >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                      {formatMoney(Math.max(0, disponible))}
-                    </p>
-                    {showAllCardDetails && (
-                      <div className="text-xs text-gray-400 mt-1 border-t pt-1 space-y-0.5">
-                        <div className={disponibleCombustible >= 0 ? 'text-green-600' : 'text-red-600'}>
-                          ⛽ {formatMoney(Math.max(0, disponibleCombustible))}
+                  return (
+                    <>
+                      <p className={`text-xl font-bold ${disponible >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        ${formatMoney(Math.max(0, disponible))}
+                      </p>
+                      {showAllCardDetails && (
+                        <div className="text-xs text-gray-500 mt-2 pt-2 border-t space-y-1">
+                          <div className={`flex justify-between ${disponibleCombustible >= 0 ? '' : 'text-red-500'}`}>
+                            <span>🚗⛽ Combustible:</span><span>${formatMoney(Math.max(0, disponibleCombustible))}</span>
+                          </div>
+                          <div className={`flex justify-between ${disponibleMateriales >= 0 ? '' : 'text-red-500'}`}>
+                            <span>🛠️ Materiales:</span><span>${formatMoney(Math.max(0, disponibleMateriales))}</span>
+                          </div>
+                          <div className={`flex justify-between ${disponibleRH >= 0 ? '' : 'text-red-500'}`}>
+                            <span>👥 RH:</span><span>${formatMoney(Math.max(0, disponibleRH))}</span>
+                          </div>
+                          <div className={`flex justify-between ${disponibleSPs >= 0 ? '' : 'text-red-500'}`}>
+                            <span>💳 Solicitudes:</span><span>${formatMoney(Math.max(0, disponibleSPs))}</span>
+                          </div>
                         </div>
-                        <div className={disponibleMateriales >= 0 ? 'text-green-600' : 'text-red-600'}>
-                          🛠️ {formatMoney(Math.max(0, disponibleMateriales))}
-                        </div>
-                        <div className={disponibleRH >= 0 ? 'text-green-600' : 'text-red-600'}>
-                          👥 {formatMoney(Math.max(0, disponibleRH))}
-                        </div>
-                        <div className={disponibleSPs >= 0 ? 'text-green-600' : 'text-red-600'}>
-                          💳 {formatMoney(Math.max(0, disponibleSPs))}
-                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Utilidad con Gauge Chart - Fórmula del cliente */}
+            <div className="flex-1 p-4">
+              <div className="flex flex-col items-center">
+                <div className="flex items-center justify-between w-full mb-2">
+                  <p className="text-sm font-medium text-gray-600">Utilidad</p>
+                  <span className="text-xs text-blue-600">{showAllCardDetails ? '▲' : '▼'}</span>
+                </div>
+                {(() => {
+                  // FÓRMULA DEL CLIENTE: Utilidad = Ingresos - Gastos - Provisiones Disponibles
+                  // PROVISIONES_DISPONIBLES = MAX(0, PROVISIONES - GASTOS) - nunca negativo
+                  const provisionesDisponibles = Math.max(0, dashboard.total_provisiones - dashboard.total_gastos_totales);
+                  const utilidad = dashboard.total_ingresos_reales - dashboard.total_gastos_totales - provisionesDisponibles;
+                  const margenUtilidad = dashboard.total_ingresos_reales > 0
+                    ? (utilidad / dashboard.total_ingresos_reales) * 100
+                    : 0;
+                  const colorClass = utilidad >= 0 ? 'text-green-600' : 'text-red-600';
+
+                  return (
+                    <>
+                      <p className={`text-xl font-bold ${colorClass}`}>
+                        ${formatMoney(utilidad)}
+                      </p>
+                      {/* Gauge Chart siempre visible */}
+                      <div className="mt-2">
+                        <GaugeChart
+                          value={Math.max(0, Math.min(100, margenUtilidad))}
+                          size="sm"
+                          showLabel={true}
+                        />
                       </div>
-                    )}
-                  </>
-                );
-              })()}
-            </div>
-          </div>
-
-          {/* Utilidad Estimada con Gauge Chart - Colapsable */}
-          <div
-            className="bg-white rounded-lg border p-3 cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => setShowAllCardDetails(!showAllCardDetails)}
-          >
-            <div className="flex flex-col items-center">
-              <div className="flex items-center justify-between w-full mb-1">
-                <p className="text-xs text-gray-600">💼 Utilidad Real</p>
-                <button className="text-xs text-blue-600 hover:text-blue-800">
-                  {showAllCardDetails ? '▲' : '▼'}
-                </button>
+                    </>
+                  );
+                })()}
               </div>
-              <p className="text-lg font-bold text-gray-900 mb-2">
-                ${formatMoney(dashboard.total_utilidad_estimada)}
-              </p>
-              {/* Gauge Chart - Visible simultáneamente con detalles de otras tarjetas */}
-              {showAllCardDetails && (
-                <GaugeChart
-                  value={dashboard.margen_estimado_promedio}
-                  size="sm"
-                  showLabel={true}
-                />
-              )}
             </div>
-          </div>
           </div>
         </div>
       )}

@@ -8,6 +8,7 @@ interface AuthUser {
   email: string;
   role: string;
   nombre: string;
+  company_id: string;
 }
 
 interface AuthContextType {
@@ -89,7 +90,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       id: '00000000-0000-0000-0000-000000000001', // UUID que coincide con CREAR_USUARIO_DESARROLLO.sql
       email: `${selectedRole.toLowerCase().replace(' ', '_')}@madeevents.dev`,
       role: selectedRole,
-      nombre: getRoleUserName(selectedRole)
+      nombre: getRoleUserName(selectedRole),
+      company_id: '00000000-0000-0000-0000-000000000001' // Company ID de desarrollo
     };
 
     return (
@@ -133,7 +135,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     id: currentUser.id,
     email: currentUser.email!,
     role: currentUser.user_metadata?.role || 'Visualizador', // Obtener del perfil real
-    nombre: currentUser.user_metadata?.nombre || 'Usuario'
+    nombre: currentUser.user_metadata?.nombre || 'Usuario',
+    company_id: currentUser.user_metadata?.company_id || '00000000-0000-0000-0000-000000000001'
   } : null;
 
   return (

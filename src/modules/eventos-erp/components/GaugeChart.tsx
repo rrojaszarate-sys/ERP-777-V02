@@ -14,7 +14,7 @@ import React from 'react';
 
 interface GaugeChartProps {
   value: number; // Porcentaje 0-100
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg';
   showLabel?: boolean;
   className?: string;
 }
@@ -61,9 +61,10 @@ export const GaugeChart: React.FC<GaugeChartProps> = ({
 
   // Configuración de tamaños
   const sizeConfig = {
-    sm: { radius: 40, strokeWidth: 6, fontSize: 'text-xs', width: 100, height: 60 },
-    md: { radius: 50, strokeWidth: 8, fontSize: 'text-sm', width: 130, height: 75 },
-    lg: { radius: 70, strokeWidth: 10, fontSize: 'text-lg', width: 170, height: 100 }
+    xs: { radius: 20, strokeWidth: 4, fontSize: 'text-[8px]', width: 50, height: 30, showMarkers: false },
+    sm: { radius: 40, strokeWidth: 6, fontSize: 'text-xs', width: 100, height: 60, showMarkers: true },
+    md: { radius: 50, strokeWidth: 8, fontSize: 'text-sm', width: 130, height: 75, showMarkers: true },
+    lg: { radius: 70, strokeWidth: 10, fontSize: 'text-lg', width: 170, height: 100, showMarkers: true }
   };
 
   const config = sizeConfig[size];
@@ -124,15 +125,17 @@ export const GaugeChart: React.FC<GaugeChartProps> = ({
           </text>
         )}
 
-        {/* Marcadores opcionales (0%, 50%, 100%) */}
-        <g className="text-xs fill-gray-400">
-          <text x={centerX - config.radius - 5} y={centerY + 5} fontSize="10" textAnchor="end">
-            0%
-          </text>
-          <text x={centerX + config.radius + 5} y={centerY + 5} fontSize="10" textAnchor="start">
-            100%
-          </text>
-        </g>
+        {/* Marcadores opcionales (0%, 100%) - solo para tamaños mayores a xs */}
+        {config.showMarkers && (
+          <g className="text-xs fill-gray-400">
+            <text x={centerX - config.radius - 5} y={centerY + 5} fontSize="10" textAnchor="end">
+              0%
+            </text>
+            <text x={centerX + config.radius + 5} y={centerY + 5} fontSize="10" textAnchor="start">
+              100%
+            </text>
+          </g>
+        )}
       </svg>
 
       {/* Badge opcional debajo del gauge */}

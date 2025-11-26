@@ -168,9 +168,13 @@ function App() {
                 {/* Rutas de IA y Automatización */}
                 <Route path="ia" element={<IADashboard />} />
 
-                {/* Redirecciones de rutas legacy eventos-erp a eventos */}
-                <Route path="eventos-erp" element={<Navigate to="/eventos" replace />} />
-                <Route path="eventos-erp/*" element={<Navigate to="/eventos" replace />} />
+                {/* Rutas de Eventos-ERP (módulo independiente - desarrollo) */}
+                <Route path="eventos-erp" element={<EventosListPage />} />
+                <Route path="eventos-erp/clientes" element={<ClientesPage />} />
+                <Route path="eventos-erp/proyectos" element={<ProyectosEventosPage />} />
+                <Route path="eventos-erp/analisis-financiero" element={<FinancialAnalysisPage />} />
+                <Route path="eventos-erp/workflow" element={<WorkflowVisualizationPage />} />
+                <Route path="eventos-erp/catalogos" element={<CatalogosPage />} />
 
                 {/* Rutas de Desarrollo (Documentación técnica y pruebas) */}
                 <Route path="desarrollo" element={<DocumentacionPage />} />
