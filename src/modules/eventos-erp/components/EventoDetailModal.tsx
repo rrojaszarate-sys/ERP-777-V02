@@ -300,7 +300,7 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
     { id: 'overview', label: 'Resumen', icon: Eye },
     { id: 'ingresos', label: 'Ingresos', icon: TrendingUp },
     { id: 'gastos', label: 'Gastos', icon: TrendingDown },
-    { id: 'provisiones', label: 'Provisiones', icon: Wallet },
+    { id: 'provisiones', label: 'Provisionado', icon: Wallet },
     { id: 'workflow', label: 'Workflow', icon: SettingsIcon }
   ];
 
@@ -436,7 +436,7 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
                   </div>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Por Ejercer:</span>
+                  <span className="text-gray-600">Provisión:</span>
                   <div className="text-right">
                     <span className={`font-bold ${provisionesDisponibles > 0 ? 'text-amber-600' : 'text-gray-500'}`}>
                       {formatCurrency(provisionesDisponibles)}
@@ -754,12 +754,12 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
               <div className="flex justify-between items-center mb-1">
                 <span className="text-xs font-medium text-red-700">📉 GASTOS</span>
                 <div className="flex gap-4 text-xs">
-                  <span className="text-gray-500">Provisión: {formatCurrency(provisionesTotal)}</span>
+                  <span className="text-gray-500">Provisionado: {formatCurrency(provisionesTotal)}</span>
                   <span className="text-red-700 font-bold">Ejercido: {formatCurrency(gastosTotales)}</span>
                 </div>
               </div>
               <div className="relative h-10 bg-gray-100 rounded-lg overflow-hidden">
-                {/* Fondo: Provisión */}
+                {/* Fondo: Provisionado */}
                 <div className="absolute inset-0 flex items-center justify-end px-3">
                   <span className="text-xs font-medium text-gray-400">
                     Prov: {formatCurrency(provisionesTotal)}
@@ -784,23 +784,23 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
               </div>
             </div>
 
-            {/* Por Ejercer Bar */}
+            {/* Provisión Bar */}
             <div>
               <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-medium text-amber-700">💼 POR EJERCER</span>
+                <span className="text-xs font-medium text-amber-700">💼 PROVISIÓN</span>
                 <div className="flex gap-4 text-xs">
-                  <span className="text-gray-500">Provisión: {formatCurrency(provisionesTotal)}</span>
+                  <span className="text-gray-500">Provisionado: {formatCurrency(provisionesTotal)}</span>
                   <span className="text-amber-700 font-bold">Restante: {formatCurrency(provisionesDisponibles)}</span>
                 </div>
               </div>
               <div className="relative h-10 bg-gray-100 rounded-lg overflow-hidden">
-                {/* Fondo: Provisión total */}
+                {/* Fondo: Provisionado total */}
                 <div className="absolute inset-0 flex items-center justify-end px-3">
                   <span className="text-xs font-medium text-gray-400">
                     {formatCurrency(provisionesTotal)}
                   </span>
                 </div>
-                {/* Barra: Por Ejercer - SIEMPRE AZUL */}
+                {/* Barra: Provisión restante - SIEMPRE AZUL */}
                 <div
                   className="absolute h-full bg-blue-600 transition-all duration-500 flex items-center"
                   style={{ width: `${provisionesTotal > 0 ? Math.min((provisionesDisponibles / provisionesTotal) * 100, 100) : 0}%` }}
@@ -916,9 +916,9 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
               </div>
             </div>
 
-            {/* POR EJERCER - Fórmula del cliente: MAX(0, Provisiones - Gastos) */}
+            {/* PROVISIÓN - Fórmula del cliente: MAX(0, Provisionado - Gastos) */}
             <div className="border-r pr-4">
-              <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">Por Ejercer</h4>
+              <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">Provisión</h4>
               <div className={`font-bold text-2xl mb-2 ${provisionesDisponibles > 0 ? 'text-amber-600' : 'text-gray-500'}`}>
                 {formatCurrency(provisionesDisponibles)}
               </div>
@@ -1062,41 +1062,42 @@ const IngresosTab: React.FC<{
           </div>
         ) : (
           ingresos.map(ingreso => (
-            <div key={ingreso.id} className="bg-white border rounded-lg p-4">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <h4 className="font-medium text-gray-900">{ingreso.concepto}</h4>
-                    <span className="text-lg font-bold text-green-600">
-                      {formatCurrency(ingreso.total)}
-                    </span>
+            <div key={ingreso.id} className="bg-white border rounded-lg p-2.5 hover:bg-gray-50 transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1">
+                  <div className="col-span-2 md:col-span-1">
+                    <h4 className="font-medium text-gray-900 text-sm truncate">{ingreso.concepto}</h4>
                   </div>
-                  <div className="text-sm text-gray-500 space-y-1">
-                    <p>Fecha: {formatDate(ingreso.created_at)}</p>
-                    {ingreso.descripcion && <p>Descripción: {ingreso.descripcion}</p>}
-                    {ingreso.referencia && <p>Referencia: {ingreso.referencia}</p>}
+                  <div>
+                    <span className="text-sm font-bold text-green-600">{formatCurrency(ingreso.total)}</span>
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {formatDate(ingreso.created_at)}
+                  </div>
+                  <div className="col-span-2 md:col-span-4 text-xs text-gray-400 truncate">
+                    {ingreso.descripcion && <span className="mr-3">📝 {ingreso.descripcion}</span>}
+                    {ingreso.referencia && <span>🏷️ {ingreso.referencia}</span>}
                   </div>
                 </div>
-                
-                <div className="flex space-x-2">
+
+                <div className="flex gap-2 flex-shrink-0">
                   {canUpdate('ingresos') && (
-                    <Button
-                      onClick={() => onEditIngreso(ingreso)}
-                      variant="outline"
-                      size="sm"
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onEditIngreso(ingreso); }}
+                      className="p-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 transition-colors border border-blue-200"
+                      title="Editar ingreso"
                     >
                       <Edit className="w-4 h-4" />
-                    </Button>
+                    </button>
                   )}
                   {canDelete('ingresos') && (
-                    <Button
-                      onClick={() => handleDelete(ingreso)}
-                      variant="outline"
-                      size="sm"
-                      className="text-red-600 hover:text-red-700"
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDelete(ingreso); }}
+                      className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-600 transition-colors border border-red-200"
+                      title="Eliminar ingreso"
                     >
                       <Trash2 className="w-4 h-4" />
-                    </Button>
+                    </button>
                   )}
                 </div>
               </div>
@@ -1280,7 +1281,7 @@ const GastosTab: React.FC<{
           </div>
         </button>
 
-        {/* FICHA 4: Por Ejercer - Clickeable completa */}
+        {/* FICHA 4: Provisión (antes Por Ejercer) - Clickeable completa */}
         <button
           onClick={() => setIsDesgloseExpanded(!isDesgloseExpanded)}
           className={`rounded-lg p-3 border text-left hover:shadow-md transition-all ${
@@ -1291,7 +1292,7 @@ const GastosTab: React.FC<{
         >
           <div className="flex items-start justify-between gap-2 mb-0.5">
             <div className={`text-[10px] font-semibold uppercase tracking-wide ${totalDisponible >= 0 ? 'text-amber-700' : 'text-red-700'}`}>
-              Por Ejercer
+              Provisión
             </div>
             <div className={`text-[10px] font-semibold ${totalDisponible >= 0 ? 'text-amber-600' : 'text-red-600'}`}>
               {totalProvisionado > 0 ? ((totalDisponible / totalProvisionado) * 100).toFixed(0) : 0}%
@@ -1354,50 +1355,54 @@ const GastosTab: React.FC<{
           </div>
         ) : (
           gastosFilter.map(gasto => (
-            <div key={gasto.id} className="bg-white border rounded-lg p-4">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <h4 className="font-medium text-gray-900">{gasto.concepto}</h4>
-                    <span className="text-lg font-bold text-red-600">
-                      {formatCurrency(gasto.total)}
-                    </span>
+            <div key={gasto.id} className="bg-white border rounded-lg p-2.5 hover:bg-gray-50 transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-5 gap-x-3 gap-y-1 items-center">
+                  <div className="col-span-2 md:col-span-1 flex items-center gap-2">
+                    <h4 className="font-medium text-gray-900 text-sm truncate">{gasto.concepto}</h4>
+                  </div>
+                  <div>
+                    <span className="text-sm font-bold text-red-600">{formatCurrency(gasto.total)}</span>
+                  </div>
+                  <div>
                     {gasto.categoria && (
-                      <Badge 
-                        variant="default" 
+                      <Badge
+                        variant="default"
+                        className="text-[10px] py-0"
                         style={{ backgroundColor: gasto.categoria.color + '20', color: gasto.categoria.color }}
                       >
                         {gasto.categoria.nombre}
                       </Badge>
                     )}
                   </div>
-                  <div className="text-sm text-gray-500 space-y-1">
-                    <p>Fecha: {formatDate(gasto.fecha_gasto)}</p>
-                    {gasto.descripcion && <p>Descripción: {gasto.descripcion}</p>}
-                    {gasto.proveedor && <p>Proveedor: {gasto.proveedor}</p>}
-                    {gasto.referencia && <p>Referencia: {gasto.referencia}</p>}
+                  <div className="text-xs text-gray-500">
+                    {formatDate(gasto.fecha_gasto)}
+                  </div>
+                  <div className="col-span-2 md:col-span-5 text-xs text-gray-400 truncate">
+                    {gasto.proveedor && <span className="mr-3">🏢 {gasto.proveedor}</span>}
+                    {gasto.descripcion && <span className="mr-3">📝 {gasto.descripcion}</span>}
+                    {gasto.referencia && <span>🏷️ {gasto.referencia}</span>}
                   </div>
                 </div>
-                
-                <div className="flex space-x-2">
+
+                <div className="flex gap-2 flex-shrink-0">
                   {canUpdate('gastos') && (
-                    <Button
-                      onClick={() => onEditGasto(gasto)}
-                      variant="outline"
-                      size="sm"
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onEditGasto(gasto); }}
+                      className="p-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 transition-colors border border-blue-200"
+                      title="Editar gasto"
                     >
                       <Edit className="w-4 h-4" />
-                    </Button>
+                    </button>
                   )}
                   {canDelete('gastos') && (
-                    <Button
-                      onClick={() => handleDelete(gasto)}
-                      variant="outline"
-                      size="sm"
-                      className="text-red-600 hover:text-red-700"
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDelete(gasto); }}
+                      className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-600 transition-colors border border-red-200"
+                      title="Eliminar gasto"
                     >
                       <Trash2 className="w-4 h-4" />
-                    </Button>
+                    </button>
                   )}
                 </div>
               </div>
@@ -1601,7 +1606,7 @@ const ProvisionesTab: React.FC<{
           )}
         </button>
 
-        {/* POR EJERCER - Clickeable completa */}
+        {/* PROVISIÓN - Clickeable completa */}
         <button
           onClick={() => setExpandedKPI(!expandedKPI)}
           className={`bg-gradient-to-br rounded-lg p-3 border hover:shadow-md transition-all text-left ${
@@ -1611,7 +1616,7 @@ const ProvisionesTab: React.FC<{
           <div className="flex items-start justify-between gap-2 mb-0.5">
             <div className={`text-[10px] font-semibold uppercase tracking-wide ${
               totalDisponible >= 0 ? 'text-amber-700' : 'text-red-700'
-            }`}>Por Ejercer</div>
+            }`}>Provisión</div>
             <div className={`text-[10px] font-semibold ${totalDisponible >= 0 ? 'text-amber-600' : 'text-red-600'}`}>
               {totalProvision > 0 ? ((totalDisponible / totalProvision) * 100).toFixed(0) : 0}%
             </div>
@@ -1699,10 +1704,19 @@ const ProvisionesTab: React.FC<{
                 </div>
               </div>
 
-              {/* Valores en grid 2 columnas: Provisión editable y Por Ejercer */}
+              {/* Valores en grid 2 columnas: Provisionado editable y Provisión restante */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <div className="text-[10px] text-gray-500 uppercase mb-1">Provisión</div>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-[10px] text-gray-500 uppercase">Provisionado</span>
+                    <button
+                      onClick={() => startEditing(prov.tipo, prov.provision)}
+                      className="p-0.5 rounded hover:bg-blue-100 text-gray-400 hover:text-blue-600 transition-colors"
+                      title="Editar provisión"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                  </div>
                   {isEditing ? (
                     <input
                       type="text"
@@ -1717,21 +1731,15 @@ const ProvisionesTab: React.FC<{
                       autoFocus
                     />
                   ) : (
-                    <button
-                      onClick={() => startEditing(prov.tipo, prov.provision)}
-                      className="group flex items-center gap-1 w-full"
-                    >
-                      <span className="font-bold text-blue-900 group-hover:text-blue-600 text-sm">
-                        {formatCurrency(prov.provision)}
-                      </span>
-                      <Pencil className="w-3 h-3 text-gray-400 group-hover:text-blue-600 opacity-0 group-hover:opacity-100 flex-shrink-0" />
-                    </button>
+                    <div className="font-bold text-blue-900 text-sm">
+                      {formatCurrency(prov.provision)}
+                    </div>
                   )}
                 </div>
 
-                <div>
-                  <div className="text-[10px] text-gray-500 uppercase mb-1">Por Ejercer</div>
-                  <div className={`font-bold text-sm ${porEjercer >= 0 ? 'text-gray-700' : 'text-red-700'}`}>
+                <div className="text-right">
+                  <div className="text-[10px] text-gray-500 uppercase mb-1">Provisión</div>
+                  <div className={`font-bold text-sm ${porEjercer >= 0 ? 'text-amber-700' : 'text-red-700'}`}>
                     {formatCurrency(Math.max(0, porEjercer))}
                   </div>
                 </div>

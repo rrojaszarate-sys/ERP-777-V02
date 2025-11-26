@@ -42,7 +42,14 @@ import {
   ArrowDown,
   Banknote,
   Calendar,
-  TrendingUp as TrendUp
+  TrendingUp as TrendUp,
+  HelpCircle,
+  Eye,
+  EyeOff,
+  LayoutGrid,
+  LayoutList,
+  Columns,
+  Table2
 } from 'lucide-react';
 import { useAuth } from '../../../core/auth/AuthProvider';
 import {
@@ -79,6 +86,47 @@ import toast from 'react-hot-toast';
 // Colores paleta MADE Mint
 const MINT_COLORS = ['#14B8A6', '#0EA5E9', '#8B5CF6', '#F59E0B', '#EF4444', '#10B981'];
 
+// Colores sobrios de bancos mexicanos (versión suavizada)
+const BANK_COLORS: Record<string, string> = {
+  // Bancos principales - Tonos más sobrios
+  'SANTANDER': '#DC6B6B',
+  'BBVA': '#5A7FAA',
+  'BANORTE': '#D97070',
+  'HSBC': '#C96B6B',
+  'BANAMEX': '#5A6B8A',
+  'CITIBANAMEX': '#5A6B8A',
+  'SCOTIABANK': '#D97575',
+  'BANREGIO': '#5A8AB3',
+  'INBURSA': '#5A7A9B',
+  'BAJIO': '#5A8A6B',
+  'AFIRME': '#5A6B8F',
+  'MULTIVA': '#9A5A6B',
+  // Fintechs y otros - Tonos más sobrios
+  'KUSPIT': '#5AA98B',
+  'ALBO': '#8A8AD7',
+  'NUBANK': '#9A6ABD',
+  'MERCADOPAGO': '#5A9FBF',
+  'PAYPAL': '#5A6B97',
+  'CLIP': '#D9956B',
+  'STRIPE': '#8A85BF',
+  'TRANSFERENCIA': '#6B9BD6',
+  'TARJETA': '#9A8AC6',
+  'EFECTIVO': '#5AA97B',
+  'CHEQUE': '#D9B36B',
+  'CREDITO': '#C97AA9',
+  'DEFAULT': '#8B9BAB',
+};
+
+// Función para obtener color de forma de pago
+const getFormaPagoColor = (formaPago: string): string => {
+  const fp = formaPago.toUpperCase();
+  // Buscar coincidencia exacta o parcial con nombres de bancos
+  for (const [key, color] of Object.entries(BANK_COLORS)) {
+    if (fp.includes(key)) return color;
+  }
+  return BANK_COLORS.DEFAULT;
+};
+
 export const GastosNoImpactadosPage = () => {
   const { user } = useAuth();
   const companyId = user?.company_id;
@@ -109,17 +157,45 @@ export const GastosNoImpactadosPage = () => {
   const [catalogoActivo, setCatalogoActivo] = useState<'claves' | 'ejecutivos' | 'proveedores' | 'formasPago' | null>(null);
 
   // Dashboard y paginación
-  const [showDashboard, setShowDashboard] = useState(true);
+  const [showDashboard, setShowDashboard] = useState(false); // Oculto por default
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
 
   // Ordenamiento
-  type SortField = 'fecha_gasto' | 'proveedor' | 'concepto' | 'clave' | 'cuenta' | 'subcuenta' | 'forma_pago' | 'subtotal' | 'iva' | 'total' | 'validacion' | 'status_pago';
+  type SortField = 'fecha_gasto' | 'proveedor' | 'concepto' | 'clave' | 'cuenta' | 'subcuenta' | 'forma_pago' | 'subtotal' | 'iva' | 'total' | 'validacion' | 'status_pago' | 'ejecutivo' | 'folio_factura';
   const [sortField, setSortField] = useState<SortField>('fecha_gasto');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   // Resumen anual para gráficas
   const [resumenAnual, setResumenAnual] = useState<any[]>([]);
+
+  // Guía de ayuda
+  const [showHelp, setShowHelp] = useState(false);
+
+  // Configuración de columnas visibles
+  const [showColumnConfig, setShowColumnConfig] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({
+    fecha_gasto: true,
+    proveedor: true,
+    concepto: true,
+    clave: true,
+    cuenta: true,
+    subcuenta: true,
+    forma_pago: true,
+    subtotal: true,
+    iva: true,
+    total: true,
+    validacion: true,
+    status_pago: true,
+    ejecutivo: false,
+    folio_factura: false,
+  });
+
+  // Modal de reporte por período
+  const [showReportModal, setShowReportModal] = useState(false);
+
+  // Filtros por columna
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
 
   // Periodos disponibles
   const periodos = useMemo(() => getPeriodosDisponibles(2025), []);
@@ -196,7 +272,7 @@ export const GastosNoImpactadosPage = () => {
   const gastosFiltrados = useMemo(() => {
     let filtered = gastos;
 
-    // Filtro por búsqueda
+    // Filtro por búsqueda global
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(g =>
@@ -208,6 +284,17 @@ export const GastosNoImpactadosPage = () => {
         g.forma_pago?.toLowerCase().includes(term)
       );
     }
+
+    // Filtros por columna
+    Object.entries(columnFilters).forEach(([colKey, filterVal]) => {
+      if (filterVal) {
+        const term = filterVal.toLowerCase();
+        filtered = filtered.filter(g => {
+          const val = String((g as any)[colKey] ?? '').toLowerCase();
+          return val.includes(term);
+        });
+      }
+    });
 
     // Ordenamiento
     filtered = [...filtered].sort((a, b) => {
@@ -230,7 +317,7 @@ export const GastosNoImpactadosPage = () => {
     });
 
     return filtered;
-  }, [gastos, searchTerm, sortField, sortDirection]);
+  }, [gastos, searchTerm, sortField, sortDirection, columnFilters]);
 
   // Totales
   const totales = useMemo(() => {
@@ -406,6 +493,142 @@ export const GastosNoImpactadosPage = () => {
     toast.success('Excel generado correctamente');
   };
 
+  // Definición de columnas con sus propiedades
+  const columnDefinitions: { key: string; label: string; align: 'left' | 'right' | 'center'; width?: string }[] = [
+    { key: 'fecha_gasto', label: 'Fecha', align: 'left' },
+    { key: 'proveedor', label: 'Proveedor', align: 'left' },
+    { key: 'concepto', label: 'Concepto', align: 'left' },
+    { key: 'clave', label: 'Clave', align: 'left' },
+    { key: 'cuenta', label: 'Cuenta', align: 'left' },
+    { key: 'subcuenta', label: 'Subcuenta', align: 'left' },
+    { key: 'forma_pago', label: 'F. Pago', align: 'left' },
+    { key: 'subtotal', label: 'Subtotal', align: 'right' },
+    { key: 'iva', label: 'IVA', align: 'right' },
+    { key: 'total', label: 'Total', align: 'right' },
+    { key: 'validacion', label: 'Val.', align: 'center' },
+    { key: 'status_pago', label: 'Pago', align: 'center' },
+    { key: 'ejecutivo', label: 'Ejecutivo', align: 'left' },
+    { key: 'folio_factura', label: 'Folio', align: 'left' },
+  ];
+
+  // Generar reporte estilo Excel por período
+  const handleExportReportePeriodo = () => {
+    // Obtener el año del período seleccionado o actual
+    const periodoBase = filtros.periodo || getPeriodoActual();
+    const anio = periodoBase.split('-')[0];
+    const meses = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
+
+    // Agrupar gastos por clave y cuenta
+    const gastosAgrupados: Record<string, {
+      clave: string;
+      concepto: string;
+      subclave: string;
+      subconcepto: string;
+      presupuesto: number;
+      meses: number[];
+      totalAcumulado: number;
+    }> = {};
+
+    // Primero creamos las claves principales desde el catálogo
+    claves.forEach(c => {
+      const key = c.clave;
+      if (!gastosAgrupados[key]) {
+        gastosAgrupados[key] = {
+          clave: c.clave,
+          concepto: c.cuenta,
+          subclave: c.clave,
+          subconcepto: c.subcuenta,
+          presupuesto: c.presupuesto_anual || 0,
+          meses: Array(12).fill(0),
+          totalAcumulado: 0
+        };
+      }
+    });
+
+    // Ahora sumamos los gastos por mes
+    gastos.forEach(g => {
+      const clave = g.clave || 'SIN-CLAVE';
+      if (!gastosAgrupados[clave]) {
+        gastosAgrupados[clave] = {
+          clave: clave,
+          concepto: g.cuenta || 'Sin cuenta',
+          subclave: clave,
+          subconcepto: g.subcuenta || 'Sin subcuenta',
+          presupuesto: 0,
+          meses: Array(12).fill(0),
+          totalAcumulado: 0
+        };
+      }
+
+      const mesGasto = g.fecha_gasto ? parseInt(g.fecha_gasto.split('-')[1]) - 1 : 0;
+      gastosAgrupados[clave].meses[mesGasto] += g.total || 0;
+      gastosAgrupados[clave].totalAcumulado += g.total || 0;
+    });
+
+    // Crear datos para Excel
+    const dataExcel: any[] = [];
+
+    // Header
+    dataExcel.push({
+      'CLAVE': 'CLAVE',
+      'CONCEPTO': 'CONCEPTO',
+      'SUBCLAVE': 'SUBCLAVE',
+      'CONCEPTO_DET': 'CONCEPTO',
+      'PRESUPUESTO': 'PRESUPUESTO',
+      ...meses.reduce((acc, m) => ({ ...acc, [m]: m }), {}),
+      'TOTAL ACUMULADO': 'TOTAL ACUMULADO',
+      'VARIACIÓN PRESUPUESTARIA': 'VARIACIÓN PRESUPUESTARIA'
+    });
+
+    // Datos agrupados
+    Object.values(gastosAgrupados)
+      .sort((a, b) => a.clave.localeCompare(b.clave))
+      .forEach(item => {
+        const row: any = {
+          'CLAVE': item.clave,
+          'CONCEPTO': item.concepto,
+          'SUBCLAVE': item.subclave,
+          'CONCEPTO_DET': item.subconcepto,
+          'PRESUPUESTO': item.presupuesto,
+        };
+        meses.forEach((m, i) => {
+          row[m] = item.meses[i];
+        });
+        row['TOTAL ACUMULADO'] = item.totalAcumulado;
+        row['VARIACIÓN PRESUPUESTARIA'] = item.presupuesto - item.totalAcumulado;
+        dataExcel.push(row);
+      });
+
+    // Crear Excel
+    const ws = XLSX.utils.json_to_sheet(dataExcel, { skipHeader: true });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Reporte GNI');
+
+    // Anchos de columna
+    ws['!cols'] = [
+      { wch: 15 }, // CLAVE
+      { wch: 20 }, // CONCEPTO
+      { wch: 15 }, // SUBCLAVE
+      { wch: 30 }, // CONCEPTO_DET
+      { wch: 15 }, // PRESUPUESTO
+      ...Array(12).fill({ wch: 12 }), // Meses
+      { wch: 18 }, // TOTAL ACUMULADO
+      { wch: 22 }, // VARIACIÓN
+    ];
+
+    XLSX.writeFile(wb, `GNI_Reporte_${anio}.xlsx`);
+    toast.success('Reporte por período generado');
+    setShowReportModal(false);
+  };
+
+  // Toggle columna visible
+  const toggleColumn = (key: string) => {
+    setVisibleColumns(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  // Contar columnas visibles
+  const visibleColumnCount = Object.values(visibleColumns).filter(Boolean).length;
+
   // Componente para header de columna ordenable
   const SortableHeader = ({ field, label, className = '' }: { field: SortField; label: string; className?: string }) => (
     <th
@@ -431,14 +654,24 @@ export const GastosNoImpactadosPage = () => {
     <div className="p-6 bg-gradient-to-br from-teal-50/30 to-white min-h-screen">
       {/* Header */}
       <div className="flex justify-between items-start mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Receipt className="w-7 h-7 text-teal-600" />
-            Gastos No Impactados
-          </h1>
-          <p className="text-gray-500 mt-1">
-            Gestión de gastos operativos • {getPeriodoLabel(filtros.periodo || getPeriodoActual())}
-          </p>
+        <div className="flex items-start gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <Receipt className="w-7 h-7 text-teal-600" />
+              Gastos No Impactados
+            </h1>
+            <p className="text-gray-500 mt-1">
+              Gestión de gastos operativos • {getPeriodoLabel(filtros.periodo || getPeriodoActual())}
+            </p>
+          </div>
+          {/* Botón de Ayuda */}
+          <button
+            onClick={() => setShowHelp(true)}
+            className="p-2 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-full transition-colors"
+            title="Guía de uso"
+          >
+            <HelpCircle className="w-5 h-5" />
+          </button>
         </div>
         <div className="flex gap-2">
           {/* Toggle Dashboard */}
@@ -536,6 +769,75 @@ export const GastosNoImpactadosPage = () => {
             Excel
           </button>
           <button
+            onClick={() => setShowReportModal(true)}
+            className="px-4 py-2 bg-blue-50 border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-100 flex items-center gap-2"
+            title="Reporte consolidado por período"
+          >
+            <Table2 className="w-4 h-4" />
+            Reporte
+          </button>
+          {/* Configuración de Columnas */}
+          <div className="relative">
+            <button
+              onClick={() => setShowColumnConfig(!showColumnConfig)}
+              className={`px-3 py-2 rounded-lg flex items-center gap-2 transition-all ${
+                showColumnConfig
+                  ? 'bg-violet-100 text-violet-700 border border-violet-300'
+                  : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50'
+              }`}
+              title="Configurar columnas visibles"
+            >
+              <Columns className="w-4 h-4" />
+            </button>
+            {showColumnConfig && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="absolute right-0 mt-1 w-64 bg-white border rounded-lg shadow-lg z-50 p-3"
+              >
+                <div className="flex items-center justify-between mb-3 pb-2 border-b">
+                  <span className="text-sm font-semibold text-gray-700">Columnas visibles</span>
+                  <span className="text-xs text-gray-500">{visibleColumnCount} de {columnDefinitions.length}</span>
+                </div>
+                <div className="space-y-1 max-h-64 overflow-y-auto">
+                  {columnDefinitions.map(col => (
+                    <label
+                      key={col.key}
+                      className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={visibleColumns[col.key]}
+                        onChange={() => toggleColumn(col.key)}
+                        className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                      />
+                      <span className="text-sm text-gray-700">{col.label}</span>
+                      {visibleColumns[col.key] ? (
+                        <Eye className="w-3 h-3 text-teal-500 ml-auto" />
+                      ) : (
+                        <EyeOff className="w-3 h-3 text-gray-300 ml-auto" />
+                      )}
+                    </label>
+                  ))}
+                </div>
+                <div className="mt-3 pt-2 border-t flex gap-2">
+                  <button
+                    onClick={() => setVisibleColumns(Object.fromEntries(columnDefinitions.map(c => [c.key, true])))}
+                    className="text-xs text-teal-600 hover:text-teal-700"
+                  >
+                    Mostrar todas
+                  </button>
+                  <button
+                    onClick={() => setVisibleColumns(Object.fromEntries(columnDefinitions.map(c => [c.key, ['fecha_gasto', 'proveedor', 'concepto', 'total', 'validacion'].includes(c.key)])))}
+                    className="text-xs text-gray-500 hover:text-gray-700"
+                  >
+                    Mínimas
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </div>
+          <button
             onClick={() => setShowGastoModal(true)}
             className="px-4 py-2 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-lg hover:from-teal-600 hover:to-teal-700 flex items-center gap-2 shadow-lg shadow-teal-200"
           >
@@ -554,25 +856,36 @@ export const GastosNoImpactadosPage = () => {
             exit={{ opacity: 0, height: 0 }}
             className="mb-6 overflow-hidden"
           >
-            {/* KPIs Principales */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
-              {/* Total Período */}
+            {/* KPIs - Layout mejorado */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+              {/* Total Período - Ficha principal mejorada */}
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.1 }}
-                className="col-span-2 bg-gradient-to-br from-teal-500 to-teal-600 p-5 rounded-xl shadow-lg shadow-teal-200"
+                className="bg-gradient-to-br from-teal-500 to-teal-600 p-4 rounded-xl shadow-lg"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-start justify-between mb-3">
                   <div>
-                    <p className="text-teal-100 text-sm font-medium">Total Período</p>
-                    <p className="text-3xl font-bold text-white mt-1">{formatCurrency(totales.total)}</p>
-                    <p className="text-teal-200 text-xs mt-1">
-                      {totales.cantidad} registros • IVA: {formatCurrency(totales.iva)}
-                    </p>
+                    <p className="text-teal-100 text-xs font-semibold uppercase tracking-wider">Total Período</p>
+                    <p className="text-2xl font-bold text-white mt-1">{formatCurrency(totales.total)}</p>
                   </div>
-                  <div className="p-3 bg-white/20 rounded-full">
-                    <DollarSign className="w-8 h-8 text-white" />
+                  <div className="p-2 bg-white/20 rounded-lg">
+                    <DollarSign className="w-5 h-5 text-white" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 pt-3 border-t border-white/20">
+                  <div>
+                    <p className="text-teal-200 text-[10px] font-medium">Subtotal</p>
+                    <p className="text-white text-sm font-semibold">{formatCurrency(totales.subtotal)}</p>
+                  </div>
+                  <div>
+                    <p className="text-teal-200 text-[10px] font-medium">IVA</p>
+                    <p className="text-white text-sm font-semibold">{formatCurrency(totales.iva)}</p>
+                  </div>
+                  <div>
+                    <p className="text-teal-200 text-[10px] font-medium">Registros</p>
+                    <p className="text-white text-sm font-semibold">{totales.cantidad}</p>
                   </div>
                 </div>
               </motion.div>
@@ -581,149 +894,103 @@ export const GastosNoImpactadosPage = () => {
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.2 }}
-                className="bg-white p-4 rounded-xl shadow-sm border border-emerald-100 hover:shadow-md transition-shadow"
+                transition={{ delay: 0.15 }}
+                className="bg-white p-4 rounded-xl shadow-sm border border-emerald-100"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 mb-2">
                   <div className="p-2 bg-emerald-100 rounded-lg">
                     <CheckCircle className="w-5 h-5 text-emerald-600" />
                   </div>
-                  <div className="flex-1">
+                  <div>
                     <p className="text-xs text-gray-500 font-medium">Validados</p>
                     <p className="text-xl font-bold text-emerald-700">{contadores.correctos}</p>
                   </div>
                 </div>
-                <div className="mt-2 h-1.5 bg-emerald-100 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(contadores.correctos / Math.max(totales.cantidad, 1)) * 100}%` }}
-                    transition={{ delay: 0.5, duration: 0.8 }}
-                    className="h-full bg-emerald-500 rounded-full"
-                  />
-                </div>
-                <p className="text-[10px] text-emerald-600 mt-1">{formatCurrency(dashboardData.totalCorrectosAmount)}</p>
+                <p className="text-sm text-emerald-600 font-medium">{formatCurrency(dashboardData.totalCorrectosAmount)}</p>
               </motion.div>
 
               {/* Pendientes */}
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.25 }}
-                className="bg-white p-4 rounded-xl shadow-sm border border-amber-100 hover:shadow-md transition-shadow"
+                transition={{ delay: 0.2 }}
+                className="bg-white p-4 rounded-xl shadow-sm border border-amber-100"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 mb-2">
                   <div className="p-2 bg-amber-100 rounded-lg">
                     <Clock className="w-5 h-5 text-amber-600" />
                   </div>
-                  <div className="flex-1">
+                  <div>
                     <p className="text-xs text-gray-500 font-medium">Pendientes</p>
                     <p className="text-xl font-bold text-amber-700">{contadores.pendientes}</p>
                   </div>
                 </div>
-                <div className="mt-2 h-1.5 bg-amber-100 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(contadores.pendientes / Math.max(totales.cantidad, 1)) * 100}%` }}
-                    transition={{ delay: 0.6, duration: 0.8 }}
-                    className="h-full bg-amber-500 rounded-full"
-                  />
-                </div>
-                <p className="text-[10px] text-amber-600 mt-1">{formatCurrency(dashboardData.totalPendientesAmount)}</p>
+                <p className="text-sm text-amber-600 font-medium">{formatCurrency(dashboardData.totalPendientesAmount)}</p>
               </motion.div>
 
-              {/* Pagados */}
+              {/* Pagados / Por Pagar */}
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.3 }}
-                className="bg-white p-4 rounded-xl shadow-sm border border-blue-100 hover:shadow-md transition-shadow"
+                transition={{ delay: 0.25 }}
+                className="bg-white p-4 rounded-xl shadow-sm border"
               >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <CreditCard className="w-5 h-5 text-blue-600" />
-                  </div>
+                <div className="flex gap-4">
                   <div className="flex-1">
-                    <p className="text-xs text-gray-500 font-medium">Pagados</p>
-                    <p className="text-xl font-bold text-blue-700">{contadores.pagados}</p>
+                    <div className="flex items-center gap-2 mb-1">
+                      <CreditCard className="w-4 h-4 text-blue-500" />
+                      <p className="text-xs text-gray-500 font-medium">Pagados</p>
+                    </div>
+                    <p className="text-lg font-bold text-blue-700">{contadores.pagados}</p>
+                    <p className="text-xs text-blue-600">{formatCurrency(dashboardData.totalPagadosAmount)}</p>
                   </div>
-                </div>
-                <div className="mt-2 h-1.5 bg-blue-100 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(contadores.pagados / Math.max(totales.cantidad, 1)) * 100}%` }}
-                    transition={{ delay: 0.7, duration: 0.8 }}
-                    className="h-full bg-blue-500 rounded-full"
-                  />
-                </div>
-                <p className="text-[10px] text-blue-600 mt-1">{formatCurrency(dashboardData.totalPagadosAmount)}</p>
-              </motion.div>
-
-              {/* Por Pagar */}
-              <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.35 }}
-                className="bg-white p-4 rounded-xl shadow-sm border border-rose-100 hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-rose-100 rounded-lg">
-                    <Wallet className="w-5 h-5 text-rose-600" />
-                  </div>
+                  <div className="w-px bg-gray-200"></div>
                   <div className="flex-1">
-                    <p className="text-xs text-gray-500 font-medium">Por Pagar</p>
-                    <p className="text-xl font-bold text-rose-700">{dashboardData.porPago.pendientes.length}</p>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Wallet className="w-4 h-4 text-rose-500" />
+                      <p className="text-xs text-gray-500 font-medium">Por Pagar</p>
+                    </div>
+                    <p className="text-lg font-bold text-rose-700">{dashboardData.porPago.pendientes.length}</p>
+                    <p className="text-xs text-rose-600">{formatCurrency(dashboardData.totalPorPagarAmount)}</p>
                   </div>
                 </div>
-                <div className="mt-2 h-1.5 bg-rose-100 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(dashboardData.porPago.pendientes.length / Math.max(totales.cantidad, 1)) * 100}%` }}
-                    transition={{ delay: 0.8, duration: 0.8 }}
-                    className="h-full bg-rose-500 rounded-full"
-                  />
-                </div>
-                <p className="text-[10px] text-rose-600 mt-1">{formatCurrency(dashboardData.totalPorPagarAmount)}</p>
               </motion.div>
             </div>
 
-            {/* Gráficas Fila 1 */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+            {/* Gráficas mejoradas */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* Distribución por Cuenta */}
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.4 }}
-                className="bg-white p-5 rounded-xl shadow-sm border lg:col-span-2"
+                className="bg-white p-4 rounded-xl shadow-sm border"
               >
-                <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
                   <PieChart className="w-4 h-4 text-teal-600" />
-                  Distribución por Cuenta
+                  Por Cuenta
                 </h3>
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {Object.entries(dashboardData.porCuenta)
                     .sort((a, b) => b[1].total - a[1].total)
-                    .slice(0, 6)
+                    .slice(0, 5)
                     .map(([cuenta, data], index) => {
                       const maxTotal = Math.max(...Object.values(dashboardData.porCuenta).map(d => d.total));
                       const percentage = maxTotal > 0 ? (data.total / maxTotal) * 100 : 0;
                       return (
                         <div key={cuenta}>
                           <div className="flex justify-between items-center mb-1">
-                            <span className="text-xs font-medium text-gray-700 truncate max-w-[200px]">{cuenta}</span>
+                            <span className="text-xs font-medium text-gray-700 truncate max-w-[150px]">{cuenta}</span>
                             <span className="text-xs font-bold text-gray-900">{formatCurrency(data.total)}</span>
                           </div>
-                          <div className="relative h-6 bg-gray-100 rounded-lg overflow-hidden">
+                          <div className="relative h-4 bg-gray-100 rounded-full overflow-hidden">
                             <motion.div
                               initial={{ width: 0 }}
                               animate={{ width: `${percentage}%` }}
-                              transition={{ delay: 0.5 + index * 0.1, duration: 0.8 }}
-                              className="h-full rounded-lg flex items-center justify-end pr-2"
+                              transition={{ delay: 0.4 + index * 0.05, duration: 0.6 }}
+                              className="h-full rounded-full"
                               style={{ backgroundColor: MINT_COLORS[index % MINT_COLORS.length] }}
-                            >
-                              {percentage > 20 && (
-                                <span className="text-[10px] font-bold text-white">{data.count} reg</span>
-                              )}
-                            </motion.div>
+                            />
                           </div>
                         </div>
                       );
@@ -731,123 +998,94 @@ export const GastosNoImpactadosPage = () => {
                 </div>
               </motion.div>
 
-              {/* Top Proveedores */}
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.5 }}
-                className="bg-white p-5 rounded-xl shadow-sm border"
-              >
-                <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                  <Building className="w-4 h-4 text-violet-600" />
-                  Top 5 Proveedores
-                </h3>
-                <div className="space-y-3">
-                  {dashboardData.topProveedores.map(([prov, total], index) => (
-                    <motion.div
-                      key={prov}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.6 + index * 0.1 }}
-                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-teal-50 transition-colors"
-                    >
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white font-bold text-sm">
-                        {index + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{prov}</p>
-                        <p className="text-xs text-gray-500">{formatCurrency(total)}</p>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </motion.div>
-            </div>
-
-            {/* Gráficas Fila 2: Formas de Pago y Tendencia Mensual */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Por Forma de Pago */}
+              {/* Gráfica por Mes - NUEVA */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6 }}
-                className="bg-white p-5 rounded-xl shadow-sm border"
+                transition={{ delay: 0.5 }}
+                className="bg-white p-4 rounded-xl shadow-sm border"
               >
-                <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                  <Banknote className="w-4 h-4 text-blue-600" />
-                  Gastos por Forma de Pago
+                <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-violet-600" />
+                  Gastos por Mes
                 </h3>
-                <div className="space-y-3">
+                <div className="space-y-2">
+                  {(() => {
+                    const mesesOrdenados = Object.entries(dashboardData.porMes)
+                      .sort((a, b) => a[0].localeCompare(b[0]))
+                      .slice(-6);
+                    const maxMes = Math.max(...mesesOrdenados.map(([, total]) => total), 1);
+                    const mesesLabels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+                    return mesesOrdenados.map(([mes, total], index) => {
+                      const [anio, mesNum] = mes.split('-');
+                      const mesLabel = mesesLabels[parseInt(mesNum) - 1] || mes;
+                      const percentage = (total / maxMes) * 100;
+                      return (
+                        <div key={mes}>
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-xs font-medium text-gray-700">{mesLabel} {anio.slice(-2)}</span>
+                            <span className="text-xs font-bold text-gray-900">{formatCurrency(total)}</span>
+                          </div>
+                          <div className="relative h-4 bg-gray-100 rounded-full overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${percentage}%` }}
+                              transition={{ delay: 0.5 + index * 0.05, duration: 0.6 }}
+                              className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-500"
+                            />
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </motion.div>
+
+              {/* Por Forma de Pago - Mejorado */}
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.6 }}
+                className="bg-white p-4 rounded-xl shadow-sm border"
+              >
+                <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                  <Banknote className="w-4 h-4 text-blue-600" />
+                  Por Forma de Pago
+                </h3>
+                <div className="space-y-2.5">
                   {Object.entries(dashboardData.porFormaPago)
                     .sort((a, b) => b[1].total - a[1].total)
                     .slice(0, 5)
                     .map(([fp, data], index) => {
                       const maxTotal = Math.max(...Object.values(dashboardData.porFormaPago).map(d => d.total));
                       const percentage = maxTotal > 0 ? (data.total / maxTotal) * 100 : 0;
-                      const colors = ['#3B82F6', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981'];
+                      const bankColor = getFormaPagoColor(fp);
                       return (
                         <div key={fp}>
                           <div className="flex justify-between items-center mb-1">
-                            <span className="text-xs font-medium text-gray-700 truncate max-w-[180px]">{fp}</span>
-                            <div className="text-right">
-                              <span className="text-xs font-bold text-gray-900">{formatCurrency(data.total)}</span>
-                              <span className="text-[10px] text-gray-500 ml-2">({data.count})</span>
+                            <div className="flex items-center gap-2">
+                              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: bankColor }} />
+                              <span className="text-xs font-medium text-gray-700 truncate max-w-[100px]">{fp}</span>
                             </div>
+                            <span className="text-xs font-bold text-gray-900">{formatCurrency(data.total)}</span>
                           </div>
-                          <div className="relative h-5 bg-gray-100 rounded-lg overflow-hidden">
+                          <div className="relative h-4 bg-gray-100 rounded-full overflow-hidden">
                             <motion.div
                               initial={{ width: 0 }}
                               animate={{ width: `${percentage}%` }}
-                              transition={{ delay: 0.7 + index * 0.1, duration: 0.8 }}
-                              className="h-full rounded-lg"
-                              style={{ backgroundColor: colors[index % colors.length] }}
+                              transition={{ delay: 0.6 + index * 0.05, duration: 0.6 }}
+                              className="h-full rounded-full"
+                              style={{ backgroundColor: bankColor, opacity: 0.8 }}
                             />
                           </div>
-                        </div>
-                      );
-                    })}
-                </div>
-              </motion.div>
-
-              {/* Tendencia Mensual */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.7 }}
-                className="bg-white p-5 rounded-xl shadow-sm border"
-              >
-                <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-emerald-600" />
-                  Tendencia Mensual 2025
-                </h3>
-                <div className="space-y-2">
-                  {Object.entries(dashboardData.porMes)
-                    .sort((a, b) => a[0].localeCompare(b[0]))
-                    .slice(-6)
-                    .map(([mes, total], index) => {
-                      const maxTotal = Math.max(...Object.values(dashboardData.porMes));
-                      const percentage = maxTotal > 0 ? (total / maxTotal) * 100 : 0;
-                      const [anio, mesNum] = mes.split('-');
-                      const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-                      const mesLabel = mesNum ? `${meses[parseInt(mesNum) - 1]}` : mes;
-                      return (
-                        <div key={mes} className="flex items-center gap-3">
-                          <span className="text-xs font-medium text-gray-500 w-10">{mesLabel}</span>
-                          <div className="flex-1 relative h-6 bg-gray-100 rounded-lg overflow-hidden">
-                            <motion.div
-                              initial={{ width: 0 }}
-                              animate={{ width: `${percentage}%` }}
-                              transition={{ delay: 0.8 + index * 0.1, duration: 0.8 }}
-                              className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-lg"
-                            />
-                          </div>
-                          <span className="text-xs font-bold text-gray-900 w-24 text-right">{formatCurrency(total)}</span>
                         </div>
                       );
                     })}
                 </div>
               </motion.div>
             </div>
+
           </motion.div>
         )}
       </AnimatePresence>
@@ -991,33 +1229,168 @@ export const GastosNoImpactadosPage = () => {
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gradient-to-r from-teal-50 to-teal-100/50 border-b">
-              <tr>
-                <SortableHeader field="fecha_gasto" label="Fecha" className="text-left" />
-                <SortableHeader field="proveedor" label="Proveedor" className="text-left" />
-                <SortableHeader field="concepto" label="Concepto" className="text-left" />
-                <SortableHeader field="clave" label="Clave" className="text-left" />
-                <SortableHeader field="cuenta" label="Cuenta" className="text-left" />
-                <SortableHeader field="subcuenta" label="Subcuenta" className="text-left" />
-                <SortableHeader field="forma_pago" label="F. Pago" className="text-left" />
-                <SortableHeader field="subtotal" label="Subtotal" className="text-right" />
-                <SortableHeader field="iva" label="IVA" className="text-right" />
-                <SortableHeader field="total" label="Total" className="text-right" />
-                <SortableHeader field="validacion" label="Val." className="text-center" />
-                <SortableHeader field="status_pago" label="Pago" className="text-center" />
+            <thead className="bg-gradient-to-r from-teal-50 to-teal-100/50">
+              {/* Fila de headers */}
+              <tr className="border-b">
+                {visibleColumns.fecha_gasto && <SortableHeader field="fecha_gasto" label="Fecha" className="text-left" />}
+                {visibleColumns.proveedor && <SortableHeader field="proveedor" label="Proveedor" className="text-left" />}
+                {visibleColumns.concepto && <SortableHeader field="concepto" label="Concepto" className="text-left" />}
+                {visibleColumns.clave && <SortableHeader field="clave" label="Clave" className="text-left" />}
+                {visibleColumns.cuenta && <SortableHeader field="cuenta" label="Cuenta" className="text-left" />}
+                {visibleColumns.subcuenta && <SortableHeader field="subcuenta" label="Subcuenta" className="text-left" />}
+                {visibleColumns.forma_pago && <SortableHeader field="forma_pago" label="F. Pago" className="text-left" />}
+                {visibleColumns.subtotal && <SortableHeader field="subtotal" label="Subtotal" className="text-right" />}
+                {visibleColumns.iva && <SortableHeader field="iva" label="IVA" className="text-right" />}
+                {visibleColumns.total && <SortableHeader field="total" label="Total" className="text-right" />}
+                {visibleColumns.validacion && <SortableHeader field="validacion" label="Val." className="text-center" />}
+                {visibleColumns.status_pago && <SortableHeader field="status_pago" label="Pago" className="text-center" />}
+                {visibleColumns.ejecutivo && <SortableHeader field="ejecutivo" label="Ejecutivo" className="text-left" />}
+                {visibleColumns.folio_factura && <SortableHeader field="folio_factura" label="Folio" className="text-left" />}
+              </tr>
+              {/* Fila de filtros por columna */}
+              <tr className="border-b bg-gray-50/50">
+                {visibleColumns.fecha_gasto && (
+                  <th className="px-2 py-1.5">
+                    <input
+                      type="text"
+                      placeholder="Filtrar..."
+                      value={columnFilters.fecha_gasto || ''}
+                      onChange={(e) => setColumnFilters({...columnFilters, fecha_gasto: e.target.value})}
+                      className="w-full px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
+                    />
+                  </th>
+                )}
+                {visibleColumns.proveedor && (
+                  <th className="px-2 py-1.5">
+                    <input
+                      type="text"
+                      placeholder="Filtrar..."
+                      value={columnFilters.proveedor || ''}
+                      onChange={(e) => setColumnFilters({...columnFilters, proveedor: e.target.value})}
+                      className="w-full px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
+                    />
+                  </th>
+                )}
+                {visibleColumns.concepto && (
+                  <th className="px-2 py-1.5">
+                    <input
+                      type="text"
+                      placeholder="Filtrar..."
+                      value={columnFilters.concepto || ''}
+                      onChange={(e) => setColumnFilters({...columnFilters, concepto: e.target.value})}
+                      className="w-full px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
+                    />
+                  </th>
+                )}
+                {visibleColumns.clave && (
+                  <th className="px-2 py-1.5">
+                    <input
+                      type="text"
+                      placeholder="Filtrar..."
+                      value={columnFilters.clave || ''}
+                      onChange={(e) => setColumnFilters({...columnFilters, clave: e.target.value})}
+                      className="w-full px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
+                    />
+                  </th>
+                )}
+                {visibleColumns.cuenta && (
+                  <th className="px-2 py-1.5">
+                    <input
+                      type="text"
+                      placeholder="Filtrar..."
+                      value={columnFilters.cuenta || ''}
+                      onChange={(e) => setColumnFilters({...columnFilters, cuenta: e.target.value})}
+                      className="w-full px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
+                    />
+                  </th>
+                )}
+                {visibleColumns.subcuenta && (
+                  <th className="px-2 py-1.5">
+                    <input
+                      type="text"
+                      placeholder="Filtrar..."
+                      value={columnFilters.subcuenta || ''}
+                      onChange={(e) => setColumnFilters({...columnFilters, subcuenta: e.target.value})}
+                      className="w-full px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
+                    />
+                  </th>
+                )}
+                {visibleColumns.forma_pago && (
+                  <th className="px-2 py-1.5">
+                    <input
+                      type="text"
+                      placeholder="Filtrar..."
+                      value={columnFilters.forma_pago || ''}
+                      onChange={(e) => setColumnFilters({...columnFilters, forma_pago: e.target.value})}
+                      className="w-full px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
+                    />
+                  </th>
+                )}
+                {visibleColumns.subtotal && <th className="px-2 py-1.5"></th>}
+                {visibleColumns.iva && <th className="px-2 py-1.5"></th>}
+                {visibleColumns.total && <th className="px-2 py-1.5"></th>}
+                {visibleColumns.validacion && (
+                  <th className="px-2 py-1.5">
+                    <select
+                      value={columnFilters.validacion || ''}
+                      onChange={(e) => setColumnFilters({...columnFilters, validacion: e.target.value})}
+                      className="w-full px-1 py-1 text-[10px] border rounded focus:ring-1 focus:ring-teal-500"
+                    >
+                      <option value="">Todos</option>
+                      <option value="correcto">OK</option>
+                      <option value="pendiente">Pend</option>
+                      <option value="revisar">Rev</option>
+                    </select>
+                  </th>
+                )}
+                {visibleColumns.status_pago && (
+                  <th className="px-2 py-1.5">
+                    <select
+                      value={columnFilters.status_pago || ''}
+                      onChange={(e) => setColumnFilters({...columnFilters, status_pago: e.target.value})}
+                      className="w-full px-1 py-1 text-[10px] border rounded focus:ring-1 focus:ring-teal-500"
+                    >
+                      <option value="">Todos</option>
+                      <option value="pagado">Pag</option>
+                      <option value="pendiente">Pend</option>
+                    </select>
+                  </th>
+                )}
+                {visibleColumns.ejecutivo && (
+                  <th className="px-2 py-1.5">
+                    <input
+                      type="text"
+                      placeholder="Filtrar..."
+                      value={columnFilters.ejecutivo || ''}
+                      onChange={(e) => setColumnFilters({...columnFilters, ejecutivo: e.target.value})}
+                      className="w-full px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
+                    />
+                  </th>
+                )}
+                {visibleColumns.folio_factura && (
+                  <th className="px-2 py-1.5">
+                    <input
+                      type="text"
+                      placeholder="Filtrar..."
+                      value={columnFilters.folio_factura || ''}
+                      onChange={(e) => setColumnFilters({...columnFilters, folio_factura: e.target.value})}
+                      className="w-full px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
+                    />
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={12} className="px-4 py-12 text-center">
+                  <td colSpan={visibleColumnCount} className="px-4 py-12 text-center">
                     <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-3 text-teal-500" />
                     <p className="text-gray-500">Cargando gastos...</p>
                   </td>
                 </tr>
               ) : gastosPaginados.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="px-4 py-12 text-center">
+                  <td colSpan={visibleColumnCount} className="px-4 py-12 text-center">
                     <FileSpreadsheet className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                     <p className="text-gray-500">No hay gastos para mostrar</p>
                     <button
@@ -1038,70 +1411,110 @@ export const GastosNoImpactadosPage = () => {
                     className="hover:bg-teal-50/50 cursor-pointer transition-colors"
                     onClick={() => handleEditGasto(gasto)}
                   >
-                    <td className="px-3 py-2.5 text-sm text-gray-900 whitespace-nowrap">
-                      {formatDate(gasto.fecha_gasto)}
-                    </td>
-                    <td className="px-3 py-2.5 text-sm text-gray-900 max-w-36 truncate font-medium">
-                      {gasto.proveedor || '-'}
-                    </td>
-                    <td className="px-3 py-2.5 text-sm text-gray-600 max-w-40 truncate">
-                      {gasto.concepto}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      {gasto.clave && (
-                        <span className="px-1.5 py-0.5 bg-teal-100 text-teal-700 text-[11px] font-mono rounded">
-                          {gasto.clave}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2.5 text-xs text-gray-600 max-w-28 truncate">
-                      {gasto.cuenta || '-'}
-                    </td>
-                    <td className="px-3 py-2.5 text-xs text-gray-500 max-w-32 truncate">
-                      {gasto.subcuenta || '-'}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      {gasto.forma_pago && (
-                        <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 text-[11px] rounded truncate max-w-24 inline-block">
-                          {gasto.forma_pago}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2.5 text-sm text-right text-gray-900 font-mono">
-                      {formatCurrency(gasto.subtotal || 0)}
-                    </td>
-                    <td className="px-3 py-2.5 text-sm text-right text-gray-500 font-mono">
-                      {formatCurrency(gasto.iva || 0)}
-                    </td>
-                    <td className="px-3 py-2.5 text-sm text-right font-bold text-gray-900 font-mono">
-                      {formatCurrency(gasto.total || 0)}
-                    </td>
-                    <td className="px-3 py-2.5 text-center">
-                      {gasto.validacion === 'correcto' ? (
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100" title="Correcto">
-                          <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-                        </span>
-                      ) : gasto.validacion === 'revisar' ? (
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-100" title="Revisar">
-                          <AlertCircle className="w-3.5 h-3.5 text-red-600" />
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100" title="Pendiente">
-                          <Clock className="w-3.5 h-3.5 text-amber-600" />
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2.5 text-center">
-                      {gasto.status_pago === 'pagado' ? (
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100" title="Pagado">
-                          <CreditCard className="w-3.5 h-3.5 text-blue-600" />
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100" title="Pendiente">
-                          <Wallet className="w-3.5 h-3.5 text-gray-400" />
-                        </span>
-                      )}
-                    </td>
+                    {visibleColumns.fecha_gasto && (
+                      <td className="px-3 py-2.5 text-sm text-gray-900 whitespace-nowrap">
+                        {formatDate(gasto.fecha_gasto)}
+                      </td>
+                    )}
+                    {visibleColumns.proveedor && (
+                      <td className="px-3 py-2.5 text-sm text-gray-900 max-w-36 truncate font-medium">
+                        {gasto.proveedor || '-'}
+                      </td>
+                    )}
+                    {visibleColumns.concepto && (
+                      <td className="px-3 py-2.5 text-sm text-gray-600 max-w-40 truncate">
+                        {gasto.concepto}
+                      </td>
+                    )}
+                    {visibleColumns.clave && (
+                      <td className="px-3 py-2.5">
+                        {gasto.clave && (
+                          <span className="px-1.5 py-0.5 bg-teal-100 text-teal-700 text-[11px] font-mono rounded">
+                            {gasto.clave}
+                          </span>
+                        )}
+                      </td>
+                    )}
+                    {visibleColumns.cuenta && (
+                      <td className="px-3 py-2.5 text-xs text-gray-600 max-w-28 truncate">
+                        {gasto.cuenta || '-'}
+                      </td>
+                    )}
+                    {visibleColumns.subcuenta && (
+                      <td className="px-3 py-2.5 text-xs text-gray-500 max-w-32 truncate">
+                        {gasto.subcuenta || '-'}
+                      </td>
+                    )}
+                    {visibleColumns.forma_pago && (
+                      <td className="px-3 py-2.5">
+                        {gasto.forma_pago && (
+                          <div className="flex items-center gap-1.5">
+                            <div
+                              className="w-2 h-2 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: getFormaPagoColor(gasto.forma_pago) }}
+                            />
+                            <span className="text-xs text-gray-700 truncate max-w-24">
+                              {gasto.forma_pago}
+                            </span>
+                          </div>
+                        )}
+                      </td>
+                    )}
+                    {visibleColumns.subtotal && (
+                      <td className="px-3 py-2.5 text-sm text-right text-gray-900 font-mono">
+                        {formatCurrency(gasto.subtotal || 0)}
+                      </td>
+                    )}
+                    {visibleColumns.iva && (
+                      <td className="px-3 py-2.5 text-sm text-right text-gray-500 font-mono">
+                        {formatCurrency(gasto.iva || 0)}
+                      </td>
+                    )}
+                    {visibleColumns.total && (
+                      <td className="px-3 py-2.5 text-sm text-right font-bold text-gray-900 font-mono">
+                        {formatCurrency(gasto.total || 0)}
+                      </td>
+                    )}
+                    {visibleColumns.validacion && (
+                      <td className="px-3 py-2.5 text-center">
+                        {gasto.validacion === 'correcto' ? (
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100" title="Correcto">
+                            <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                          </span>
+                        ) : gasto.validacion === 'revisar' ? (
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-100" title="Revisar">
+                            <AlertCircle className="w-3.5 h-3.5 text-red-600" />
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100" title="Pendiente">
+                            <Clock className="w-3.5 h-3.5 text-amber-600" />
+                          </span>
+                        )}
+                      </td>
+                    )}
+                    {visibleColumns.status_pago && (
+                      <td className="px-3 py-2.5 text-center">
+                        {gasto.status_pago === 'pagado' ? (
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100" title="Pagado">
+                            <CreditCard className="w-3.5 h-3.5 text-blue-600" />
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100" title="Pendiente">
+                            <Wallet className="w-3.5 h-3.5 text-gray-400" />
+                          </span>
+                        )}
+                      </td>
+                    )}
+                    {visibleColumns.ejecutivo && (
+                      <td className="px-3 py-2.5 text-sm text-gray-600 max-w-28 truncate">
+                        {gasto.ejecutivo || '-'}
+                      </td>
+                    )}
+                    {visibleColumns.folio_factura && (
+                      <td className="px-3 py-2.5 text-sm text-gray-600 max-w-24 truncate">
+                        {gasto.folio_factura || '-'}
+                      </td>
+                    )}
                   </motion.tr>
                 ))
               )}
@@ -1109,19 +1522,28 @@ export const GastosNoImpactadosPage = () => {
             {gastosFiltrados.length > 0 && (
               <tfoot className="bg-gradient-to-r from-teal-50 to-teal-100/50 border-t-2 border-teal-200">
                 <tr>
-                  <td colSpan={7} className="px-4 py-3 text-sm font-semibold text-teal-800">
+                  <td
+                    colSpan={[visibleColumns.fecha_gasto, visibleColumns.proveedor, visibleColumns.concepto, visibleColumns.clave, visibleColumns.cuenta, visibleColumns.subcuenta, visibleColumns.forma_pago].filter(Boolean).length}
+                    className="px-4 py-3 text-sm font-semibold text-teal-800"
+                  >
                     Total ({totales.cantidad} registros)
                   </td>
-                  <td className="px-4 py-3 text-sm text-right font-bold text-teal-900 font-mono">
-                    {formatCurrency(totales.subtotal)}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-right font-semibold text-teal-700 font-mono">
-                    {formatCurrency(totales.iva)}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-right font-bold text-teal-900 font-mono text-lg">
-                    {formatCurrency(totales.total)}
-                  </td>
-                  <td colSpan={2}></td>
+                  {visibleColumns.subtotal && (
+                    <td className="px-4 py-3 text-sm text-right font-bold text-teal-900 font-mono">
+                      {formatCurrency(totales.subtotal)}
+                    </td>
+                  )}
+                  {visibleColumns.iva && (
+                    <td className="px-4 py-3 text-sm text-right font-semibold text-teal-700 font-mono">
+                      {formatCurrency(totales.iva)}
+                    </td>
+                  )}
+                  {visibleColumns.total && (
+                    <td className="px-4 py-3 text-sm text-right font-bold text-teal-900 font-mono text-lg">
+                      {formatCurrency(totales.total)}
+                    </td>
+                  )}
+                  <td colSpan={[visibleColumns.validacion, visibleColumns.status_pago, visibleColumns.ejecutivo, visibleColumns.folio_factura].filter(Boolean).length}></td>
                 </tr>
               </tfoot>
             )}
@@ -1207,6 +1629,173 @@ export const GastosNoImpactadosPage = () => {
         />
       )}
 
+      {/* Modal de Ayuda */}
+      <AnimatePresence>
+        {showHelp && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={(e) => e.target === e.currentTarget && setShowHelp(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden"
+            >
+              <div className="bg-gradient-to-r from-teal-500 to-teal-600 px-6 py-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <HelpCircle className="w-5 h-5" />
+                  Guía de Uso - Gastos No Impactados
+                </h2>
+                <button onClick={() => setShowHelp(false)} className="text-white/80 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 overflow-y-auto max-h-[calc(80vh-80px)] space-y-6">
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                    <Plus className="w-4 h-4 text-teal-600" />
+                    Crear Nuevo Gasto
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    Click en el botón <span className="font-medium text-teal-600">"Nuevo Gasto"</span> para registrar un gasto operativo.
+                    Complete: proveedor, concepto, clave de gasto, montos y estado.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                    <Upload className="w-4 h-4 text-teal-600" />
+                    Importar desde Excel
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    Use <span className="font-medium">"Importar"</span> para cargar gastos masivamente desde Excel.
+                    El archivo debe contener columnas: PROVEEDOR, CONCEPTO, CLAVE, SUBTOTAL, IVA, TOTAL, etc.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                    <Settings className="w-4 h-4 text-teal-600" />
+                    Administrar Catálogos
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    En <span className="font-medium">"Catálogos"</span> puede gestionar: Claves de Gasto, Ejecutivos, Proveedores y Formas de Pago.
+                    Cada catálogo tiene vista de listado y vista de tarjetas.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                    <Columns className="w-4 h-4 text-teal-600" />
+                    Configurar Columnas
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    Click en el icono de columnas para mostrar/ocultar columnas del listado según sus necesidades.
+                    Puede elegir vista mínima o mostrar todas las columnas.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                    <Table2 className="w-4 h-4 text-teal-600" />
+                    Generar Reporte
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    El botón <span className="font-medium text-blue-600">"Reporte"</span> genera un Excel consolidado por período
+                    con totales mensuales, presupuesto y variación presupuestaria por clave de gasto.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                    <Filter className="w-4 h-4 text-teal-600" />
+                    Filtros y Búsqueda
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    Use la barra de búsqueda para encontrar gastos por proveedor, concepto o clave.
+                    Active "Filtros" para filtrar por cuenta, forma de pago, validación, status y ejecutivo.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-teal-600" />
+                    Dashboard
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    Toggle <span className="font-medium">"Dashboard"</span> para ver KPIs, gráficas de distribución por cuenta,
+                    top proveedores, gastos por forma de pago y tendencia mensual.
+                  </p>
+                </div>
+                <div className="pt-4 border-t">
+                  <p className="text-xs text-gray-500">
+                    <strong>Tip:</strong> Haga click en cualquier fila del listado para editar el gasto.
+                    Las columnas son ordenables haciendo click en el encabezado.
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Reporte por Período */}
+      <AnimatePresence>
+        {showReportModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={(e) => e.target === e.currentTarget && setShowReportModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-xl shadow-xl max-w-md w-full"
+            >
+              <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-4 flex items-center justify-between rounded-t-xl">
+                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <Table2 className="w-5 h-5" />
+                  Generar Reporte Consolidado
+                </h2>
+                <button onClick={() => setShowReportModal(false)} className="text-white/80 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6">
+                <p className="text-sm text-gray-600 mb-4">
+                  Este reporte genera un Excel con el consolidado anual de gastos agrupados por clave,
+                  mostrando totales por mes, presupuesto y variación presupuestaria.
+                </p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-blue-800">
+                    <strong>Año seleccionado:</strong> {(filtros.periodo || getPeriodoActual()).split('-')[0]}
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    Se incluirán todos los gastos del año con las claves del catálogo.
+                  </p>
+                </div>
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => setShowReportModal(false)}
+                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleExportReportePeriodo}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                  >
+                    <FileSpreadsheet className="w-4 h-4" />
+                    Generar Excel
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Modal CRUD de Catálogos */}
       <AnimatePresence>
         {catalogoActivo && (
@@ -1255,6 +1844,7 @@ const CatalogoCRUDModal: React.FC<CatalogoCRUDModalProps> = ({
   const [editItem, setEditItem] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<any>({});
+  const [viewMode, setViewMode] = useState<'list' | 'cards'>('list'); // Vista listado por default
 
   const resetForm = () => {
     setFormData({});
@@ -1369,6 +1959,23 @@ const CatalogoCRUDModal: React.FC<CatalogoCRUDModalProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Toggle Vista */}
+            <div className="flex bg-gray-100 rounded-lg p-0.5">
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-white shadow text-teal-600' : 'text-gray-500 hover:text-gray-700'}`}
+                title="Vista listado"
+              >
+                <LayoutList className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('cards')}
+                className={`p-2 rounded-md transition-all ${viewMode === 'cards' ? 'bg-white shadow text-teal-600' : 'text-gray-500 hover:text-gray-700'}`}
+                title="Vista tarjetas"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+            </div>
             <button
               onClick={() => { resetForm(); setShowForm(true); }}
               className="px-4 py-2 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-lg hover:from-teal-600 hover:to-teal-700 flex items-center gap-2 shadow-lg"
@@ -1627,7 +2234,124 @@ const CatalogoCRUDModal: React.FC<CatalogoCRUDModalProps> = ({
             </motion.div>
           ) : (
             <>
-              {tipo === 'claves' && (
+              {/* ========== VISTA LISTADO (TABLA) ========== */}
+              {viewMode === 'list' && (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b">
+                      <tr>
+                        {tipo === 'claves' && (
+                          <>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Clave</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Cuenta</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Subcuenta</th>
+                            <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Presupuesto</th>
+                            <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Acciones</th>
+                          </>
+                        )}
+                        {tipo === 'ejecutivos' && (
+                          <>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Nombre</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Departamento</th>
+                            <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Estado</th>
+                            <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Acciones</th>
+                          </>
+                        )}
+                        {tipo === 'proveedores' && (
+                          <>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">RFC</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Razón Social</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Nombre Comercial</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Teléfono</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Email</th>
+                            <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Acciones</th>
+                          </>
+                        )}
+                        {tipo === 'formasPago' && (
+                          <>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Nombre</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Tipo</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Banco</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Descripción</th>
+                            <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Acciones</th>
+                          </>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {tipo === 'claves' && filteredItems.map((clave: ClaveGasto) => (
+                        <tr key={clave.id} className="hover:bg-teal-50/50 cursor-pointer" onClick={() => handleEdit(clave)}>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-1 bg-teal-100 text-teal-700 font-mono text-xs rounded">{clave.clave}</span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{clave.cuenta}</td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{clave.subcuenta}</td>
+                          <td className="px-4 py-3 text-sm text-right font-mono text-gray-700">
+                            {clave.presupuesto_anual > 0 ? `$${clave.presupuesto_anual.toLocaleString()}` : '-'}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <button className="p-1 hover:bg-teal-100 rounded"><Edit className="w-4 h-4 text-teal-600" /></button>
+                          </td>
+                        </tr>
+                      ))}
+                      {tipo === 'ejecutivos' && filteredItems.map((ej: Ejecutivo) => (
+                        <tr key={ej.id} className="hover:bg-emerald-50/50 cursor-pointer" onClick={() => handleEdit(ej)}>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{ej.nombre}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{ej.departamento || '-'}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`px-2 py-1 text-xs rounded-full ${ej.activo ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                              {ej.activo ? 'Activo' : 'Inactivo'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <button className="p-1 hover:bg-emerald-100 rounded"><Edit className="w-4 h-4 text-emerald-600" /></button>
+                          </td>
+                        </tr>
+                      ))}
+                      {tipo === 'proveedores' && filteredItems.map((prov: Proveedor) => (
+                        <tr key={prov.id} className="hover:bg-violet-50/50 cursor-pointer" onClick={() => handleEdit(prov)}>
+                          <td className="px-4 py-3">
+                            <span className="font-mono text-xs text-gray-600">{prov.rfc || '-'}</span>
+                          </td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{prov.razon_social}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{prov.nombre_comercial || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{prov.telefono || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{prov.email || '-'}</td>
+                          <td className="px-4 py-3 text-center">
+                            <button className="p-1 hover:bg-violet-100 rounded"><Edit className="w-4 h-4 text-violet-600" /></button>
+                          </td>
+                        </tr>
+                      ))}
+                      {tipo === 'formasPago' && filteredItems.map((fp: FormaPago) => (
+                        <tr key={fp.id} className="hover:bg-blue-50/50 cursor-pointer" onClick={() => handleEdit(fp)}>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{fp.nombre}</td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-1 text-xs rounded-full capitalize ${
+                              fp.tipo === 'transferencia' ? 'bg-blue-100 text-blue-700' :
+                              fp.tipo === 'tarjeta' ? 'bg-purple-100 text-purple-700' :
+                              fp.tipo === 'efectivo' ? 'bg-green-100 text-green-700' :
+                              'bg-orange-100 text-orange-700'
+                            }`}>
+                              {fp.tipo || 'Transferencia'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{fp.banco || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500">{fp.descripcion || '-'}</td>
+                          <td className="px-4 py-3 text-center">
+                            <button className="p-1 hover:bg-blue-100 rounded"><Edit className="w-4 h-4 text-blue-600" /></button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {filteredItems.length === 0 && (
+                    <div className="text-center py-8 text-gray-500">No se encontraron registros</div>
+                  )}
+                </div>
+              )}
+
+              {/* ========== VISTA TARJETAS ========== */}
+              {viewMode === 'cards' && tipo === 'claves' && (
                 <div className="space-y-2">
                   {filteredItems.map((clave: ClaveGasto) => (
                     <motion.div
@@ -1659,7 +2383,7 @@ const CatalogoCRUDModal: React.FC<CatalogoCRUDModalProps> = ({
                 </div>
               )}
 
-              {tipo === 'ejecutivos' && (
+              {viewMode === 'cards' && tipo === 'ejecutivos' && (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                   {filteredItems.map((ej: Ejecutivo) => (
                     <motion.div
@@ -1688,7 +2412,7 @@ const CatalogoCRUDModal: React.FC<CatalogoCRUDModalProps> = ({
                 </div>
               )}
 
-              {tipo === 'proveedores' && (
+              {viewMode === 'cards' && tipo === 'proveedores' && (
                 <div className="space-y-2">
                   {filteredItems.slice(0, 50).map((prov: Proveedor) => (
                     <motion.div
@@ -1725,7 +2449,7 @@ const CatalogoCRUDModal: React.FC<CatalogoCRUDModalProps> = ({
                 </div>
               )}
 
-              {tipo === 'formasPago' && (
+              {viewMode === 'cards' && tipo === 'formasPago' && (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {filteredItems.map((fp: FormaPago) => {
                     const tipoColors: Record<string, string> = {

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { DollarSign, FileText, Calculator, Loader2, AlertTriangle, Calendar, Bot, Zap, Upload, UserCheck } from 'lucide-react';
+import { DollarSign, FileText, Calculator, Loader2, AlertTriangle, Calendar, Bot, Zap, Upload, UserCheck, X, Save } from 'lucide-react';
 import { Button } from '../../../../shared/components/ui/Button';
 import { FileUpload } from '../../../../shared/components/ui/FileUpload';
 import { useFileUpload } from '../../hooks/useFileUpload';
@@ -473,13 +473,24 @@ export const IncomeForm: React.FC<IncomeFormProps> = ({
   };
 
   return (
-    <div className={`bg-green-50 border border-green-200 rounded-lg p-6 ${className}`}>
-      <h3 className="text-lg font-medium text-green-900 mb-6 flex items-center">
-        <DollarSign className="w-5 h-5 mr-2" />
-        {income ? 'Editar Ingreso' : 'Nuevo Ingreso'}
-      </h3>
+    <div className={`bg-green-50 border border-green-200 rounded-lg ${className}`}>
+      {/* Header con botón de cerrar */}
+      <div className="flex items-center justify-between p-4 border-b border-green-200 bg-green-100 rounded-t-lg">
+        <h3 className="text-lg font-medium text-green-900 flex items-center">
+          <DollarSign className="w-5 h-5 mr-2" />
+          {income ? 'Editar Ingreso' : 'Nuevo Ingreso'}
+        </h3>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="p-2 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+          title="Cerrar"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto">
         {/* 📎 SECCIÓN DE ARCHIVOS - SISTEMA DUAL XML + PDF (SOLO FACTURAS) */}
         <div className="mb-6 space-y-3">
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1269,23 +1280,24 @@ export const IncomeForm: React.FC<IncomeFormProps> = ({
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex justify-end space-x-3 pt-4 border-t">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onCancel}
-            disabled={isSubmitting || isUploading}
-          >
-            Cancelar
-          </Button>
+        {/* Botón de Guardar - Sticky al fondo */}
+        <div className="sticky bottom-0 bg-green-50 pt-4 pb-2 border-t border-green-200 -mx-6 px-6">
           <Button
             type="submit"
             disabled={isSubmitting || isUploading}
-            className="bg-green-500 hover:bg-green-600"
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 rounded-lg shadow-lg flex items-center justify-center gap-2"
           >
-            {(isSubmitting || isUploading) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            {income ? 'Actualizar' : 'Crear'} Ingreso
+            {(isSubmitting || isUploading) ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Guardando...
+              </>
+            ) : (
+              <>
+                <Save className="w-5 h-5" />
+                {income ? 'Actualizar Ingreso' : 'Guardar Ingreso'}
+              </>
+            )}
           </Button>
         </div>
       </form>

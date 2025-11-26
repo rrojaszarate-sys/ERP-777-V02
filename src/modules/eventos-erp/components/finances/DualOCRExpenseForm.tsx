@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  TrendingDown, 
-  Calculator, 
-  Loader2, 
+import {
+  TrendingDown,
+  Calculator,
+  Loader2,
   Camera,
   CheckCircle,
   AlertTriangle,
@@ -11,7 +11,8 @@ import {
   ExternalLink,
   X,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Save
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '../../../../shared/components/ui/Button';
@@ -2478,20 +2479,31 @@ export const DualOCRExpenseForm: React.FC<DualOCRExpenseFormProps> = ({
   };
 
   return (
-    <div className={`bg-white rounded-xl shadow-lg border border-gray-200 p-6 max-w-7xl mx-auto ${className}`}>
-      <div className="flex items-center justify-between mb-6">
+    <div className={`bg-white rounded-xl shadow-lg border border-gray-200 max-w-7xl mx-auto ${className}`}>
+      {/* Header con botón de cerrar */}
+      <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-red-50 rounded-t-xl">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-red-100 rounded-lg">
             <TrendingDown className="w-6 h-6 text-red-600" />
           </div>
           <div>
             <h2 className="text-xl font-semibold text-gray-900">
-              {expense ? 'Editar Gasto' : 'Nuevo Gasto con OCR Dual'}
+              {expense ? 'Editar Gasto' : 'Nuevo Gasto con OCR'}
             </h2>
-            <p className="text-gray-600">🔥 Solo datos reales de tu imagen - Sin simulaciones</p>
+            <p className="text-sm text-gray-600">Extracción automática de datos</p>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="p-2 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-100 transition-colors"
+          title="Cerrar"
+        >
+          <X className="w-5 h-5" />
+        </button>
       </div>
+
+      <div className="p-6 max-h-[calc(100vh-200px)] overflow-y-auto">
 
       {/* ✅ OCR TRADICIONAL: Sistema optimizado sin IA externa */}
       <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200">
@@ -3228,34 +3240,28 @@ export const DualOCRExpenseForm: React.FC<DualOCRExpenseFormProps> = ({
           </div>
         </div>
 
-        {/* Botones */}
-        <div className="flex gap-4">
+        {/* Botón de Guardar - Sticky al fondo */}
+        <div className="sticky bottom-0 bg-white pt-4 pb-2 border-t border-gray-200 -mx-6 px-6">
           <Button
             type="submit"
             disabled={isSubmitting}
-            className="flex-1 bg-red-600 hover:bg-red-700"
+            className="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-3 rounded-lg shadow-lg flex items-center justify-center gap-2"
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                <Loader2 className="w-5 h-5 animate-spin" />
                 Guardando...
               </>
             ) : (
-              `${expense ? 'Actualizar' : 'Guardar'} Gasto`
+              <>
+                <Save className="w-5 h-5" />
+                {expense ? 'Actualizar Gasto' : 'Guardar Gasto'}
+              </>
             )}
-          </Button>
-          
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onCancel}
-            disabled={isSubmitting}
-            className="px-6"
-          >
-            Cancelar
           </Button>
         </div>
       </form>
+      </div>
     </div>
   );
 };
