@@ -4,9 +4,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Settings, Plus, Edit, Trash2, X, Save, FolderOpen,
   Tag, Workflow, DollarSign, Building2, Check, Search,
-  AlertCircle, RefreshCw, GripVertical
+  AlertCircle, RefreshCw, GripVertical, ChevronDown, ChevronRight,
+  Package, Users, Briefcase, FileText, Layers, CreditCard,
+  BookOpen, ClipboardList, Target, Clock, Star, Calculator
 } from 'lucide-react';
-import { catalogosService, CatalogoTipo, ItemCatalogo } from '../services/catalogosService';
+import {
+  catalogosService,
+  CatalogoTipo,
+  ItemCatalogo,
+  catalogosInfo,
+  catalogosPorModulo
+} from '../services/catalogosService';
 import toast from 'react-hot-toast';
 
 export const CatalogosAdminPage: React.FC = () => {
@@ -17,6 +25,8 @@ export const CatalogosAdminPage: React.FC = () => {
 
   const queryClient = useQueryClient();
 
+  const [expandedModules, setExpandedModules] = useState<string[]>(['eventos']);
+
   const coloresDisponibles = [
     { value: '#3B82F6', label: 'Azul' },
     { value: '#10B981', label: 'Verde' },
@@ -25,39 +35,31 @@ export const CatalogosAdminPage: React.FC = () => {
     { value: '#8B5CF6', label: 'Violeta' },
     { value: '#EC4899', label: 'Rosa' },
     { value: '#06B6D4', label: 'Cyan' },
-    { value: '#6B7280', label: 'Gris' }
+    { value: '#6B7280', label: 'Gris' },
+    { value: '#14B8A6', label: 'Teal' },
+    { value: '#F97316', label: 'Naranja' },
+    { value: '#84CC16', label: 'Lima' },
+    { value: '#A855F7', label: 'Púrpura' }
   ];
 
-  const catalogos = [
-    {
-      tipo: 'estados_workflow' as CatalogoTipo,
-      nombre: 'Estados de Workflow',
-      descripcion: 'Estados del flujo de trabajo de eventos',
-      icon: Workflow,
-      color: 'blue'
-    },
-    {
-      tipo: 'tipos_eventos' as CatalogoTipo,
-      nombre: 'Tipos de Eventos',
-      descripcion: 'Categorías de eventos que se pueden gestionar',
-      icon: Tag,
-      color: 'green'
-    },
-    {
-      tipo: 'categorias_gastos' as CatalogoTipo,
-      nombre: 'Categorías de Gastos',
-      descripcion: 'Clasificación de gastos y costos',
-      icon: DollarSign,
-      color: 'yellow'
-    },
-    {
-      tipo: 'departamentos' as CatalogoTipo,
-      nombre: 'Departamentos',
-      descripcion: 'Áreas organizacionales de la empresa',
-      icon: Building2,
-      color: 'purple'
-    }
-  ];
+  // Información de módulos para la navegación
+  const modulosInfo: Record<string, { nombre: string; icono: React.ReactNode; color: string }> = {
+    eventos: { nombre: 'Eventos', icono: <Tag className="w-5 h-5" />, color: 'blue' },
+    general: { nombre: 'General', icono: <Building2 className="w-5 h-5" />, color: 'purple' },
+    proyectos: { nombre: 'Proyectos', icono: <Briefcase className="w-5 h-5" />, color: 'orange' },
+    nomina: { nombre: 'Nómina', icono: <Users className="w-5 h-5" />, color: 'green' },
+    inventario: { nombre: 'Inventario', icono: <Package className="w-5 h-5" />, color: 'yellow' },
+    proveedores: { nombre: 'Proveedores', icono: <Layers className="w-5 h-5" />, color: 'cyan' },
+    contabilidad: { nombre: 'Contabilidad', icono: <Calculator className="w-5 h-5" />, color: 'emerald' }
+  };
+
+  const toggleModule = (modulo: string) => {
+    setExpandedModules(prev =>
+      prev.includes(modulo)
+        ? prev.filter(m => m !== modulo)
+        : [...prev, modulo]
+    );
+  };
 
   // Query para obtener items del catálogo activo
   const { data: items = [], isLoading, isError, refetch } = useQuery({
@@ -156,11 +158,8 @@ export const CatalogosAdminPage: React.FC = () => {
     }
   };
 
-  const getCatalogoIcon = (tipo: CatalogoTipo) => {
-    const catalogo = catalogos.find(c => c.tipo === tipo);
-    const Icon = catalogo?.icon || FolderOpen;
-    return <Icon className="w-5 h-5" />;
-  };
+  // Obtener información del catálogo activo
+  const catalogoActivoInfo = catalogosInfo[catalogoActivo];
 
   // Filtrar items por búsqueda
   const filteredItems = items.filter((item: ItemCatalogo) =>
@@ -190,58 +189,97 @@ export const CatalogosAdminPage: React.FC = () => {
         </button>
       </div>
 
-      {/* Selector de Catálogo */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {catalogos.map((catalogo) => {
-          const Icon = catalogo.icon;
-          const isActive = catalogoActivo === catalogo.tipo;
-          const count = counts[catalogo.tipo] || 0;
-          return (
-            <motion.div
-              key={catalogo.tipo}
-              whileHover={{ scale: 1.02 }}
-              onClick={() => setCatalogoActivo(catalogo.tipo)}
-              className={`cursor-pointer p-4 rounded-lg border-2 transition-all ${
-                isActive
-                  ? 'border-indigo-500 bg-indigo-50'
-                  : 'border-gray-200 bg-white hover:border-indigo-300'
-              }`}
-            >
-              <div className="flex items-center space-x-3">
-                <div className={`p-2 rounded-lg ${
-                  catalogo.color === 'blue' ? 'bg-blue-100' :
-                  catalogo.color === 'green' ? 'bg-green-100' :
-                  catalogo.color === 'yellow' ? 'bg-yellow-100' :
-                  'bg-purple-100'
-                }`}>
-                  <Icon className={`w-6 h-6 ${
-                    catalogo.color === 'blue' ? 'text-blue-600' :
-                    catalogo.color === 'green' ? 'text-green-600' :
-                    catalogo.color === 'yellow' ? 'text-yellow-600' :
-                    'text-purple-600'
-                  }`} />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900">{catalogo.nombre}</h3>
-                  <p className="text-xs text-gray-500">{count} elementos</p>
-                </div>
+      {/* Selector de Catálogos por Módulo */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Panel lateral de navegación */}
+        <div className="lg:col-span-1 space-y-2">
+          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+            Módulos del Sistema
+          </h3>
+          {Object.entries(catalogosPorModulo).map(([modulo, catalogosTipos]) => {
+            const moduloData = modulosInfo[modulo];
+            const isExpanded = expandedModules.includes(modulo);
+            const tieneActivo = catalogosTipos.includes(catalogoActivo);
+
+            return (
+              <div key={modulo} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                <button
+                  onClick={() => toggleModule(modulo)}
+                  className={`w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors ${
+                    tieneActivo ? 'bg-indigo-50 border-l-4 border-l-indigo-500' : ''
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`p-1.5 rounded-lg bg-${moduloData.color}-100`}>
+                      {moduloData.icono}
+                    </div>
+                    <span className="font-medium text-gray-900">{moduloData.nombre}</span>
+                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                      {catalogosTipos.length}
+                    </span>
+                  </div>
+                  {isExpanded ? (
+                    <ChevronDown className="w-5 h-5 text-gray-400" />
+                  ) : (
+                    <ChevronRight className="w-5 h-5 text-gray-400" />
+                  )}
+                </button>
+
+                {isExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="border-t border-gray-100"
+                  >
+                    {catalogosTipos.map((tipo) => {
+                      const info = catalogosInfo[tipo];
+                      const isActive = catalogoActivo === tipo;
+                      const count = counts[tipo] || 0;
+
+                      return (
+                        <button
+                          key={tipo}
+                          onClick={() => setCatalogoActivo(tipo)}
+                          className={`w-full px-4 py-2.5 flex items-center justify-between text-left transition-colors ${
+                            isActive
+                              ? 'bg-indigo-100 text-indigo-700'
+                              : 'hover:bg-gray-50 text-gray-700'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">{info.icono}</span>
+                            <span className="text-sm">{info.nombre}</span>
+                          </div>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${
+                            isActive ? 'bg-indigo-200 text-indigo-800' : 'bg-gray-100 text-gray-500'
+                          }`}>
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </motion.div>
+                )}
               </div>
-            </motion.div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+
+        {/* Panel principal de contenido */}
+        <div className="lg:col-span-3">
 
       {/* Contenido del Catálogo */}
       <div className="bg-white rounded-lg shadow">
         <div className="p-6 border-b flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            {getCatalogoIcon(catalogoActivo)}
+            <span className="text-3xl">{catalogoActivoInfo?.icono}</span>
             <div>
               <h2 className="text-xl font-bold text-gray-900">
-                {catalogos.find(c => c.tipo === catalogoActivo)?.nombre}
+                {catalogoActivoInfo?.nombre}
               </h2>
               <p className="text-sm text-gray-500">
-                {catalogos.find(c => c.tipo === catalogoActivo)?.descripcion}
+                {catalogoActivoInfo?.descripcion}
               </p>
             </div>
           </div>
@@ -369,6 +407,8 @@ export const CatalogosAdminPage: React.FC = () => {
           )}
         </div>
       </div>
+        </div> {/* Cierre del panel principal lg:col-span-3 */}
+      </div> {/* Cierre del grid */}
 
       {/* Modal de Formulario */}
       {showModal && (
@@ -412,12 +452,9 @@ const CatalogoFormModal: React.FC<{
     onSubmit(formData);
   };
 
-  const catalogoLabels: Record<CatalogoTipo, string> = {
-    estados_workflow: 'Estado de Workflow',
-    tipos_eventos: 'Tipo de Evento',
-    categorias_gastos: 'Categoría de Gasto',
-    departamentos: 'Departamento'
-  };
+  // Obtener información del catálogo actual
+  const catalogoInfo = catalogosInfo[catalogoTipo];
+  const catalogoLabel = catalogoInfo?.nombre || catalogoTipo;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -427,9 +464,12 @@ const CatalogoFormModal: React.FC<{
         className="bg-white rounded-lg shadow-xl max-w-2xl w-full"
       >
         <div className="px-6 py-4 border-b flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">
-            {item ? 'Editar' : 'Nuevo'} {catalogoLabels[catalogoTipo]}
-          </h2>
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">{catalogoInfo?.icono}</span>
+            <h2 className="text-xl font-bold text-gray-900">
+              {item ? 'Editar' : 'Nuevo'} {catalogoLabel}
+            </h2>
+          </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="w-6 h-6" />
           </button>
@@ -502,10 +542,11 @@ const CatalogoFormModal: React.FC<{
             </div>
           </div>
 
-          {catalogoTipo === 'estados_workflow' && (
+          {/* Campo de orden para catálogos que lo requieren */}
+          {catalogoInfo?.campos.includes('orden') && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Orden en el flujo
+                Orden
               </label>
               <input
                 type="number"
@@ -514,7 +555,105 @@ const CatalogoFormModal: React.FC<{
                 onChange={(e) => setFormData({ ...formData, orden: Number(e.target.value) })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
-              <p className="text-xs text-gray-500 mt-1">Define la posición en el workflow (0 = primero)</p>
+              <p className="text-xs text-gray-500 mt-1">Define el orden de aparición (0 = primero)</p>
+            </div>
+          )}
+
+          {/* Campo de código para catálogos que lo requieren */}
+          {catalogoInfo?.campos.includes('codigo') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Código *
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.codigo || ''}
+                onChange={(e) => setFormData({ ...formData, codigo: e.target.value.toUpperCase() })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono"
+                placeholder="CODIGO"
+              />
+            </div>
+          )}
+
+          {/* Campo de banco para cuentas bancarias */}
+          {catalogoInfo?.campos.includes('banco') && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Banco *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.banco || ''}
+                  onChange={(e) => setFormData({ ...formData, banco: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="Nombre del banco"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Número de Cuenta
+                </label>
+                <input
+                  type="text"
+                  value={formData.numero_cuenta || ''}
+                  onChange={(e) => setFormData({ ...formData, numero_cuenta: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono"
+                  placeholder="0000000000"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Campo CLABE para cuentas bancarias */}
+          {catalogoInfo?.campos.includes('clabe') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                CLABE Interbancaria
+              </label>
+              <input
+                type="text"
+                maxLength={18}
+                value={formData.clabe || ''}
+                onChange={(e) => setFormData({ ...formData, clabe: e.target.value.replace(/\D/g, '') })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono"
+                placeholder="18 dígitos"
+              />
+            </div>
+          )}
+
+          {/* Campo de naturaleza para cuentas contables */}
+          {catalogoInfo?.campos.includes('naturaleza') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Naturaleza
+              </label>
+              <select
+                value={formData.naturaleza || 'deudora'}
+                onChange={(e) => setFormData({ ...formData, naturaleza: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              >
+                <option value="deudora">Deudora</option>
+                <option value="acreedora">Acreedora</option>
+              </select>
+            </div>
+          )}
+
+          {/* Campo de es_deduccion para conceptos de nómina */}
+          {catalogoInfo?.campos.includes('es_deduccion') && (
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="es_deduccion"
+                checked={formData.es_deduccion || false}
+                onChange={(e) => setFormData({ ...formData, es_deduccion: e.target.checked })}
+                className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              />
+              <label htmlFor="es_deduccion" className="text-sm font-medium text-gray-700">
+                Es deducción (resta del salario)
+              </label>
             </div>
           )}
 

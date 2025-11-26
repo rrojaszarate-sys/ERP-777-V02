@@ -41,7 +41,7 @@ describe('Suite Completa de Pruebas ERP', () => {
   // ============================================================
   describe('Módulo Contabilidad ERP', () => {
     beforeEach(() => {
-      cy.visit('/contabilidad-erp');
+      cy.visit('/contabilidad');
       cy.wait(1000);
     });
 
@@ -96,7 +96,7 @@ describe('Suite Completa de Pruebas ERP', () => {
   // ============================================================
   describe('Módulo Facturación ERP', () => {
     beforeEach(() => {
-      cy.visit('/facturacion-erp');
+      cy.visit('/facturacion');
       cy.wait(1000);
     });
 
@@ -141,7 +141,7 @@ describe('Suite Completa de Pruebas ERP', () => {
   // ============================================================
   describe('Módulo Inventario ERP', () => {
     beforeEach(() => {
-      cy.visit('/inventario-erp');
+      cy.visit('/inventario');
       cy.wait(1000);
     });
 
@@ -188,7 +188,7 @@ describe('Suite Completa de Pruebas ERP', () => {
   // ============================================================
   describe('Módulo Proveedores ERP', () => {
     beforeEach(() => {
-      cy.visit('/proveedores-erp');
+      cy.visit('/proveedores');
       cy.wait(1000);
     });
 
@@ -228,7 +228,7 @@ describe('Suite Completa de Pruebas ERP', () => {
   // ============================================================
   describe('Módulo Proyectos ERP', () => {
     beforeEach(() => {
-      cy.visit('/proyectos-erp');
+      cy.visit('/proyectos');
       cy.wait(1000);
     });
 
@@ -273,7 +273,7 @@ describe('Suite Completa de Pruebas ERP', () => {
   // ============================================================
   describe('Módulo RRHH ERP', () => {
     beforeEach(() => {
-      cy.visit('/rrhh-erp');
+      cy.visit('/rrhh');
       cy.wait(1000);
     });
 
@@ -307,7 +307,7 @@ describe('Suite Completa de Pruebas ERP', () => {
   // ============================================================
   describe('Módulo Tesorería ERP', () => {
     beforeEach(() => {
-      cy.visit('/tesoreria-erp');
+      cy.visit('/tesoreria');
       cy.wait(1000);
     });
 
@@ -346,7 +346,7 @@ describe('Suite Completa de Pruebas ERP', () => {
   // ============================================================
   describe('Módulo Reportes ERP', () => {
     beforeEach(() => {
-      cy.visit('/reportes-erp');
+      cy.visit('/reportes');
       cy.wait(1000);
     });
 
@@ -373,7 +373,7 @@ describe('Suite Completa de Pruebas ERP', () => {
   // ============================================================
   describe('Módulo CRM/Cotizaciones ERP', () => {
     beforeEach(() => {
-      cy.visit('/cotizaciones-erp');
+      cy.visit('/crm');
       cy.wait(1000);
     });
 
@@ -415,7 +415,7 @@ describe('Suite Completa de Pruebas ERP', () => {
 
     describe('Integración Proveedores-Inventario', () => {
       it('Debe permitir asociar productos a proveedores', () => {
-        cy.visit('/proveedores-erp');
+        cy.visit('/proveedores');
         cy.contains(/catálogo|catalogo/i).click();
         cy.wait(1000);
         // Verificar que la página de catálogo carga productos
@@ -425,7 +425,7 @@ describe('Suite Completa de Pruebas ERP', () => {
 
     describe('Integración Eventos-Contabilidad', () => {
       it('Debe poder generar pólizas desde eventos', () => {
-        cy.visit('/eventos-erp');
+        cy.visit('/eventos');
         cy.wait(1000);
         // Verificar que el módulo de eventos está operativo
         cy.get('body').should('be.visible');
@@ -434,7 +434,7 @@ describe('Suite Completa de Pruebas ERP', () => {
 
     describe('Integración CRM-Proyectos', () => {
       it('Debe permitir convertir oportunidades en proyectos', () => {
-        cy.visit('/cotizaciones-erp');
+        cy.visit('/crm');
         cy.contains(/pipeline|oportunidades/i).click();
         cy.wait(1000);
         cy.get('body').should('be.visible');
@@ -443,9 +443,9 @@ describe('Suite Completa de Pruebas ERP', () => {
 
     describe('Integración Facturación-Tesorería', () => {
       it('Debe reflejar pagos en tesorería', () => {
-        cy.visit('/facturacion-erp');
+        cy.visit('/facturacion');
         cy.wait(500);
-        cy.visit('/tesoreria-erp');
+        cy.visit('/tesoreria');
         cy.wait(500);
         cy.get('body').should('be.visible');
       });
@@ -460,15 +460,15 @@ describe('Suite Completa de Pruebas ERP', () => {
     describe('Sidebar y Navegación', () => {
       it('Debe navegar entre todos los módulos', () => {
         const modules = [
-          '/eventos-erp',
-          '/contabilidad-erp',
-          '/facturacion-erp',
-          '/inventario-erp',
-          '/proveedores-erp',
-          '/proyectos-erp',
-          '/rrhh-erp',
-          '/tesoreria-erp',
-          '/reportes-erp'
+          '/eventos',
+          '/contabilidad',
+          '/facturacion',
+          '/inventario',
+          '/proveedores',
+          '/proyectos',
+          '/rrhh',
+          '/tesoreria',
+          '/reportes'
         ];
 
         modules.forEach(route => {
@@ -489,7 +489,7 @@ describe('Suite Completa de Pruebas ERP', () => {
       viewports.forEach(viewport => {
         it(`Debe funcionar en ${viewport.name} (${viewport.width}x${viewport.height})`, () => {
           cy.viewport(viewport.width, viewport.height);
-          cy.visit('/eventos-erp');
+          cy.visit('/eventos');
           cy.get('body').should('be.visible');
         });
       });
@@ -516,7 +516,7 @@ describe('Suite Completa de Pruebas ERP', () => {
 
     it('Dashboard principal debe cargar en menos de 5 segundos', () => {
       const start = Date.now();
-      cy.visit('/eventos-erp');
+      cy.visit('/eventos');
       cy.get('body').should('be.visible').then(() => {
         const loadTime = Date.now() - start;
         expect(loadTime).to.be.lessThan(5000);
@@ -525,7 +525,7 @@ describe('Suite Completa de Pruebas ERP', () => {
     });
 
     it('Lista de registros debe cargar en menos de 3 segundos', () => {
-      cy.visit('/inventario-erp');
+      cy.visit('/inventario');
       cy.contains(/productos/i).click();
       const start = Date.now();
       cy.wait('@supabaseGet').then(() => {
@@ -543,7 +543,7 @@ describe('Suite Completa de Pruebas ERP', () => {
 
     describe('Validación de Campos Requeridos', () => {
       it('Debe validar campos requeridos en formulario de cliente', () => {
-        cy.visit('/cotizaciones-erp');
+        cy.visit('/crm');
         cy.contains(/clientes/i).click();
         cy.contains(/nuevo|crear|agregar/i).click({ force: true });
         cy.wait(500);
@@ -555,7 +555,7 @@ describe('Suite Completa de Pruebas ERP', () => {
 
     describe('Validación de Formato RFC', () => {
       it('Debe validar formato de RFC', () => {
-        cy.visit('/cotizaciones-erp');
+        cy.visit('/crm');
         cy.contains(/clientes/i).click();
         cy.contains(/nuevo|crear|agregar/i).click({ force: true });
         cy.wait(500);

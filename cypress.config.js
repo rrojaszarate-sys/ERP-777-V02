@@ -3,7 +3,7 @@ import mochawesomeReporter from 'cypress-mochawesome-reporter/plugin.js';
 
 export default defineConfig({
   e2e: {
-    baseUrl: 'http://localhost:5174',
+    baseUrl: 'http://localhost:5175',
     viewportWidth: 1920,
     viewportHeight: 1080,
     video: true,

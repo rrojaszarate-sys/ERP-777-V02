@@ -20,18 +20,18 @@ Cypress.Commands.add('loginAsAdmin', () => {
 // ============================================================
 Cypress.Commands.add('navigateToModule', (moduleName) => {
   const moduleRoutes = {
-    'eventos': '/eventos-erp',
-    'contabilidad': '/contabilidad-erp',
-    'facturacion': '/facturacion-erp',
-    'inventario': '/inventario-erp',
-    'proveedores': '/proveedores-erp',
-    'proyectos': '/proyectos-erp',
-    'rrhh': '/rrhh-erp',
-    'tesoreria': '/tesoreria-erp',
-    'reportes': '/reportes-erp',
-    'crm': '/cotizaciones-erp',
-    'ia': '/ia-erp',
-    'integraciones': '/integraciones-erp'
+    'eventos': '/eventos',
+    'contabilidad': '/contabilidad',
+    'facturacion': '/facturacion',
+    'inventario': '/inventario',
+    'proveedores': '/proveedores',
+    'proyectos': '/proyectos',
+    'rrhh': '/rrhh',
+    'tesoreria': '/tesoreria',
+    'reportes': '/reportes',
+    'crm': '/crm',
+    'ia': '/ia',
+    'integraciones': '/integraciones'
   };
 
   const route = moduleRoutes[moduleName.toLowerCase()];

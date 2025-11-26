@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Outlet, useLocation, Link, useNavigate } from 'react-router-dom';
 import {
-  Home, Calendar, Package, ShoppingCart, Calculator, UserCheck,
+  Home, Calendar, Package, ShoppingCart, Calculator,
   Menu, Search, Bell, Settings, LogOut, Clock, ChevronDown,
   List, DollarSign, BarChart3, CreditCard, FolderOpen, Users,
-  FileText, BookOpen, Receipt, Target, Truck, Warehouse, Briefcase, FileSpreadsheet, FolderKanban, CheckCircle, Landmark, PieChart, Plug, Brain, CalendarCheck
+  FileText, BookOpen, Receipt, Target, Truck, Warehouse, Briefcase,
+  FileSpreadsheet, FolderKanban, CheckCircle, Landmark, PieChart, Plug, Brain
 } from 'lucide-react';
 import { useAuth } from '../../../core/auth/AuthProvider';
 import { APP_CONFIG } from '../../../core/config/constants';
@@ -34,6 +35,7 @@ export const Layout: React.FC = () => {
       submenu: [
         { name: 'Lista de Eventos', path: '/eventos', icon: List },
         { name: 'Clientes', path: '/eventos/clientes', icon: Users },
+        { name: 'Proyectos y Gantt', path: '/eventos/proyectos', icon: FolderKanban },
         { name: 'Análisis Financiero', path: '/eventos/analisis-financiero', icon: BarChart3 },
         { name: 'Flujo de Estados', path: '/eventos/workflow', icon: Settings },
         { name: 'Catálogos', path: '/eventos/catalogos', icon: FolderOpen }
@@ -47,6 +49,7 @@ export const Layout: React.FC = () => {
       color: 'text-green-600',
       submenu: [
         { name: 'Dashboard', path: '/contabilidad', icon: Home },
+        { name: 'Gastos No Impactados', path: '/contabilidad/gastos-no-impactados', icon: DollarSign },
         { name: 'Pólizas', path: '/contabilidad/polizas', icon: FileText },
         { name: 'Plan de Cuentas', path: '/contabilidad/plan-cuentas', icon: BookOpen },
         { name: 'Reportes', path: '/contabilidad/reportes', icon: Receipt }
@@ -167,22 +170,6 @@ export const Layout: React.FC = () => {
       color: 'text-fuchsia-600',
       submenu: [
         { name: 'Dashboard', path: '/ia', icon: Home }
-      ]
-    },
-    {
-      id: 'eventos-erp',
-      name: 'Eventos-ERP',
-      icon: CalendarCheck,
-      active: true,
-      color: 'text-violet-600',
-      submenu: [
-        { name: 'Dashboard', path: '/eventos-erp', icon: Home },
-        { name: 'Lista de Eventos', path: '/eventos-erp/lista', icon: List },
-        { name: 'Proyectos y Gantt', path: '/eventos-erp/proyectos', icon: FolderKanban },
-        { name: 'Clientes ERP', path: '/eventos-erp/clientes', icon: Users },
-        { name: 'Análisis Financiero', path: '/eventos-erp/analisis-financiero', icon: BarChart3 },
-        { name: 'Flujo de Estados', path: '/eventos-erp/workflow', icon: Settings },
-        { name: 'Catálogos', path: '/eventos-erp/catalogos', icon: FolderOpen }
       ]
     },
     {

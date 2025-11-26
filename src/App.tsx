@@ -7,18 +7,20 @@ import { Layout } from './shared/components/layout/Layout';
 import { LoadingSpinner } from './shared/components/ui/LoadingSpinner';
 
 // Lazy loading de páginas para code splitting
-// MÓDULO DE EVENTOS
-const EventsDashboard = lazy(() => import('./modules/eventos/pages/EventsDashboard').then(m => ({ default: m.EventsDashboard })));
-const EventosListPage = lazy(() => import('./modules/eventos/EventosListPageNew').then(m => ({ default: m.EventosListPage })));
-const ClientesPage = lazy(() => import('./modules/eventos/ClientesListPage').then(m => ({ default: m.ClientesPage })));
-const CatalogosPage = lazy(() => import('./modules/eventos/CatalogosPage').then(m => ({ default: m.CatalogosPage })));
-const WorkflowVisualizationPage = lazy(() => import('./modules/eventos/components/workflow/WorkflowVisualizationPage').then(m => ({ default: m.WorkflowVisualizationPage })));
-const FinancialAnalysisPage = lazy(() => import('./modules/eventos/FinancialAnalysisPage').then(m => ({ default: m.FinancialAnalysisPage })));
+// MÓDULO DE EVENTOS (Usando eventos-erp como módulo principal)
+const EventsDashboard = lazy(() => import('./modules/eventos-erp/pages/EventsDashboard').then(m => ({ default: m.EventsDashboard })));
+const EventosListPage = lazy(() => import('./modules/eventos-erp/EventosListPageNew').then(m => ({ default: m.EventosListPage })));
+const ClientesPage = lazy(() => import('./modules/eventos-erp/ClientesListPage').then(m => ({ default: m.ClientesPage })));
+const CatalogosPage = lazy(() => import('./modules/eventos-erp/CatalogosPage').then(m => ({ default: m.CatalogosPage })));
+const WorkflowVisualizationPage = lazy(() => import('./modules/eventos-erp/components/workflow/WorkflowVisualizationPage').then(m => ({ default: m.WorkflowVisualizationPage })));
+const FinancialAnalysisPage = lazy(() => import('./modules/eventos-erp/FinancialAnalysisPage').then(m => ({ default: m.FinancialAnalysisPage })));
+const ProyectosEventosPage = lazy(() => import('./modules/eventos-erp/pages/ProyectosEventosPage').then(m => ({ default: m.ProyectosEventosPage })));
 
 // MÓDULO DE CONTABILIDAD
 const ContabilidadDashboard = lazy(() => import('./modules/contabilidad-erp/pages/ContabilidadDashboard').then(m => ({ default: m.ContabilidadDashboard })));
 const PolizasPage = lazy(() => import('./modules/contabilidad-erp/pages/PolizasPage').then(m => ({ default: m.PolizasPage })));
 const ReportesPage = lazy(() => import('./modules/contabilidad-erp/pages/ReportesPage').then(m => ({ default: m.ReportesPage })));
+const GastosNoImpactadosPage = lazy(() => import('./modules/contabilidad-erp/pages/GastosNoImpactadosPage').then(m => ({ default: m.GastosNoImpactadosPage })));
 
 // MÓDULO DE CRM Y COTIZACIONES
 const CRMDashboard = lazy(() => import('./modules/cotizaciones-erp/pages/CRMDashboard').then(m => ({ default: m.CRMDashboard })));
@@ -68,15 +70,6 @@ const IntegracionesDashboard = lazy(() => import('./modules/integraciones-erp/pa
 // MÓDULO DE IA Y AUTOMATIZACIÓN
 const IADashboard = lazy(() => import('./modules/ia-erp/pages/IADashboard').then(m => ({ default: m.IADashboard })));
 
-// MÓDULO DE EVENTOS-ERP (Sistema completo de gestión de eventos con interacción ERP)
-const EventosERPDashboard = lazy(() => import('./modules/eventos-erp/pages/EventsDashboard').then(m => ({ default: m.EventsDashboard })));
-const EventosERPListPage = lazy(() => import('./modules/eventos-erp/EventosListPageNew').then(m => ({ default: m.EventosListPage })));
-const ClientesERPPage = lazy(() => import('./modules/eventos-erp/ClientesListPage').then(m => ({ default: m.ClientesPage })));
-const CatalogosERPPage = lazy(() => import('./modules/eventos-erp/CatalogosPage').then(m => ({ default: m.CatalogosPage })));
-const WorkflowERPPage = lazy(() => import('./modules/eventos-erp/components/workflow/WorkflowVisualizationPage').then(m => ({ default: m.WorkflowVisualizationPage })));
-const FinancialAnalysisERPPage = lazy(() => import('./modules/eventos-erp/FinancialAnalysisPage').then(m => ({ default: m.FinancialAnalysisPage })));
-const ProyectosEventosPage = lazy(() => import('./modules/eventos-erp/pages/ProyectosEventosPage').then(m => ({ default: m.ProyectosEventosPage })));
-
 // MÓDULO DE DESARROLLO (Documentación técnica y pruebas)
 const DocumentacionPage = lazy(() => import('./modules/desarrollo/pages/DocumentacionPage').then(m => ({ default: m.DocumentacionPage })));
 
@@ -112,18 +105,20 @@ function App() {
               <Route path="/" element={<Layout />}>
                 <Route index element={<EventsDashboard />} />
 
-                {/* Rutas de Eventos */}
+                {/* Rutas de Eventos (módulo principal) */}
                 <Route path="eventos" element={<EventosListPage />} />
                 <Route path="eventos/clientes" element={<ClientesPage />} />
                 <Route path="eventos/analisis-financiero" element={<FinancialAnalysisPage />} />
                 <Route path="eventos/workflow" element={<WorkflowVisualizationPage />} />
                 <Route path="eventos/catalogos" element={<CatalogosPage />} />
+                <Route path="eventos/proyectos" element={<ProyectosEventosPage />} />
 
                 {/* Rutas de Contabilidad */}
                 <Route path="contabilidad" element={<ContabilidadDashboard />} />
                 <Route path="contabilidad/polizas" element={<PolizasPage />} />
                 <Route path="contabilidad/reportes" element={<ReportesPage />} />
                 <Route path="contabilidad/plan-cuentas" element={<ContabilidadDashboard />} />
+                <Route path="contabilidad/gastos-no-impactados" element={<GastosNoImpactadosPage />} />
 
                 {/* Rutas de CRM y Cotizaciones */}
                 <Route path="crm" element={<CRMDashboard />} />
@@ -173,14 +168,9 @@ function App() {
                 {/* Rutas de IA y Automatización */}
                 <Route path="ia" element={<IADashboard />} />
 
-                {/* Rutas de Eventos-ERP (Sistema completo con interacción ERP) */}
-                <Route path="eventos-erp" element={<EventosERPDashboard />} />
-                <Route path="eventos-erp/lista" element={<EventosERPListPage />} />
-                <Route path="eventos-erp/clientes" element={<ClientesERPPage />} />
-                <Route path="eventos-erp/catalogos" element={<CatalogosERPPage />} />
-                <Route path="eventos-erp/workflow" element={<WorkflowERPPage />} />
-                <Route path="eventos-erp/analisis-financiero" element={<FinancialAnalysisERPPage />} />
-                <Route path="eventos-erp/proyectos" element={<ProyectosEventosPage />} />
+                {/* Redirecciones de rutas legacy eventos-erp a eventos */}
+                <Route path="eventos-erp" element={<Navigate to="/eventos" replace />} />
+                <Route path="eventos-erp/*" element={<Navigate to="/eventos" replace />} />
 
                 {/* Rutas de Desarrollo (Documentación técnica y pruebas) */}
                 <Route path="desarrollo" element={<DocumentacionPage />} />
