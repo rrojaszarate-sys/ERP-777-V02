@@ -50,6 +50,9 @@ export const fetchGastosNoImpactados = async (
   if (filtros?.ejecutivo_id) {
     query = query.eq('ejecutivo_id', filtros.ejecutivo_id);
   }
+  if (filtros?.forma_pago_id) {
+    query = query.eq('forma_pago_id', filtros.forma_pago_id);
+  }
   if (filtros?.validacion) {
     query = query.eq('validacion', filtros.validacion);
   }

@@ -211,6 +211,7 @@ export interface GNIFiltros {
   clave_gasto_id?: number;
   proveedor_id?: number;
   ejecutivo_id?: number;
+  forma_pago_id?: number;
   validacion?: string;
   status_pago?: string;
   fecha_inicio?: string;

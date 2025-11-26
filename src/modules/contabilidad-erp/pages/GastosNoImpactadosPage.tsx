@@ -36,7 +36,13 @@ import {
   CreditCard,
   Save,
   FileSpreadsheet,
-  Receipt
+  Receipt,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Banknote,
+  Calendar,
+  TrendingUp as TrendUp
 } from 'lucide-react';
 import { useAuth } from '../../../core/auth/AuthProvider';
 import {
@@ -51,8 +57,11 @@ import {
   updateClaveGasto,
   createProveedor,
   updateProveedor,
-  createEjecutivo
+  createEjecutivo,
+  createFormaPago,
+  fetchResumenAnual
 } from '../services/gastosNoImpactadosService';
+import * as XLSX from 'xlsx';
 import type {
   GastoNoImpactadoView,
   ClaveGasto,
@@ -97,12 +106,20 @@ export const GastosNoImpactadosPage = () => {
 
   // Administración de catálogos
   const [showCatalogosDropdown, setShowCatalogosDropdown] = useState(false);
-  const [catalogoActivo, setCatalogoActivo] = useState<'claves' | 'ejecutivos' | 'proveedores' | null>(null);
+  const [catalogoActivo, setCatalogoActivo] = useState<'claves' | 'ejecutivos' | 'proveedores' | 'formasPago' | null>(null);
 
   // Dashboard y paginación
   const [showDashboard, setShowDashboard] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
+
+  // Ordenamiento
+  type SortField = 'fecha_gasto' | 'proveedor' | 'concepto' | 'clave' | 'cuenta' | 'subcuenta' | 'forma_pago' | 'subtotal' | 'iva' | 'total' | 'validacion' | 'status_pago';
+  const [sortField, setSortField] = useState<SortField>('fecha_gasto');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // Resumen anual para gráficas
+  const [resumenAnual, setResumenAnual] = useState<any[]>([]);
 
   // Periodos disponibles
   const periodos = useMemo(() => getPeriodosDisponibles(2025), []);
@@ -112,6 +129,7 @@ export const GastosNoImpactadosPage = () => {
     if (companyId) {
       loadCatalogos();
       loadGastos();
+      loadResumenAnual();
     }
   }, [companyId]);
 
@@ -120,6 +138,16 @@ export const GastosNoImpactadosPage = () => {
       loadGastos();
     }
   }, [filtros]);
+
+  const loadResumenAnual = async () => {
+    if (!companyId) return;
+    try {
+      const data = await fetchResumenAnual(companyId, 2025);
+      setResumenAnual(data);
+    } catch (error) {
+      console.error('Error cargando resumen anual:', error);
+    }
+  };
 
   const loadCatalogos = async () => {
     if (!companyId) return;
@@ -153,17 +181,56 @@ export const GastosNoImpactadosPage = () => {
     }
   };
 
-  // Filtrar por búsqueda
+  // Función de ordenamiento
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1);
+  };
+
+  // Filtrar y ordenar
   const gastosFiltrados = useMemo(() => {
-    if (!searchTerm) return gastos;
-    const term = searchTerm.toLowerCase();
-    return gastos.filter(g =>
-      g.proveedor?.toLowerCase().includes(term) ||
-      g.concepto?.toLowerCase().includes(term) ||
-      g.clave?.toLowerCase().includes(term) ||
-      g.cuenta?.toLowerCase().includes(term)
-    );
-  }, [gastos, searchTerm]);
+    let filtered = gastos;
+
+    // Filtro por búsqueda
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(g =>
+        g.proveedor?.toLowerCase().includes(term) ||
+        g.concepto?.toLowerCase().includes(term) ||
+        g.clave?.toLowerCase().includes(term) ||
+        g.cuenta?.toLowerCase().includes(term) ||
+        g.subcuenta?.toLowerCase().includes(term) ||
+        g.forma_pago?.toLowerCase().includes(term)
+      );
+    }
+
+    // Ordenamiento
+    filtered = [...filtered].sort((a, b) => {
+      let aVal: any = a[sortField];
+      let bVal: any = b[sortField];
+
+      // Manejo de nulls
+      if (aVal == null) aVal = '';
+      if (bVal == null) bVal = '';
+
+      // Comparación numérica para campos de montos
+      if (['subtotal', 'iva', 'total'].includes(sortField)) {
+        aVal = Number(aVal) || 0;
+        bVal = Number(bVal) || 0;
+      }
+
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return filtered;
+  }, [gastos, searchTerm, sortField, sortDirection]);
 
   // Totales
   const totales = useMemo(() => {
@@ -194,6 +261,14 @@ export const GastosNoImpactadosPage = () => {
       porCuenta[cuenta].total += g.total || 0;
       porCuenta[cuenta].count++;
     });
+    // Por forma de pago
+    const porFormaPago: Record<string, { total: number; count: number }> = {};
+    gastosFiltrados.forEach(g => {
+      const fp = g.forma_pago || 'Sin forma de pago';
+      if (!porFormaPago[fp]) porFormaPago[fp] = { total: 0, count: 0 };
+      porFormaPago[fp].total += g.total || 0;
+      porFormaPago[fp].count++;
+    });
     // Top proveedores
     const porProveedor: Record<string, number> = {};
     gastosFiltrados.forEach(g => {
@@ -201,18 +276,26 @@ export const GastosNoImpactadosPage = () => {
       porProveedor[prov] = (porProveedor[prov] || 0) + (g.total || 0);
     });
     const topProveedores = Object.entries(porProveedor).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    // Por mes (usando todos los gastos, no solo filtrados)
+    const porMes: Record<string, number> = {};
+    gastos.forEach(g => {
+      const mes = g.fecha_gasto?.substring(0, 7) || 'Sin fecha';
+      porMes[mes] = (porMes[mes] || 0) + (g.total || 0);
+    });
 
     return {
       porValidacion,
       porPago,
       porCuenta,
+      porFormaPago,
+      porMes,
       topProveedores,
       totalCorrectosAmount: porValidacion.correctos.reduce((s, g) => s + (g.total || 0), 0),
       totalPendientesAmount: porValidacion.pendientes.reduce((s, g) => s + (g.total || 0), 0),
       totalPagadosAmount: porPago.pagados.reduce((s, g) => s + (g.total || 0), 0),
       totalPorPagarAmount: porPago.pendientes.reduce((s, g) => s + (g.total || 0), 0)
     };
-  }, [gastosFiltrados]);
+  }, [gastosFiltrados, gastos]);
 
   // Paginación
   const totalPages = Math.ceil(gastosFiltrados.length / itemsPerPage);
@@ -275,6 +358,74 @@ export const GastosNoImpactadosPage = () => {
     const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
     return `${meses[parseInt(mes) - 1]} ${anio}`;
   };
+
+  // Exportar a Excel
+  const handleExportExcel = () => {
+    const dataToExport = gastosFiltrados.map(g => ({
+      'Fecha': g.fecha_gasto ? new Date(g.fecha_gasto).toLocaleDateString('es-MX') : '',
+      'Proveedor': g.proveedor || '',
+      'Concepto': g.concepto || '',
+      'Clave': g.clave || '',
+      'Cuenta': g.cuenta || '',
+      'Subcuenta': g.subcuenta || '',
+      'Forma de Pago': g.forma_pago || '',
+      'Subtotal': g.subtotal || 0,
+      'IVA': g.iva || 0,
+      'Total': g.total || 0,
+      'Validación': g.validacion || '',
+      'Status Pago': g.status_pago || '',
+      'Ejecutivo': g.ejecutivo || '',
+      'Folio Factura': g.folio_factura || ''
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Gastos');
+
+    // Ajustar anchos de columna
+    const colWidths = [
+      { wch: 12 }, // Fecha
+      { wch: 30 }, // Proveedor
+      { wch: 40 }, // Concepto
+      { wch: 15 }, // Clave
+      { wch: 20 }, // Cuenta
+      { wch: 25 }, // Subcuenta
+      { wch: 20 }, // Forma de Pago
+      { wch: 12 }, // Subtotal
+      { wch: 10 }, // IVA
+      { wch: 12 }, // Total
+      { wch: 12 }, // Validación
+      { wch: 12 }, // Status Pago
+      { wch: 20 }, // Ejecutivo
+      { wch: 15 }, // Folio
+    ];
+    ws['!cols'] = colWidths;
+
+    const periodo = filtros.periodo || getPeriodoActual();
+    XLSX.writeFile(wb, `GNI_${periodo}.xlsx`);
+    toast.success('Excel generado correctamente');
+  };
+
+  // Componente para header de columna ordenable
+  const SortableHeader = ({ field, label, className = '' }: { field: SortField; label: string; className?: string }) => (
+    <th
+      className={`px-3 py-3 text-xs font-semibold text-teal-800 uppercase cursor-pointer hover:bg-teal-100 transition-colors select-none ${className}`}
+      onClick={() => handleSort(field)}
+    >
+      <div className="flex items-center gap-1">
+        {label}
+        {sortField === field ? (
+          sortDirection === 'asc' ? (
+            <ArrowUp className="w-3 h-3" />
+          ) : (
+            <ArrowDown className="w-3 h-3" />
+          )
+        ) : (
+          <ArrowUpDown className="w-3 h-3 opacity-40" />
+        )}
+      </div>
+    </th>
+  );
 
   return (
     <div className="p-6 bg-gradient-to-br from-teal-50/30 to-white min-h-screen">
@@ -341,12 +492,22 @@ export const GastosNoImpactadosPage = () => {
                 </button>
                 <button
                   onClick={() => { setCatalogoActivo('proveedores'); setShowCatalogosDropdown(false); }}
-                  className="w-full px-4 py-3 text-left hover:bg-teal-50 flex items-center gap-3 rounded-b-lg border-t"
+                  className="w-full px-4 py-3 text-left hover:bg-teal-50 flex items-center gap-3 border-t"
                 >
                   <Building className="w-5 h-5 text-violet-600" />
                   <div>
                     <div className="font-medium text-gray-900">Proveedores</div>
                     <div className="text-xs text-gray-500">{proveedores.length} registros</div>
+                  </div>
+                </button>
+                <button
+                  onClick={() => { setCatalogoActivo('formasPago'); setShowCatalogosDropdown(false); }}
+                  className="w-full px-4 py-3 text-left hover:bg-teal-50 flex items-center gap-3 rounded-b-lg border-t"
+                >
+                  <Banknote className="w-5 h-5 text-blue-600" />
+                  <div>
+                    <div className="font-medium text-gray-900">Formas de Pago</div>
+                    <div className="text-xs text-gray-500">{formasPago.length} registros</div>
                   </div>
                 </button>
               </motion.div>
@@ -366,6 +527,13 @@ export const GastosNoImpactadosPage = () => {
           >
             <FileText className="w-4 h-4" />
             PDF
+          </button>
+          <button
+            onClick={handleExportExcel}
+            className="px-4 py-2 bg-emerald-50 border border-emerald-300 text-emerald-700 rounded-lg hover:bg-emerald-100 flex items-center gap-2"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            Excel
           </button>
           <button
             onClick={() => setShowGastoModal(true)}
@@ -518,8 +686,8 @@ export const GastosNoImpactadosPage = () => {
               </motion.div>
             </div>
 
-            {/* Gráficas */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Gráficas Fila 1 */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
               {/* Distribución por Cuenta */}
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
@@ -595,6 +763,91 @@ export const GastosNoImpactadosPage = () => {
                 </div>
               </motion.div>
             </div>
+
+            {/* Gráficas Fila 2: Formas de Pago y Tendencia Mensual */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Por Forma de Pago */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+                className="bg-white p-5 rounded-xl shadow-sm border"
+              >
+                <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                  <Banknote className="w-4 h-4 text-blue-600" />
+                  Gastos por Forma de Pago
+                </h3>
+                <div className="space-y-3">
+                  {Object.entries(dashboardData.porFormaPago)
+                    .sort((a, b) => b[1].total - a[1].total)
+                    .slice(0, 5)
+                    .map(([fp, data], index) => {
+                      const maxTotal = Math.max(...Object.values(dashboardData.porFormaPago).map(d => d.total));
+                      const percentage = maxTotal > 0 ? (data.total / maxTotal) * 100 : 0;
+                      const colors = ['#3B82F6', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981'];
+                      return (
+                        <div key={fp}>
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-xs font-medium text-gray-700 truncate max-w-[180px]">{fp}</span>
+                            <div className="text-right">
+                              <span className="text-xs font-bold text-gray-900">{formatCurrency(data.total)}</span>
+                              <span className="text-[10px] text-gray-500 ml-2">({data.count})</span>
+                            </div>
+                          </div>
+                          <div className="relative h-5 bg-gray-100 rounded-lg overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${percentage}%` }}
+                              transition={{ delay: 0.7 + index * 0.1, duration: 0.8 }}
+                              className="h-full rounded-lg"
+                              style={{ backgroundColor: colors[index % colors.length] }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </motion.div>
+
+              {/* Tendencia Mensual */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.7 }}
+                className="bg-white p-5 rounded-xl shadow-sm border"
+              >
+                <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-emerald-600" />
+                  Tendencia Mensual 2025
+                </h3>
+                <div className="space-y-2">
+                  {Object.entries(dashboardData.porMes)
+                    .sort((a, b) => a[0].localeCompare(b[0]))
+                    .slice(-6)
+                    .map(([mes, total], index) => {
+                      const maxTotal = Math.max(...Object.values(dashboardData.porMes));
+                      const percentage = maxTotal > 0 ? (total / maxTotal) * 100 : 0;
+                      const [anio, mesNum] = mes.split('-');
+                      const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+                      const mesLabel = mesNum ? `${meses[parseInt(mesNum) - 1]}` : mes;
+                      return (
+                        <div key={mes} className="flex items-center gap-3">
+                          <span className="text-xs font-medium text-gray-500 w-10">{mesLabel}</span>
+                          <div className="flex-1 relative h-6 bg-gray-100 rounded-lg overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${percentage}%` }}
+                              transition={{ delay: 0.8 + index * 0.1, duration: 0.8 }}
+                              className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-lg"
+                            />
+                          </div>
+                          <span className="text-xs font-bold text-gray-900 w-24 text-right">{formatCurrency(total)}</span>
+                        </div>
+                      );
+                    })}
+                </div>
+              </motion.div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -661,7 +914,7 @@ export const GastosNoImpactadosPage = () => {
 
         {/* Filtros avanzados */}
         {showFilters && (
-          <div className="mt-4 pt-4 border-t grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="mt-4 pt-4 border-t grid grid-cols-2 md:grid-cols-5 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Cuenta</label>
               <select
@@ -672,6 +925,20 @@ export const GastosNoImpactadosPage = () => {
                 <option value="">Todas</option>
                 {[...new Set(claves.map(c => c.cuenta))].map(cuenta => (
                   <option key={cuenta} value={cuenta}>{cuenta}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Forma de Pago</label>
+              <select
+                value={filtros.forma_pago_id || ''}
+                onChange={(e) => setFiltros({ ...filtros, forma_pago_id: e.target.value ? parseInt(e.target.value) : undefined })}
+                className="w-full px-3 py-2 border rounded-lg"
+              >
+                <option value="">Todas</option>
+                {formasPago.map(fp => (
+                  <option key={fp.id} value={fp.id}>{fp.nombre}</option>
                 ))}
               </select>
             </div>
@@ -726,30 +993,31 @@ export const GastosNoImpactadosPage = () => {
           <table className="w-full">
             <thead className="bg-gradient-to-r from-teal-50 to-teal-100/50 border-b">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-teal-800 uppercase">Fecha</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-teal-800 uppercase">Proveedor</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-teal-800 uppercase">Concepto</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-teal-800 uppercase">Clave</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-teal-800 uppercase">Cuenta</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-teal-800 uppercase">Subtotal</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-teal-800 uppercase">IVA</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-teal-800 uppercase">Total</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-teal-800 uppercase">Valid.</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-teal-800 uppercase">Pago</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-teal-800 uppercase">Ejecutivo</th>
+                <SortableHeader field="fecha_gasto" label="Fecha" className="text-left" />
+                <SortableHeader field="proveedor" label="Proveedor" className="text-left" />
+                <SortableHeader field="concepto" label="Concepto" className="text-left" />
+                <SortableHeader field="clave" label="Clave" className="text-left" />
+                <SortableHeader field="cuenta" label="Cuenta" className="text-left" />
+                <SortableHeader field="subcuenta" label="Subcuenta" className="text-left" />
+                <SortableHeader field="forma_pago" label="F. Pago" className="text-left" />
+                <SortableHeader field="subtotal" label="Subtotal" className="text-right" />
+                <SortableHeader field="iva" label="IVA" className="text-right" />
+                <SortableHeader field="total" label="Total" className="text-right" />
+                <SortableHeader field="validacion" label="Val." className="text-center" />
+                <SortableHeader field="status_pago" label="Pago" className="text-center" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-12 text-center">
+                  <td colSpan={12} className="px-4 py-12 text-center">
                     <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-3 text-teal-500" />
                     <p className="text-gray-500">Cargando gastos...</p>
                   </td>
                 </tr>
               ) : gastosPaginados.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-12 text-center">
+                  <td colSpan={12} className="px-4 py-12 text-center">
                     <FileSpreadsheet className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                     <p className="text-gray-500">No hay gastos para mostrar</p>
                     <button
@@ -770,62 +1038,69 @@ export const GastosNoImpactadosPage = () => {
                     className="hover:bg-teal-50/50 cursor-pointer transition-colors"
                     onClick={() => handleEditGasto(gasto)}
                   >
-                    <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
+                    <td className="px-3 py-2.5 text-sm text-gray-900 whitespace-nowrap">
                       {formatDate(gasto.fecha_gasto)}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900 max-w-40 truncate font-medium">
+                    <td className="px-3 py-2.5 text-sm text-gray-900 max-w-36 truncate font-medium">
                       {gasto.proveedor || '-'}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 max-w-52 truncate">
+                    <td className="px-3 py-2.5 text-sm text-gray-600 max-w-40 truncate">
                       {gasto.concepto}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2.5">
                       {gasto.clave && (
-                        <span className="px-2 py-1 bg-teal-100 text-teal-700 text-xs font-mono rounded">
+                        <span className="px-1.5 py-0.5 bg-teal-100 text-teal-700 text-[11px] font-mono rounded">
                           {gasto.clave}
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 max-w-32 truncate">
+                    <td className="px-3 py-2.5 text-xs text-gray-600 max-w-28 truncate">
                       {gasto.cuenta || '-'}
                     </td>
-                    <td className="px-4 py-3 text-sm text-right text-gray-900 font-mono">
+                    <td className="px-3 py-2.5 text-xs text-gray-500 max-w-32 truncate">
+                      {gasto.subcuenta || '-'}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      {gasto.forma_pago && (
+                        <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 text-[11px] rounded truncate max-w-24 inline-block">
+                          {gasto.forma_pago}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-sm text-right text-gray-900 font-mono">
                       {formatCurrency(gasto.subtotal || 0)}
                     </td>
-                    <td className="px-4 py-3 text-sm text-right text-gray-500 font-mono">
+                    <td className="px-3 py-2.5 text-sm text-right text-gray-500 font-mono">
                       {formatCurrency(gasto.iva || 0)}
                     </td>
-                    <td className="px-4 py-3 text-sm text-right font-bold text-gray-900 font-mono">
+                    <td className="px-3 py-2.5 text-sm text-right font-bold text-gray-900 font-mono">
                       {formatCurrency(gasto.total || 0)}
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-3 py-2.5 text-center">
                       {gasto.validacion === 'correcto' ? (
-                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-emerald-100" title="Correcto">
-                          <CheckCircle className="w-4 h-4 text-emerald-600" />
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100" title="Correcto">
+                          <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
                         </span>
                       ) : gasto.validacion === 'revisar' ? (
-                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-red-100" title="Revisar">
-                          <AlertCircle className="w-4 h-4 text-red-600" />
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-100" title="Revisar">
+                          <AlertCircle className="w-3.5 h-3.5 text-red-600" />
                         </span>
                       ) : (
-                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-100" title="Pendiente">
-                          <Clock className="w-4 h-4 text-amber-600" />
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100" title="Pendiente">
+                          <Clock className="w-3.5 h-3.5 text-amber-600" />
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-3 py-2.5 text-center">
                       {gasto.status_pago === 'pagado' ? (
-                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-100" title="Pagado">
-                          <CreditCard className="w-4 h-4 text-blue-600" />
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100" title="Pagado">
+                          <CreditCard className="w-3.5 h-3.5 text-blue-600" />
                         </span>
                       ) : (
-                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gray-100" title="Pendiente">
-                          <Wallet className="w-4 h-4 text-gray-400" />
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100" title="Pendiente">
+                          <Wallet className="w-3.5 h-3.5 text-gray-400" />
                         </span>
                       )}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 max-w-28 truncate">
-                      {gasto.ejecutivo || '-'}
                     </td>
                   </motion.tr>
                 ))
@@ -834,7 +1109,7 @@ export const GastosNoImpactadosPage = () => {
             {gastosFiltrados.length > 0 && (
               <tfoot className="bg-gradient-to-r from-teal-50 to-teal-100/50 border-t-2 border-teal-200">
                 <tr>
-                  <td colSpan={5} className="px-4 py-3 text-sm font-semibold text-teal-800">
+                  <td colSpan={7} className="px-4 py-3 text-sm font-semibold text-teal-800">
                     Total ({totales.cantidad} registros)
                   </td>
                   <td className="px-4 py-3 text-sm text-right font-bold text-teal-900 font-mono">
@@ -846,7 +1121,7 @@ export const GastosNoImpactadosPage = () => {
                   <td className="px-4 py-3 text-sm text-right font-bold text-teal-900 font-mono text-lg">
                     {formatCurrency(totales.total)}
                   </td>
-                  <td colSpan={3}></td>
+                  <td colSpan={2}></td>
                 </tr>
               </tfoot>
             )}
@@ -940,6 +1215,7 @@ export const GastosNoImpactadosPage = () => {
             claves={claves}
             ejecutivos={ejecutivos}
             proveedores={proveedores}
+            formasPago={formasPago}
             companyId={companyId || ''}
             onClose={() => setCatalogoActivo(null)}
             onRefresh={loadCatalogos}
@@ -954,10 +1230,11 @@ export const GastosNoImpactadosPage = () => {
 // COMPONENTE: MODAL CRUD CATÁLOGOS
 // ============================================================================
 interface CatalogoCRUDModalProps {
-  tipo: 'claves' | 'ejecutivos' | 'proveedores';
+  tipo: 'claves' | 'ejecutivos' | 'proveedores' | 'formasPago';
   claves: ClaveGasto[];
   ejecutivos: Ejecutivo[];
   proveedores: Proveedor[];
+  formasPago: FormaPago[];
   companyId: string;
   onClose: () => void;
   onRefresh: () => void;
@@ -968,6 +1245,7 @@ const CatalogoCRUDModal: React.FC<CatalogoCRUDModalProps> = ({
   claves,
   ejecutivos,
   proveedores,
+  formasPago,
   companyId,
   onClose,
   onRefresh
@@ -1014,6 +1292,17 @@ const CatalogoCRUDModal: React.FC<CatalogoCRUDModalProps> = ({
         } else {
           await createProveedor(formData, companyId);
         }
+      } else if (tipo === 'formasPago') {
+        if (editItem) {
+          await supabase.from('cont_formas_pago').update({
+            nombre: formData.nombre,
+            tipo: formData.tipo,
+            banco: formData.banco,
+            descripcion: formData.descripcion
+          }).eq('id', editItem.id);
+        } else {
+          await createFormaPago(formData.nombre, formData.tipo || 'transferencia', companyId);
+        }
       }
       toast.success(editItem ? 'Actualizado correctamente' : 'Creado correctamente');
       onRefresh();
@@ -1036,6 +1325,12 @@ const CatalogoCRUDModal: React.FC<CatalogoCRUDModalProps> = ({
       );
     } else if (tipo === 'ejecutivos') {
       return ejecutivos.filter(e => e.nombre.toLowerCase().includes(term));
+    } else if (tipo === 'formasPago') {
+      return formasPago.filter(f =>
+        f.nombre.toLowerCase().includes(term) ||
+        f.tipo?.toLowerCase().includes(term) ||
+        f.banco?.toLowerCase().includes(term)
+      );
     } else {
       return proveedores.filter(p =>
         p.razon_social.toLowerCase().includes(term) ||
@@ -1043,10 +1338,10 @@ const CatalogoCRUDModal: React.FC<CatalogoCRUDModalProps> = ({
         p.nombre_comercial?.toLowerCase().includes(term)
       );
     }
-  }, [tipo, claves, ejecutivos, proveedores, searchTerm]);
+  }, [tipo, claves, ejecutivos, proveedores, formasPago, searchTerm]);
 
-  const titulo = tipo === 'claves' ? 'Claves de Gasto' : tipo === 'ejecutivos' ? 'Ejecutivos' : 'Proveedores';
-  const IconComponent = tipo === 'claves' ? Tag : tipo === 'ejecutivos' ? Users : Building;
+  const titulo = tipo === 'claves' ? 'Claves de Gasto' : tipo === 'ejecutivos' ? 'Ejecutivos' : tipo === 'formasPago' ? 'Formas de Pago' : 'Proveedores';
+  const IconComponent = tipo === 'claves' ? Tag : tipo === 'ejecutivos' ? Users : tipo === 'formasPago' ? Banknote : Building;
 
   return (
     <motion.div
@@ -1257,6 +1552,62 @@ const CatalogoCRUDModal: React.FC<CatalogoCRUDModalProps> = ({
                 </div>
               )}
 
+              {tipo === 'formasPago' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
+                    <input
+                      type="text"
+                      value={formData.nombre || ''}
+                      onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                      placeholder="KUSPIT SP's, SANTANDER NÓMINA..."
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tipo *</label>
+                    <select
+                      value={formData.tipo || 'transferencia'}
+                      onChange={(e) => setFormData({ ...formData, tipo: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                    >
+                      <option value="transferencia">Transferencia</option>
+                      <option value="tarjeta">Tarjeta</option>
+                      <option value="efectivo">Efectivo</option>
+                      <option value="cheque">Cheque</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Banco</label>
+                    <select
+                      value={formData.banco || ''}
+                      onChange={(e) => setFormData({ ...formData, banco: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                    >
+                      <option value="">Seleccionar banco</option>
+                      <option value="SANTANDER">Santander</option>
+                      <option value="BBVA">BBVA</option>
+                      <option value="BANORTE">Banorte</option>
+                      <option value="HSBC">HSBC</option>
+                      <option value="BANAMEX">Banamex</option>
+                      <option value="SCOTIABANK">Scotiabank</option>
+                      <option value="KUSPIT">Kuspit</option>
+                      <option value="OTRO">Otro</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+                    <input
+                      type="text"
+                      value={formData.descripcion || ''}
+                      onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+                      placeholder="Descripción o alias de la cuenta"
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-end gap-3 mt-6">
                 <button
                   onClick={resetForm}
@@ -1371,6 +1722,42 @@ const CatalogoCRUDModal: React.FC<CatalogoCRUDModalProps> = ({
                       Mostrando 50 de {filteredItems.length} registros
                     </p>
                   )}
+                </div>
+              )}
+
+              {tipo === 'formasPago' && (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {filteredItems.map((fp: FormaPago) => {
+                    const tipoColors: Record<string, string> = {
+                      transferencia: 'from-blue-400 to-blue-600',
+                      tarjeta: 'from-purple-400 to-purple-600',
+                      efectivo: 'from-green-400 to-green-600',
+                      cheque: 'from-orange-400 to-orange-600'
+                    };
+                    return (
+                      <motion.div
+                        key={fp.id}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="p-4 bg-gray-50 rounded-xl hover:bg-blue-50 transition-colors group cursor-pointer"
+                        onClick={() => handleEdit(fp)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 bg-gradient-to-br ${tipoColors[fp.tipo || 'transferencia']} rounded-lg flex items-center justify-center`}>
+                            <Banknote className="w-5 h-5 text-white" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 truncate">{fp.nombre}</p>
+                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                              <span className="capitalize">{fp.tipo || 'Transferencia'}</span>
+                              {fp.banco && <span>• {fp.banco}</span>}
+                            </div>
+                          </div>
+                          <Edit className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      </motion.div>
+                    );
+                  })}
                 </div>
               )}
             </>
