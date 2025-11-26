@@ -7,7 +7,7 @@ interface ModalProps {
   onClose: () => void;
   title?: string;
   children: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl' | 'xxl' | 'full';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'xxl' | 'full' | '80';
   closeOnBackdrop?: boolean;
 }
 
@@ -25,7 +25,18 @@ export const Modal: React.FC<ModalProps> = ({
     lg: 'max-w-lg',
     xl: 'max-w-4xl',
     xxl: 'max-w-6xl',
-    full: 'max-w-7xl'
+    full: 'max-w-7xl',
+    '80': 'w-[80vw] max-w-[80vw]'
+  };
+
+  const heightClasses = {
+    sm: 'max-h-[90vh]',
+    md: 'max-h-[90vh]',
+    lg: 'max-h-[90vh]',
+    xl: 'max-h-[90vh]',
+    xxl: 'max-h-[90vh]',
+    full: 'max-h-[90vh]',
+    '80': 'h-[80vh] max-h-[80vh]'
   };
 
   return (
@@ -49,15 +60,15 @@ export const Modal: React.FC<ModalProps> = ({
 
           {/* Modal Content */}
           <motion.div
-            className={`relative bg-white rounded-lg shadow-xl w-full ${sizeClasses[size]} max-h-[90vh] overflow-hidden`}
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            className={`relative bg-white rounded-xl shadow-2xl w-full ${sizeClasses[size]} ${heightClasses[size]} overflow-hidden flex flex-col`}
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            transition={{ duration: 0.3 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ duration: 0.25 }}
           >
             {/* Header */}
             {title && (
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
                 <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
                 <button
                   onClick={onClose}
@@ -69,7 +80,7 @@ export const Modal: React.FC<ModalProps> = ({
             )}
 
             {/* Content */}
-            <div className="overflow-y-auto max-h-[calc(90vh-120px)]">
+            <div className="overflow-y-auto flex-1">
               {children}
             </div>
           </motion.div>

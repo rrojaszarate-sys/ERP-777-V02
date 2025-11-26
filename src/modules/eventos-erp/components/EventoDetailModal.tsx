@@ -83,6 +83,13 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
         clienteData = data;
       }
 
+      // Cargar lista de usuarios activos para asignar si no hay responsable/solicitante
+      const { data: usersActivos } = await supabase
+        .from('users_erp')
+        .select('id, nombre, apellidos, email')
+        .eq('activo', true)
+        .limit(10);
+
       if (eventoBase.responsable_id) {
         console.log('🔍 Buscando responsable con ID:', eventoBase.responsable_id);
         const { data, error } = await supabase
@@ -97,6 +104,11 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
         } else {
           console.error('❌ Error cargando responsable:', error);
         }
+      } else if (usersActivos && usersActivos.length > 0) {
+        // Asignar un usuario al azar como responsable si no hay ninguno
+        const randomIndex = Math.floor(Math.random() * usersActivos.length);
+        responsableData = usersActivos[randomIndex];
+        console.log('🎲 Responsable asignado al azar:', responsableData);
       }
 
       if (eventoBase.solicitante_id) {
@@ -113,6 +125,11 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
         } else {
           console.error('❌ Error cargando solicitante:', error);
         }
+      } else if (usersActivos && usersActivos.length > 0) {
+        // Asignar un usuario al azar como solicitante si no hay ninguno
+        const randomIndex = Math.floor(Math.random() * usersActivos.length);
+        solicitanteData = usersActivos[randomIndex];
+        console.log('🎲 Solicitante asignado al azar:', solicitanteData);
       }
 
       // Cargar datos financieros desde la vista (IGUAL QUE EN EL LISTADO)
@@ -309,7 +326,7 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
     <Modal
       isOpen={true}
       onClose={onClose}
-      size="full"
+      size="80"
     >
       <div className="flex flex-col h-full">
         {/* HEADER SIMPLIFICADO Y COMPRIMIDO */}
@@ -1062,19 +1079,19 @@ const IngresosTab: React.FC<{
           </div>
         ) : (
           ingresos.map(ingreso => (
-            <div key={ingreso.id} className="bg-white border rounded-lg p-2.5 hover:bg-gray-50 transition-colors">
+            <div key={ingreso.id} className="bg-white border rounded-lg p-3 hover:bg-gray-50 transition-colors">
               <div className="flex items-center gap-3">
                 <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1">
                   <div className="col-span-2 md:col-span-1">
-                    <h4 className="font-medium text-gray-900 text-sm truncate">{ingreso.concepto}</h4>
+                    <h4 className="font-medium text-gray-900 text-base truncate">{ingreso.concepto}</h4>
                   </div>
                   <div>
-                    <span className="text-sm font-bold text-green-600">{formatCurrency(ingreso.total)}</span>
+                    <span className="text-base font-bold text-green-600">{formatCurrency(ingreso.total)}</span>
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-sm text-gray-500">
                     {formatDate(ingreso.created_at)}
                   </div>
-                  <div className="col-span-2 md:col-span-4 text-xs text-gray-400 truncate">
+                  <div className="col-span-2 md:col-span-4 text-sm text-gray-400 truncate">
                     {ingreso.descripcion && <span className="mr-3">📝 {ingreso.descripcion}</span>}
                     {ingreso.referencia && <span>🏷️ {ingreso.referencia}</span>}
                   </div>
@@ -1355,30 +1372,30 @@ const GastosTab: React.FC<{
           </div>
         ) : (
           gastosFilter.map(gasto => (
-            <div key={gasto.id} className="bg-white border rounded-lg p-2.5 hover:bg-gray-50 transition-colors">
+            <div key={gasto.id} className="bg-white border rounded-lg p-3 hover:bg-gray-50 transition-colors">
               <div className="flex items-center gap-3">
                 <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-5 gap-x-3 gap-y-1 items-center">
                   <div className="col-span-2 md:col-span-1 flex items-center gap-2">
-                    <h4 className="font-medium text-gray-900 text-sm truncate">{gasto.concepto}</h4>
+                    <h4 className="font-medium text-gray-900 text-base truncate">{gasto.concepto}</h4>
                   </div>
                   <div>
-                    <span className="text-sm font-bold text-red-600">{formatCurrency(gasto.total)}</span>
+                    <span className="text-base font-bold text-red-600">{formatCurrency(gasto.total)}</span>
                   </div>
                   <div>
                     {gasto.categoria && (
                       <Badge
                         variant="default"
-                        className="text-[10px] py-0"
+                        className="text-xs py-0.5"
                         style={{ backgroundColor: gasto.categoria.color + '20', color: gasto.categoria.color }}
                       >
                         {gasto.categoria.nombre}
                       </Badge>
                     )}
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-sm text-gray-500">
                     {formatDate(gasto.fecha_gasto)}
                   </div>
-                  <div className="col-span-2 md:col-span-5 text-xs text-gray-400 truncate">
+                  <div className="col-span-2 md:col-span-5 text-sm text-gray-400 truncate">
                     {gasto.proveedor && <span className="mr-3">🏢 {gasto.proveedor}</span>}
                     {gasto.descripcion && <span className="mr-3">📝 {gasto.descripcion}</span>}
                     {gasto.referencia && <span>🏷️ {gasto.referencia}</span>}
@@ -1654,67 +1671,64 @@ const ProvisionesTab: React.FC<{
         {provisiones.map((prov) => {
           const porEjercer = prov.provision - prov.gastado;
           const porcentajeGastado = prov.provision > 0 ? (prov.gastado / prov.provision) * 100 : 0;
+          const porcentajeDisponible = 100 - porcentajeGastado;
           const isEditing = editingProvision === prov.tipo;
 
           return (
             <div key={prov.tipo} className="bg-white border-2 border-gray-200 rounded-xl p-4">
-              {/* Header: Ícono + Nombre */}
-              <div className="flex items-center gap-3 mb-3">
-                <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${prov.color} flex items-center justify-center text-xl flex-shrink-0`}>
-                  {prov.icono}
+              {/* Header: Ícono + Nombre + Provisionado editable a la derecha */}
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${prov.color} flex items-center justify-center text-xl flex-shrink-0`}>
+                    {prov.icono}
+                  </div>
+                  <h4 className="font-bold text-gray-900 text-base">{prov.label}</h4>
                 </div>
-                <h4 className="font-bold text-gray-900 text-sm flex-1">{prov.label}</h4>
+                {/* Provisionado editable en esquina superior derecha - VACÍO (se muestra abajo) */}
               </div>
 
-              {/* Barra de progreso grande con etiquetas dentro */}
-              <div className="relative h-8 bg-gray-100 rounded-lg overflow-hidden mb-3">
-                {/* Fondo: Provisión total */}
-                <div className="absolute inset-0 flex items-center justify-end px-3">
-                  <span className="text-xs font-semibold text-gray-500">
-                    Prov: {formatCurrency(prov.provision)}
-                  </span>
-                </div>
-                {/* Barra: Gastado - COLOR CONSISTENTE AZUL MADE */}
+              {/* Barra de progreso - Verde para provisión disponible, Gris para gastado */}
+              <div className="relative h-8 bg-emerald-100 rounded-lg overflow-hidden mb-3">
+                {/* Barra: Gastado (gris) - de izquierda a derecha */}
                 <div
-                  className="absolute h-full bg-blue-600 transition-all duration-500 flex items-center"
+                  className="absolute h-full bg-slate-400 transition-all duration-500 flex items-center justify-start"
                   style={{ width: `${Math.min(porcentajeGastado, 100)}%` }}
                 >
-                  {porcentajeGastado >= 25 && (
-                    <span className="text-xs font-bold text-white px-3 whitespace-nowrap">
-                      Gastado: {formatCurrency(prov.gastado)}
+                  <span className="text-xs font-bold text-white px-2 whitespace-nowrap">
+                    Gastado: {formatCurrency(prov.gastado)}
+                  </span>
+                </div>
+                {/* Etiqueta Provisión disponible (verde) - en la parte derecha */}
+                <div
+                  className="absolute h-full flex items-center justify-end right-0"
+                  style={{ width: `${Math.max(0, porcentajeDisponible)}%` }}
+                >
+                  {porcentajeDisponible > 15 && (
+                    <span className="text-xs font-bold text-emerald-700 px-2 whitespace-nowrap">
+                      {formatCurrency(Math.max(0, porEjercer))}
                     </span>
                   )}
                 </div>
-                {/* Etiqueta gastado si la barra es pequeña */}
-                {porcentajeGastado < 25 && porcentajeGastado > 0 && (
-                  <div
-                    className="absolute h-full flex items-center"
-                    style={{ left: `${Math.min(porcentajeGastado, 100)}%` }}
-                  >
-                    <span className="text-xs font-semibold text-blue-700 px-2 whitespace-nowrap">
-                      {formatCurrency(prov.gastado)}
-                    </span>
-                  </div>
-                )}
                 {/* Porcentaje centrado */}
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className={`text-xs font-bold drop-shadow ${porcentajeGastado > 50 ? 'text-white' : 'text-gray-700'}`}>
+                  <span className={`text-xs font-bold drop-shadow-sm ${porcentajeGastado > 50 ? 'text-white' : 'text-emerald-800'}`}>
                     {porcentajeGastado.toFixed(0)}%
                   </span>
                 </div>
               </div>
 
-              {/* Valores en grid 2 columnas: Provisionado editable y Provisión restante */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Valores en grid 2 columnas: Provisionado editable (izq) y Provisión restante (der) */}
+              <div className="flex justify-between items-end">
+                {/* PROVISIONADO - Esquina inferior izquierda con lápiz */}
                 <div>
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="text-[10px] text-gray-500 uppercase">Provisionado</span>
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className="text-[10px] text-gray-500 uppercase font-medium">Provisionado</span>
                     <button
                       onClick={() => startEditing(prov.tipo, prov.provision)}
-                      className="p-0.5 rounded hover:bg-blue-100 text-gray-400 hover:text-blue-600 transition-colors"
+                      className="p-0.5 rounded hover:bg-blue-100 text-blue-500 hover:text-blue-700 transition-colors"
                       title="Editar provisión"
                     >
-                      <Pencil className="w-3 h-3" />
+                      <Pencil className="w-3.5 h-3.5" />
                     </button>
                   </div>
                   {isEditing ? (
@@ -1727,19 +1741,20 @@ const ProvisionesTab: React.FC<{
                         if (e.key === 'Enter') saveEditing(prov.tipo);
                         if (e.key === 'Escape') cancelEditing();
                       }}
-                      className="w-full text-sm font-bold text-blue-900 border border-blue-500 rounded px-2 py-1 focus:ring-1 focus:ring-blue-400"
+                      className="w-32 text-base font-bold text-blue-900 border border-blue-500 rounded px-2 py-1 focus:ring-1 focus:ring-blue-400"
                       autoFocus
                     />
                   ) : (
-                    <div className="font-bold text-blue-900 text-sm">
+                    <div className="font-bold text-blue-900 text-lg">
                       {formatCurrency(prov.provision)}
                     </div>
                   )}
                 </div>
 
+                {/* PROVISIÓN - Esquina inferior derecha */}
                 <div className="text-right">
-                  <div className="text-[10px] text-gray-500 uppercase mb-1">Provisión</div>
-                  <div className={`font-bold text-sm ${porEjercer >= 0 ? 'text-amber-700' : 'text-red-700'}`}>
+                  <div className="text-[10px] text-gray-500 uppercase font-medium mb-0.5">Provisión</div>
+                  <div className={`font-bold text-lg ${porEjercer >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                     {formatCurrency(Math.max(0, porEjercer))}
                   </div>
                 </div>

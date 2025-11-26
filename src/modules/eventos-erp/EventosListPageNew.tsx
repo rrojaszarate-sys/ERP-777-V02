@@ -471,6 +471,7 @@ export const EventosListPage: React.FC = () => {
       align: 'center' as const,
       width: '130px',
       render: (_value: number, row: any) => {
+        const isExpanded = expandedRows.has(row.id) || hoveredRow === row.id;
         // FÓRMULA DEL CLIENTE: Utilidad = Ingresos - Gastos - Provisiones Disponibles
         // PROVISIONES_DISPONIBLES = MAX(0, PROVISIONES - GASTOS) - Nunca negativo
         const ingresosTotales = row.ingresos_totales || 0;
@@ -498,13 +499,17 @@ export const EventosListPage: React.FC = () => {
 
         const colorInfo = getColorInfo(margenReal);
 
+        // Cuando está colapsado: solo mostrar el gauge con porcentaje
+        // Cuando está expandido: mostrar monto + gauge
         return (
           <div className="flex flex-col items-center">
-            {/* Monto de utilidad arriba */}
-            <div className={`font-bold text-sm ${colorInfo.color}`}>
-              ${formatMoney(utilidadReal)}
-            </div>
-            {/* Gauge Chart con porcentaje dentro */}
+            {/* Monto de utilidad arriba - SOLO VISIBLE SI EXPANDIDO */}
+            {isExpanded && (
+              <div className={`font-bold text-sm ${colorInfo.color}`}>
+                ${formatMoney(utilidadReal)}
+              </div>
+            )}
+            {/* Gauge Chart con porcentaje dentro - SIEMPRE VISIBLE */}
             <GaugeChart
               value={Math.max(0, Math.min(100, margenReal))}
               size="sm"
@@ -923,13 +928,16 @@ export const EventosListPage: React.FC = () => {
                 {columns.map((column) => (
                   <th
                     key={column.key}
-                    className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className={`px-3 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${
+                      column.align === 'right' ? 'text-right' :
+                      column.align === 'center' ? 'text-center' : 'text-center'
+                    }`}
                     style={{ width: column.width }}
                   >
                     {column.label}
                   </th>
                 ))}
-                <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
                   Acciones
                 </th>
               </tr>
@@ -947,7 +955,10 @@ export const EventosListPage: React.FC = () => {
                     {columns.map((column) => (
                       <td
                         key={column.key}
-                        className="px-3 py-4 text-sm text-gray-900"
+                        className={`px-3 py-4 text-sm text-gray-900 ${
+                          column.align === 'right' ? 'text-right' :
+                          column.align === 'center' ? 'text-center' : 'text-center'
+                        }`}
                         onClick={(e) => {
                           // Si es la columna de expand, dejar que el botón maneje el click
                           if (column.key === 'expand') {
@@ -960,7 +971,7 @@ export const EventosListPage: React.FC = () => {
                           : (evento as any)[column.key]}
                       </td>
                     ))}
-                    <td className="px-3 py-4 text-sm text-right" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-3 py-4 text-sm text-center" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
                         {actions.map((action, idx) => {
                           const show = typeof action.show === 'function' ? action.show() : true;
