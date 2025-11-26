@@ -360,21 +360,13 @@ export const EventosListPage: React.FC = () => {
       filterType: 'number' as const,
       align: 'right' as const,
       render: (value: number, row: any) => {
-        const isExpanded = expandedRows.has(row.id); // Solo expandido, NO hover
+        // Tooltip con desglose
+        const tooltip = `Cobrados: $${formatMoney(row.ingresos_cobrados || 0)}\nPendientes: $${formatMoney(row.ingresos_pendientes || 0)}\nEstimados: $${formatMoney(row.ingreso_estimado || 0)}`;
         return (
-          <div className="text-right space-y-0.5">
-            {/* TOTAL EN NEGRITA - SIEMPRE VISIBLE */}
+          <div className="text-right" title={tooltip}>
             <div className="font-bold text-blue-900 text-base">
               ${formatMoney(row.ingresos_totales || 0)}
             </div>
-            {/* DESGLOSE - SOLO VISIBLE SI EXPANDIDO (click) */}
-            {isExpanded && (
-              <div className="text-xs text-gray-500 border-t pt-0.5 space-y-0.5">
-                <div className="text-green-600">Cobr: ${formatMoney(row.ingresos_cobrados || 0)}</div>
-                <div className="text-yellow-600">Pend: ${formatMoney(row.ingresos_pendientes || 0)}</div>
-                <div className="text-gray-400">Est: ${formatMoney(row.ingreso_estimado || 0)}</div>
-              </div>
-            )}
           </div>
         );
       }
@@ -385,25 +377,16 @@ export const EventosListPage: React.FC = () => {
       filterType: 'number' as const,
       align: 'right' as const,
       render: (_value: number, row: any) => {
-        const isExpanded = expandedRows.has(row.id); // Solo expandido, NO hover
         const gastosPagados = row.gastos_pagados_total || 0;
         const gastosPendientes = row.gastos_pendientes_total || 0;
         const gastosTotal = gastosPagados + gastosPendientes;
-        
+        // Tooltip con desglose
+        const tooltip = `⛽ Combustible: $${formatMoney((row.gastos_combustible_pagados || 0) + (row.gastos_combustible_pendientes || 0))}\n🛠️ Materiales: $${formatMoney((row.gastos_materiales_pagados || 0) + (row.gastos_materiales_pendientes || 0))}\n👥 RH: $${formatMoney((row.gastos_rh_pagados || 0) + (row.gastos_rh_pendientes || 0))}\n💳 Solicitudes: $${formatMoney((row.gastos_sps_pagados || 0) + (row.gastos_sps_pendientes || 0))}`;
         return (
-          <div className="text-right space-y-0.5">
+          <div className="text-right" title={tooltip}>
             <div className="font-bold text-red-900 text-base">
               ${formatMoney(gastosTotal)}
             </div>
-            {/* DESGLOSE POR CATEGORÍA - SOLO VISIBLE SI EXPANDIDO (click) */}
-            {isExpanded && (
-              <div className="text-xs text-gray-500 border-t pt-0.5 space-y-0.5">
-                <div>⛽ ${formatMoney((row.gastos_combustible_pagados || 0) + (row.gastos_combustible_pendientes || 0))}</div>
-                <div>🛠️ ${formatMoney((row.gastos_materiales_pagados || 0) + (row.gastos_materiales_pendientes || 0))}</div>
-                <div>👥 ${formatMoney((row.gastos_rh_pagados || 0) + (row.gastos_rh_pendientes || 0))}</div>
-                <div>💳 ${formatMoney((row.gastos_sps_pagados || 0) + (row.gastos_sps_pendientes || 0))}</div>
-              </div>
-            )}
           </div>
         );
       }
@@ -414,52 +397,29 @@ export const EventosListPage: React.FC = () => {
       filterType: 'number' as const,
       align: 'right' as const,
       render: (_value: any, row: any) => {
-        const isExpanded = expandedRows.has(row.id); // Solo expandido, NO hover
         const provisionesTotal = (row.provision_combustible_peaje || 0) +
                                  (row.provision_materiales || 0) +
                                  (row.provision_recursos_humanos || 0) +
                                  (row.provision_solicitudes_pago || 0);
-
-        // CORRECCIÓN: Usar gastos TOTALES (pagados + pendientes), no solo pagados
         const gastosPagados = row.gastos_pagados_total || 0;
         const gastosPendientes = row.gastos_pendientes_total || 0;
         const gastosTotales = gastosPagados + gastosPendientes;
         const disponible = provisionesTotal - gastosTotales;
 
-        // Desglose detallado por categoría
-        const disponibleCombustible = (row.provision_combustible_peaje || 0) -
-                                      ((row.gastos_combustible_pagados || 0) + (row.gastos_combustible_pendientes || 0));
-        const disponibleMateriales = (row.provision_materiales || 0) -
-                                     ((row.gastos_materiales_pagados || 0) + (row.gastos_materiales_pendientes || 0));
-        const disponibleRH = (row.provision_recursos_humanos || 0) -
-                            ((row.gastos_rh_pagados || 0) + (row.gastos_rh_pendientes || 0));
-        const disponibleSPs = (row.provision_solicitudes_pago || 0) -
-                             ((row.gastos_sps_pagados || 0) + (row.gastos_sps_pendientes || 0));
+        // Desglose para tooltip
+        const disponibleCombustible = (row.provision_combustible_peaje || 0) - ((row.gastos_combustible_pagados || 0) + (row.gastos_combustible_pendientes || 0));
+        const disponibleMateriales = (row.provision_materiales || 0) - ((row.gastos_materiales_pagados || 0) + (row.gastos_materiales_pendientes || 0));
+        const disponibleRH = (row.provision_recursos_humanos || 0) - ((row.gastos_rh_pagados || 0) + (row.gastos_rh_pendientes || 0));
+        const disponibleSPs = (row.provision_solicitudes_pago || 0) - ((row.gastos_sps_pagados || 0) + (row.gastos_sps_pendientes || 0));
 
         const colorClass = disponible > 0 ? 'text-green-700' : disponible < 0 ? 'text-red-700' : 'text-gray-700';
+        const tooltip = `⛽ Combustible: $${formatMoney(Math.max(0, disponibleCombustible))}\n🛠️ Materiales: $${formatMoney(Math.max(0, disponibleMateriales))}\n👥 RH: $${formatMoney(Math.max(0, disponibleRH))}\n💳 Solicitudes: $${formatMoney(Math.max(0, disponibleSPs))}`;
 
         return (
-          <div className="text-right space-y-0.5">
+          <div className="text-right" title={tooltip}>
             <div className={`font-bold text-base ${colorClass}`}>
               ${formatMoney(Math.max(0, disponible))}
             </div>
-            {/* DESGLOSE POR CATEGORÍA - SOLO VISIBLE SI EXPANDIDO (click) */}
-            {isExpanded && (
-              <div className="text-xs text-gray-500 border-t pt-0.5 space-y-0.5">
-                <div className={disponibleCombustible >= 0 ? 'text-green-600' : 'text-red-600'}>
-                  ⛽ ${formatMoney(Math.max(0, disponibleCombustible))}
-                </div>
-                <div className={disponibleMateriales >= 0 ? 'text-green-600' : 'text-red-600'}>
-                  🛠️ ${formatMoney(Math.max(0, disponibleMateriales))}
-                </div>
-                <div className={disponibleRH >= 0 ? 'text-green-600' : 'text-red-600'}>
-                  👥 ${formatMoney(Math.max(0, disponibleRH))}
-                </div>
-                <div className={disponibleSPs >= 0 ? 'text-green-600' : 'text-red-600'}>
-                  💳 ${formatMoney(Math.max(0, disponibleSPs))}
-                </div>
-              </div>
-            )}
           </div>
         );
       }
@@ -471,9 +431,7 @@ export const EventosListPage: React.FC = () => {
       align: 'center' as const,
       width: '130px',
       render: (_value: number, row: any) => {
-        const isExpanded = expandedRows.has(row.id); // Solo expandido, NO hover
-        // FÓRMULA DEL CLIENTE: Utilidad = Ingresos - Gastos - Provisiones Disponibles
-        // PROVISIONES_DISPONIBLES = MAX(0, PROVISIONES - GASTOS) - Nunca negativo
+        const isExpanded = expandedRows.has(row.id);
         const ingresosTotales = row.ingresos_totales || 0;
         const gastosPagados = row.gastos_pagados_total || 0;
         const gastosPendientes = row.gastos_pendientes_total || 0;
@@ -482,54 +440,35 @@ export const EventosListPage: React.FC = () => {
                                  (row.provision_materiales || 0) +
                                  (row.provision_recursos_humanos || 0) +
                                  (row.provision_solicitudes_pago || 0);
-
-        // Provisiones disponibles = MAX(0, PROVISIONES - GASTOS) - nunca negativas
         const provisionesDisponibles = Math.max(0, provisionesTotal - gastosTotales);
-        // Utilidad = Ingresos - Gastos - Provisiones Disponibles
         const utilidadReal = ingresosTotales - gastosTotales - provisionesDisponibles;
         const margenReal = ingresosTotales > 0 ? (utilidadReal / ingresosTotales) * 100 : 0;
 
-        // Determinar color y etiqueta según margen
         const getColorInfo = (margen: number) => {
-          if (margen >= 35) return { color: 'text-green-600', bg: 'bg-green-100', label: 'Verde', dotColor: 'bg-green-500' };
-          if (margen >= 25) return { color: 'text-yellow-600', bg: 'bg-yellow-100', label: 'Amarillo', dotColor: 'bg-yellow-500' };
-          if (margen >= 1) return { color: 'text-red-600', bg: 'bg-red-100', label: 'Rojo', dotColor: 'bg-red-500' };
-          return { color: 'text-gray-600', bg: 'bg-gray-100', label: 'Ninguno', dotColor: 'bg-gray-400' };
+          if (margen >= 35) return { color: 'text-green-600', label: 'Excelente' };
+          if (margen >= 25) return { color: 'text-yellow-600', label: 'Regular' };
+          if (margen >= 1) return { color: 'text-red-600', label: 'Bajo' };
+          return { color: 'text-gray-600', label: 'Ninguno' };
         };
-
         const colorInfo = getColorInfo(margenReal);
 
-        // Colapsado: Monto + gauge
-        // Expandido: Monto + gauge + desglose
+        // Tooltip con fórmula
+        const tooltip = `Margen: ${margenReal.toFixed(1)}% (${colorInfo.label})\n\nIngresos: $${formatMoney(ingresosTotales)}\n- Gastos: $${formatMoney(gastosTotales)}\n- Provisión: $${formatMoney(provisionesDisponibles)}\n= Utilidad: $${formatMoney(utilidadReal)}`;
+
         return (
-          <div className="text-center space-y-0.5">
-            {/* Monto de utilidad - SIEMPRE VISIBLE */}
+          <div className="text-center" title={tooltip}>
+            {/* Monto - SIEMPRE VISIBLE */}
             <div className={`font-bold text-base ${colorInfo.color}`}>
               ${formatMoney(utilidadReal)}
             </div>
-            {/* Gauge Chart con porcentaje dentro - SIEMPRE VISIBLE */}
-            <div className="flex justify-center">
-              <GaugeChart
-                value={Math.max(0, Math.min(100, margenReal))}
-                size="sm"
-                showLabel={true}
-              />
-            </div>
-            {/* DESGLOSE - SOLO VISIBLE SI EXPANDIDO (click) */}
+            {/* Gauge - SOLO AL EXPANDIR */}
             {isExpanded && (
-              <div className="text-xs text-gray-500 border-t pt-0.5 space-y-0.5">
-                <div className="flex justify-between">
-                  <span>➕ Ing:</span>
-                  <span className="text-blue-600">${formatMoney(ingresosTotales)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>➖ Gas:</span>
-                  <span className="text-red-600">${formatMoney(gastosTotales)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>➖ Prov:</span>
-                  <span className="text-amber-600">${formatMoney(provisionesDisponibles)}</span>
-                </div>
+              <div className="flex justify-center mt-1">
+                <GaugeChart
+                  value={Math.max(0, Math.min(100, margenReal))}
+                  size="sm"
+                  showLabel={true}
+                />
               </div>
             )}
           </div>
@@ -882,12 +821,11 @@ export const EventosListPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Utilidad con Gauge Chart - Fórmula del cliente - MISMO FORMATO QUE PROVISIONES */}
+            {/* Utilidad - Colapsado: solo monto, Expandido: monto + gauge */}
             <div className="flex-1 p-4">
               <div className="flex flex-col">
                 {(() => {
                   // FÓRMULA DEL CLIENTE: Utilidad = Ingresos - Gastos - Provisiones Disponibles
-                  // PROVISIONES_DISPONIBLES = MAX(0, PROVISIONES - GASTOS) - nunca negativo
                   const provisionesDisponibles = Math.max(0, dashboard.total_provisiones - dashboard.total_gastos_totales);
                   const utilidad = dashboard.total_ingresos_reales - dashboard.total_gastos_totales - provisionesDisponibles;
                   const margenUtilidad = dashboard.total_ingresos_reales > 0
@@ -902,36 +840,18 @@ export const EventosListPage: React.FC = () => {
                         <p className="text-sm font-medium text-gray-600">UTILIDAD</p>
                         <span className="text-xs text-blue-600">{showAllCardDetails ? '▲' : '▼'}</span>
                       </div>
-                      {/* Monto y Gauge - SIEMPRE VISIBLE */}
-                      <div className="flex items-center justify-between">
-                        <p className={`text-xl font-bold ${colorClass}`}>
-                          ${formatMoney(utilidad)}
-                        </p>
-                        <GaugeChart
-                          value={Math.max(0, Math.min(100, margenUtilidad))}
-                          size="sm"
-                          showLabel={true}
-                        />
-                      </div>
-                      {/* Desglose - SOLO CUANDO EXPANDIDO */}
+                      {/* Monto - SIEMPRE VISIBLE */}
+                      <p className={`text-xl font-bold ${colorClass}`}>
+                        ${formatMoney(utilidad)}
+                      </p>
+                      {/* Gauge - SOLO CUANDO EXPANDIDO */}
                       {showAllCardDetails && (
-                        <div className="text-xs text-gray-500 mt-2 pt-2 border-t space-y-1">
-                          <div className="flex justify-between">
-                            <span>➕ Ingresos:</span>
-                            <span className="text-blue-600">${formatMoney(dashboard.total_ingresos_reales)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>➖ Gastos:</span>
-                            <span className="text-red-600">${formatMoney(dashboard.total_gastos_totales)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>➖ Provisión:</span>
-                            <span className="text-amber-600">${formatMoney(provisionesDisponibles)}</span>
-                          </div>
-                          <div className="flex justify-between font-semibold border-t pt-1">
-                            <span>= Utilidad:</span>
-                            <span className={colorClass}>${formatMoney(utilidad)}</span>
-                          </div>
+                        <div className="flex justify-center mt-2">
+                          <GaugeChart
+                            value={Math.max(0, Math.min(100, margenUtilidad))}
+                            size="sm"
+                            showLabel={true}
+                          />
                         </div>
                       )}
                     </>
