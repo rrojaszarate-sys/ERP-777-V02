@@ -66,7 +66,8 @@ export const fetchGastosNoImpactados = async (
     query = query.lte('fecha_gasto', filtros.fecha_fin);
   }
 
-  const { data, error } = await query;
+  // Supabase tiene límite default de 1000 - establecemos explícitamente un límite mayor
+  const { data, error } = await query.limit(5000);
   if (error) throw error;
   return data as GastoNoImpactadoView[];
 };
@@ -435,7 +436,8 @@ export const fetchResumenAnual = async (
     .from('v_gastos_no_impactados')
     .select('periodo, total, cuenta')
     .eq('company_id', companyId)
-    .in('periodo', meses);
+    .in('periodo', meses)
+    .limit(10000); // Asegurar que traemos todos los registros del año
 
   if (error) throw error;
 

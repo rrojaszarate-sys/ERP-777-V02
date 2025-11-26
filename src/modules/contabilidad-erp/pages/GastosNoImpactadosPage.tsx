@@ -86,6 +86,32 @@ import toast from 'react-hot-toast';
 // Colores paleta MADE Mint
 const MINT_COLORS = ['#14B8A6', '#0EA5E9', '#8B5CF6', '#F59E0B', '#EF4444', '#10B981'];
 
+// Colores por tipo de cuenta (paleta armoniosa con Mint)
+const CUENTA_COLORS: Record<string, string> = {
+  'GASTOS FIJOS': '#14B8A6',      // Teal (principal)
+  'MATERIALES': '#0EA5E9',         // Sky blue
+  'MANTENIMIENTO': '#8B5CF6',      // Violet
+  'ACTIVOS FIJOS': '#F59E0B',      // Amber
+  'LOGÍSTICA': '#EC4899',          // Pink
+  'DISEÑOS': '#10B981',            // Emerald
+  'TOKA': '#6366F1',               // Indigo
+  'GASTOS VARIOS': '#F97316',      // Orange
+  'EVENTOS INTERNOS': '#06B6D4',   // Cyan
+  'CAJA CHICA': '#84CC16',         // Lime
+  'DEFAULT': '#94A3B8'             // Slate (para cuentas no mapeadas)
+};
+
+// Función para obtener color de cuenta
+const getCuentaColor = (cuenta: string): string => {
+  const upperCuenta = (cuenta || '').toUpperCase();
+  for (const [key, color] of Object.entries(CUENTA_COLORS)) {
+    if (upperCuenta.includes(key) || key.includes(upperCuenta)) {
+      return color;
+    }
+  }
+  return CUENTA_COLORS.DEFAULT;
+};
+
 // Colores sobrios de bancos mexicanos (versión suavizada)
 const BANK_COLORS: Record<string, string> = {
   // Bancos principales - Tonos más sobrios
@@ -957,8 +983,8 @@ export const GastosNoImpactadosPage = () => {
               </motion.div>
             </div>
 
-            {/* Gráficas mejoradas */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Gráficas mejoradas - Layout: Cuenta(1) + Mes(2) + Forma(1) = 4 cols */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
               {/* Distribución por Cuenta */}
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
@@ -973,14 +999,18 @@ export const GastosNoImpactadosPage = () => {
                 <div className="space-y-2.5">
                   {Object.entries(dashboardData.porCuenta)
                     .sort((a, b) => b[1].total - a[1].total)
-                    .slice(0, 5)
+                    .slice(0, 6)
                     .map(([cuenta, data], index) => {
                       const maxTotal = Math.max(...Object.values(dashboardData.porCuenta).map(d => d.total));
                       const percentage = maxTotal > 0 ? (data.total / maxTotal) * 100 : 0;
+                      const cuentaColor = getCuentaColor(cuenta);
                       return (
                         <div key={cuenta}>
                           <div className="flex justify-between items-center mb-1">
-                            <span className="text-xs font-medium text-gray-700 truncate max-w-[150px]">{cuenta}</span>
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cuentaColor }} />
+                              <span className="text-xs font-medium text-gray-700 truncate max-w-[120px]">{cuenta}</span>
+                            </div>
                             <span className="text-xs font-bold text-gray-900">{formatCurrency(data.total)}</span>
                           </div>
                           <div className="relative h-4 bg-gray-100 rounded-full overflow-hidden">
@@ -989,7 +1019,7 @@ export const GastosNoImpactadosPage = () => {
                               animate={{ width: `${percentage}%` }}
                               transition={{ delay: 0.4 + index * 0.05, duration: 0.6 }}
                               className="h-full rounded-full"
-                              style={{ backgroundColor: MINT_COLORS[index % MINT_COLORS.length] }}
+                              style={{ backgroundColor: cuentaColor }}
                             />
                           </div>
                         </div>
@@ -998,42 +1028,104 @@ export const GastosNoImpactadosPage = () => {
                 </div>
               </motion.div>
 
-              {/* Gráfica por Mes - NUEVA */}
+              {/* Gráfica por Mes - Barras apiladas por cuenta */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
-                className="bg-white p-4 rounded-xl shadow-sm border"
+                className="bg-white p-4 rounded-xl shadow-sm border lg:col-span-2"
               >
-                <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-violet-600" />
-                  Gastos por Mes
-                </h3>
-                <div className="space-y-2">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-violet-600" />
+                    Gastos por Mes (por Cuenta)
+                  </h3>
+                  {/* Leyenda compacta */}
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(CUENTA_COLORS)
+                      .filter(([key]) => key !== 'DEFAULT')
+                      .slice(0, 6)
+                      .map(([cuenta, color]) => (
+                        <div key={cuenta} className="flex items-center gap-1">
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+                          <span className="text-[10px] text-gray-500">{cuenta.split(' ')[0]}</span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+                <div className="space-y-3">
                   {(() => {
-                    const mesesOrdenados = Object.entries(dashboardData.porMes)
+                    // Calcular datos por mes y cuenta
+                    const datosPorMesCuenta: Record<string, Record<string, number>> = {};
+                    gastos.forEach(g => {
+                      const mes = g.fecha_gasto?.substring(0, 7) || 'Sin fecha';
+                      const cuenta = g.cuenta || 'Sin clasificar';
+                      if (!datosPorMesCuenta[mes]) datosPorMesCuenta[mes] = {};
+                      datosPorMesCuenta[mes][cuenta] = (datosPorMesCuenta[mes][cuenta] || 0) + (g.total || 0);
+                    });
+
+                    const mesesOrdenados = Object.entries(datosPorMesCuenta)
                       .sort((a, b) => a[0].localeCompare(b[0]))
-                      .slice(-6);
-                    const maxMes = Math.max(...mesesOrdenados.map(([, total]) => total), 1);
+                      .slice(-12);
+
+                    // Total máximo para escala
+                    const maxMes = Math.max(...mesesOrdenados.map(([, cuentas]) =>
+                      Object.values(cuentas).reduce((s, v) => s + v, 0)
+                    ), 1);
+
+                    // Obtener todas las cuentas únicas
+                    const todasLasCuentas = [...new Set(gastos.map(g => g.cuenta || 'Sin clasificar'))];
+
                     const mesesLabels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-                    return mesesOrdenados.map(([mes, total], index) => {
+                    return mesesOrdenados.map(([mes, cuentas], index) => {
                       const [anio, mesNum] = mes.split('-');
                       const mesLabel = mesesLabels[parseInt(mesNum) - 1] || mes;
-                      const percentage = (total / maxMes) * 100;
+                      const totalMes = Object.values(cuentas).reduce((s, v) => s + v, 0);
+
+                      // Ordenar cuentas por monto descendente
+                      const cuentasOrdenadas = Object.entries(cuentas).sort((a, b) => b[1] - a[1]);
+
                       return (
-                        <div key={mes}>
+                        <div key={mes} className="group">
                           <div className="flex justify-between items-center mb-1">
-                            <span className="text-xs font-medium text-gray-700">{mesLabel} {anio.slice(-2)}</span>
-                            <span className="text-xs font-bold text-gray-900">{formatCurrency(total)}</span>
+                            <span className="text-xs font-medium text-gray-700 w-14">{mesLabel} {anio.slice(-2)}</span>
+                            <span className="text-xs font-bold text-gray-900">{formatCurrency(totalMes)}</span>
                           </div>
-                          <div className="relative h-4 bg-gray-100 rounded-full overflow-hidden">
-                            <motion.div
-                              initial={{ width: 0 }}
-                              animate={{ width: `${percentage}%` }}
-                              transition={{ delay: 0.5 + index * 0.05, duration: 0.6 }}
-                              className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-500"
-                            />
+                          <div className="relative h-6 bg-gray-100 rounded-md overflow-hidden flex" title={`Total: ${formatCurrency(totalMes)}`}>
+                            {cuentasOrdenadas.map(([cuenta, monto], i) => {
+                              const widthPct = (monto / maxMes) * 100;
+                              const color = getCuentaColor(cuenta);
+                              return (
+                                <motion.div
+                                  key={cuenta}
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${widthPct}%` }}
+                                  transition={{ delay: 0.5 + index * 0.03 + i * 0.02, duration: 0.5 }}
+                                  className="h-full relative group/segment"
+                                  style={{ backgroundColor: color }}
+                                  title={`${cuenta}: ${formatCurrency(monto)}`}
+                                >
+                                  {widthPct > 8 && (
+                                    <span className="absolute inset-0 flex items-center justify-center text-[9px] font-medium text-white opacity-0 group-hover/segment:opacity-100 transition-opacity truncate px-1">
+                                      {cuenta.split(' ')[0]}
+                                    </span>
+                                  )}
+                                </motion.div>
+                              );
+                            })}
+                          </div>
+                          {/* Tooltip con desglose al hover */}
+                          <div className="hidden group-hover:block absolute z-10 bg-gray-900 text-white text-[10px] rounded-lg p-2 shadow-lg mt-1 min-w-48">
+                            {cuentasOrdenadas.map(([cuenta, monto]) => (
+                              <div key={cuenta} className="flex justify-between gap-3">
+                                <span className="flex items-center gap-1">
+                                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: getCuentaColor(cuenta) }} />
+                                  {cuenta}
+                                </span>
+                                <span className="font-medium">{formatCurrency(monto)}</span>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       );
