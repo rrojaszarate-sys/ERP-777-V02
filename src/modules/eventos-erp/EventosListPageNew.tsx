@@ -862,12 +862,7 @@ export const EventosListPage: React.FC = () => {
 
             {/* Utilidad con Gauge Chart - Fórmula del cliente */}
             <div className="flex-1 p-4">
-              <div className="flex flex-col items-center">
-                {showAllCardDetails && (
-                  <div className="flex items-center justify-between w-full mb-2">
-                    <p className="text-sm font-medium text-gray-600">UTILIDAD</p>
-                  </div>
-                )}
+              <div className="flex flex-col items-center justify-center h-full">
                 {(() => {
                   // FÓRMULA DEL CLIENTE: Utilidad = Ingresos - Gastos - Provisiones Disponibles
                   // PROVISIONES_DISPONIBLES = MAX(0, PROVISIONES - GASTOS) - nunca negativo
@@ -880,15 +875,19 @@ export const EventosListPage: React.FC = () => {
 
                   return (
                     <>
-                      {/* Solo mostrar monto cuando colapsado */}
-                      {!showAllCardDetails && (
-                        <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide mb-1">UTILIDAD</p>
+                      {/* Cuando expandido: mostrar etiqueta y monto */}
+                      {showAllCardDetails && (
+                        <>
+                          <div className="flex items-center justify-between w-full mb-2">
+                            <p className="text-sm font-medium text-gray-600">UTILIDAD</p>
+                          </div>
+                          <p className={`text-xl font-bold ${colorClass}`}>
+                            ${formatMoney(utilidad)}
+                          </p>
+                        </>
                       )}
-                      <p className={`text-xl font-bold ${colorClass}`}>
-                        ${formatMoney(utilidad)}
-                      </p>
                       {/* Gauge Chart siempre visible */}
-                      <div className="mt-1">
+                      <div className={showAllCardDetails ? "mt-1" : ""}>
                         <GaugeChart
                           value={Math.max(0, Math.min(100, margenUtilidad))}
                           size="sm"
