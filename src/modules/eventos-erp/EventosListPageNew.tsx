@@ -360,14 +360,14 @@ export const EventosListPage: React.FC = () => {
       filterType: 'number' as const,
       align: 'right' as const,
       render: (value: number, row: any) => {
-        const isExpanded = expandedRows.has(row.id) || hoveredRow === row.id;
+        const isExpanded = expandedRows.has(row.id); // Solo expandido, NO hover
         return (
           <div className="text-right space-y-0.5">
-            {/* TOTAL EN NEGRITA */}
+            {/* TOTAL EN NEGRITA - SIEMPRE VISIBLE */}
             <div className="font-bold text-blue-900 text-base">
               ${formatMoney(row.ingresos_totales || 0)}
             </div>
-            {/* DESGLOSE - VISIBLE SOLO SI EXPANDIDO O HOVER */}
+            {/* DESGLOSE - SOLO VISIBLE SI EXPANDIDO (click) */}
             {isExpanded && (
               <div className="text-xs text-gray-500 border-t pt-0.5 space-y-0.5">
                 <div className="text-green-600">Cobr: ${formatMoney(row.ingresos_cobrados || 0)}</div>
@@ -385,7 +385,7 @@ export const EventosListPage: React.FC = () => {
       filterType: 'number' as const,
       align: 'right' as const,
       render: (_value: number, row: any) => {
-        const isExpanded = expandedRows.has(row.id) || hoveredRow === row.id;
+        const isExpanded = expandedRows.has(row.id); // Solo expandido, NO hover
         const gastosPagados = row.gastos_pagados_total || 0;
         const gastosPendientes = row.gastos_pendientes_total || 0;
         const gastosTotal = gastosPagados + gastosPendientes;
@@ -395,7 +395,7 @@ export const EventosListPage: React.FC = () => {
             <div className="font-bold text-red-900 text-base">
               ${formatMoney(gastosTotal)}
             </div>
-            {/* DESGLOSE POR CATEGORÍA - VISIBLE SOLO AL EXPANDIR O HOVER */}
+            {/* DESGLOSE POR CATEGORÍA - SOLO VISIBLE SI EXPANDIDO (click) */}
             {isExpanded && (
               <div className="text-xs text-gray-500 border-t pt-0.5 space-y-0.5">
                 <div>⛽ ${formatMoney((row.gastos_combustible_pagados || 0) + (row.gastos_combustible_pendientes || 0))}</div>
@@ -414,36 +414,36 @@ export const EventosListPage: React.FC = () => {
       filterType: 'number' as const,
       align: 'right' as const,
       render: (_value: any, row: any) => {
-        const isExpanded = expandedRows.has(row.id) || hoveredRow === row.id;
-        const provisionesTotal = (row.provision_combustible_peaje || 0) + 
-                                 (row.provision_materiales || 0) + 
-                                 (row.provision_recursos_humanos || 0) + 
+        const isExpanded = expandedRows.has(row.id); // Solo expandido, NO hover
+        const provisionesTotal = (row.provision_combustible_peaje || 0) +
+                                 (row.provision_materiales || 0) +
+                                 (row.provision_recursos_humanos || 0) +
                                  (row.provision_solicitudes_pago || 0);
-        
+
         // CORRECCIÓN: Usar gastos TOTALES (pagados + pendientes), no solo pagados
         const gastosPagados = row.gastos_pagados_total || 0;
         const gastosPendientes = row.gastos_pendientes_total || 0;
         const gastosTotales = gastosPagados + gastosPendientes;
         const disponible = provisionesTotal - gastosTotales;
-        
+
         // Desglose detallado por categoría
-        const disponibleCombustible = (row.provision_combustible_peaje || 0) - 
+        const disponibleCombustible = (row.provision_combustible_peaje || 0) -
                                       ((row.gastos_combustible_pagados || 0) + (row.gastos_combustible_pendientes || 0));
-        const disponibleMateriales = (row.provision_materiales || 0) - 
+        const disponibleMateriales = (row.provision_materiales || 0) -
                                      ((row.gastos_materiales_pagados || 0) + (row.gastos_materiales_pendientes || 0));
-        const disponibleRH = (row.provision_recursos_humanos || 0) - 
+        const disponibleRH = (row.provision_recursos_humanos || 0) -
                             ((row.gastos_rh_pagados || 0) + (row.gastos_rh_pendientes || 0));
-        const disponibleSPs = (row.provision_solicitudes_pago || 0) - 
+        const disponibleSPs = (row.provision_solicitudes_pago || 0) -
                              ((row.gastos_sps_pagados || 0) + (row.gastos_sps_pendientes || 0));
-        
+
         const colorClass = disponible > 0 ? 'text-green-700' : disponible < 0 ? 'text-red-700' : 'text-gray-700';
-        
+
         return (
           <div className="text-right space-y-0.5">
             <div className={`font-bold text-base ${colorClass}`}>
               ${formatMoney(Math.max(0, disponible))}
             </div>
-            {/* DESGLOSE POR CATEGORÍA - VISIBLE AL EXPANDIR O HOVER */}
+            {/* DESGLOSE POR CATEGORÍA - SOLO VISIBLE SI EXPANDIDO (click) */}
             {isExpanded && (
               <div className="text-xs text-gray-500 border-t pt-0.5 space-y-0.5">
                 <div className={disponibleCombustible >= 0 ? 'text-green-600' : 'text-red-600'}>
@@ -471,7 +471,7 @@ export const EventosListPage: React.FC = () => {
       align: 'center' as const,
       width: '130px',
       render: (_value: number, row: any) => {
-        const isExpanded = expandedRows.has(row.id) || hoveredRow === row.id;
+        const isExpanded = expandedRows.has(row.id); // Solo expandido, NO hover
         // FÓRMULA DEL CLIENTE: Utilidad = Ingresos - Gastos - Provisiones Disponibles
         // PROVISIONES_DISPONIBLES = MAX(0, PROVISIONES - GASTOS) - Nunca negativo
         const ingresosTotales = row.ingresos_totales || 0;
@@ -499,22 +499,39 @@ export const EventosListPage: React.FC = () => {
 
         const colorInfo = getColorInfo(margenReal);
 
-        // Cuando está colapsado: solo mostrar el gauge con porcentaje
-        // Cuando está expandido: mostrar monto + gauge
+        // Colapsado: Monto + gauge
+        // Expandido: Monto + gauge + desglose
         return (
-          <div className="flex flex-col items-center">
-            {/* Monto de utilidad arriba - SOLO VISIBLE SI EXPANDIDO */}
+          <div className="text-center space-y-0.5">
+            {/* Monto de utilidad - SIEMPRE VISIBLE */}
+            <div className={`font-bold text-base ${colorInfo.color}`}>
+              ${formatMoney(utilidadReal)}
+            </div>
+            {/* Gauge Chart con porcentaje dentro - SIEMPRE VISIBLE */}
+            <div className="flex justify-center">
+              <GaugeChart
+                value={Math.max(0, Math.min(100, margenReal))}
+                size="sm"
+                showLabel={true}
+              />
+            </div>
+            {/* DESGLOSE - SOLO VISIBLE SI EXPANDIDO (click) */}
             {isExpanded && (
-              <div className={`font-bold text-sm ${colorInfo.color}`}>
-                ${formatMoney(utilidadReal)}
+              <div className="text-xs text-gray-500 border-t pt-0.5 space-y-0.5">
+                <div className="flex justify-between">
+                  <span>➕ Ing:</span>
+                  <span className="text-blue-600">${formatMoney(ingresosTotales)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>➖ Gas:</span>
+                  <span className="text-red-600">${formatMoney(gastosTotales)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>➖ Prov:</span>
+                  <span className="text-amber-600">${formatMoney(provisionesDisponibles)}</span>
+                </div>
               </div>
             )}
-            {/* Gauge Chart con porcentaje dentro - SIEMPRE VISIBLE */}
-            <GaugeChart
-              value={Math.max(0, Math.min(100, margenReal))}
-              size="sm"
-              showLabel={true}
-            />
           </div>
         );
       }
@@ -865,9 +882,9 @@ export const EventosListPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Utilidad con Gauge Chart - Fórmula del cliente */}
+            {/* Utilidad con Gauge Chart - Fórmula del cliente - MISMO FORMATO QUE PROVISIONES */}
             <div className="flex-1 p-4">
-              <div className="flex flex-col items-center justify-center h-full">
+              <div className="flex flex-col">
                 {(() => {
                   // FÓRMULA DEL CLIENTE: Utilidad = Ingresos - Gastos - Provisiones Disponibles
                   // PROVISIONES_DISPONIBLES = MAX(0, PROVISIONES - GASTOS) - nunca negativo
@@ -880,25 +897,43 @@ export const EventosListPage: React.FC = () => {
 
                   return (
                     <>
-                      {/* Cuando expandido: mostrar etiqueta y monto */}
-                      {showAllCardDetails && (
-                        <>
-                          <div className="flex items-center justify-between w-full mb-2">
-                            <p className="text-sm font-medium text-gray-600">UTILIDAD</p>
-                          </div>
-                          <p className={`text-xl font-bold ${colorClass}`}>
-                            ${formatMoney(utilidad)}
-                          </p>
-                        </>
-                      )}
-                      {/* Gauge Chart siempre visible */}
-                      <div className={showAllCardDetails ? "mt-1" : ""}>
+                      {/* Etiqueta y flecha - SIEMPRE VISIBLE */}
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-medium text-gray-600">UTILIDAD</p>
+                        <span className="text-xs text-blue-600">{showAllCardDetails ? '▲' : '▼'}</span>
+                      </div>
+                      {/* Monto y Gauge - SIEMPRE VISIBLE */}
+                      <div className="flex items-center justify-between">
+                        <p className={`text-xl font-bold ${colorClass}`}>
+                          ${formatMoney(utilidad)}
+                        </p>
                         <GaugeChart
                           value={Math.max(0, Math.min(100, margenUtilidad))}
                           size="sm"
                           showLabel={true}
                         />
                       </div>
+                      {/* Desglose - SOLO CUANDO EXPANDIDO */}
+                      {showAllCardDetails && (
+                        <div className="text-xs text-gray-500 mt-2 pt-2 border-t space-y-1">
+                          <div className="flex justify-between">
+                            <span>➕ Ingresos:</span>
+                            <span className="text-blue-600">${formatMoney(dashboard.total_ingresos_reales)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>➖ Gastos:</span>
+                            <span className="text-red-600">${formatMoney(dashboard.total_gastos_totales)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>➖ Provisión:</span>
+                            <span className="text-amber-600">${formatMoney(provisionesDisponibles)}</span>
+                          </div>
+                          <div className="flex justify-between font-semibold border-t pt-1">
+                            <span>= Utilidad:</span>
+                            <span className={colorClass}>${formatMoney(utilidad)}</span>
+                          </div>
+                        </div>
+                      )}
                     </>
                   );
                 })()}
