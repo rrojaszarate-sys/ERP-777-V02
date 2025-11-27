@@ -84,22 +84,51 @@ import { ExportPDFModal } from '../components/ExportPDFModal';
 import { supabase } from '../../../core/config/supabase';
 import toast from 'react-hot-toast';
 
-// Colores paleta MADE Mint - Tonos monocromáticos para gráficas minimalistas
-const MINT_COLORS = ['#0D9488', '#14B8A6', '#2DD4BF', '#5EEAD4', '#99F6E4', '#CCFBF1'];
+// Colores paleta DINÁMICA - Variedad de colores vibrantes para gráficas
+const DYNAMIC_COLORS = [
+  '#3B82F6', // Blue 500
+  '#8B5CF6', // Violet 500
+  '#EC4899', // Pink 500
+  '#F59E0B', // Amber 500
+  '#10B981', // Emerald 500
+  '#06B6D4', // Cyan 500
+  '#EF4444', // Red 500
+  '#6366F1', // Indigo 500
+  '#14B8A6', // Teal 500
+  '#F97316', // Orange 500
+  '#84CC16', // Lime 500
+  '#A855F7', // Purple 500
+];
 
-// Colores por tipo de cuenta - Tonos de Teal/Mint (minimalista)
+// Paleta secundaria con tonos más claros
+const DYNAMIC_COLORS_LIGHT = [
+  '#60A5FA', // Blue 400
+  '#A78BFA', // Violet 400
+  '#F472B6', // Pink 400
+  '#FBBF24', // Amber 400
+  '#34D399', // Emerald 400
+  '#22D3EE', // Cyan 400
+  '#F87171', // Red 400
+  '#818CF8', // Indigo 400
+  '#2DD4BF', // Teal 400
+  '#FB923C', // Orange 400
+  '#A3E635', // Lime 400
+  '#C084FC', // Purple 400
+];
+
+// Colores por tipo de cuenta - Paleta DINÁMICA variada
 const CUENTA_COLORS: Record<string, string> = {
-  'GASTOS FIJOS': '#0F766E',      // Teal 700
-  'MATERIALES': '#0D9488',         // Teal 600
-  'MANTENIMIENTO': '#14B8A6',      // Teal 500 (principal)
-  'ACTIVOS FIJOS': '#2DD4BF',      // Teal 400
-  'LOGÍSTICA': '#5EEAD4',          // Teal 300
-  'DISEÑOS': '#99F6E4',            // Teal 200
-  'TOKA': '#115E59',               // Teal 800
-  'GASTOS VARIOS': '#134E4A',      // Teal 900
-  'EVENTOS INTERNOS': '#CCFBF1',   // Teal 100
-  'CAJA CHICA': '#2DD4BF',         // Teal 400
-  'DEFAULT': '#5EEAD4'             // Teal 300 (para cuentas no mapeadas)
+  'GASTOS FIJOS': '#3B82F6',      // Blue
+  'MATERIALES': '#8B5CF6',         // Violet
+  'MANTENIMIENTO': '#F59E0B',      // Amber
+  'ACTIVOS FIJOS': '#10B981',      // Emerald
+  'LOGÍSTICA': '#06B6D4',          // Cyan
+  'DISEÑOS': '#EC4899',            // Pink
+  'TOKA': '#6366F1',               // Indigo
+  'GASTOS VARIOS': '#F97316',      // Orange
+  'EVENTOS INTERNOS': '#84CC16',   // Lime
+  'CAJA CHICA': '#EF4444',         // Red
+  'DEFAULT': '#A855F7'             // Purple (para cuentas no mapeadas)
 };
 
 // Función para obtener color de cuenta
@@ -113,35 +142,35 @@ const getCuentaColor = (cuenta: string): string => {
   return CUENTA_COLORS.DEFAULT;
 };
 
-// Colores de formas de pago - Tonos Teal (minimalista, coherente con paleta principal)
+// Colores de formas de pago - Paleta DINÁMICA variada
 const BANK_COLORS: Record<string, string> = {
-  // Todos los bancos y métodos de pago usan tonos de teal para mantener coherencia visual
-  'SANTANDER': '#0F766E',
-  'BBVA': '#115E59',
-  'BANORTE': '#134E4A',
-  'HSBC': '#0D9488',
-  'BANAMEX': '#14B8A6',
-  'CITIBANAMEX': '#14B8A6',
-  'SCOTIABANK': '#2DD4BF',
-  'BANREGIO': '#5EEAD4',
-  'INBURSA': '#99F6E4',
-  'BAJIO': '#0F766E',
-  'AFIRME': '#0D9488',
-  'MULTIVA': '#115E59',
+  // Bancos con colores distintivos
+  'SANTANDER': '#EF4444',  // Red
+  'BBVA': '#3B82F6',       // Blue
+  'BANORTE': '#F97316',    // Orange
+  'HSBC': '#EF4444',       // Red
+  'BANAMEX': '#FBBF24',    // Yellow
+  'CITIBANAMEX': '#3B82F6', // Blue
+  'SCOTIABANK': '#EF4444', // Red
+  'BANREGIO': '#F97316',   // Orange
+  'INBURSA': '#6366F1',    // Indigo
+  'BAJIO': '#10B981',      // Emerald
+  'AFIRME': '#8B5CF6',     // Violet
+  'MULTIVA': '#06B6D4',    // Cyan
   // Fintechs y métodos
-  'KUSPIT': '#2DD4BF',
-  'ALBO': '#5EEAD4',
-  'NUBANK': '#14B8A6',
-  'MERCADOPAGO': '#0D9488',
-  'PAYPAL': '#115E59',
-  'CLIP': '#2DD4BF',
-  'STRIPE': '#0F766E',
-  'TRANSFERENCIA': '#14B8A6',
-  'TARJETA': '#0D9488',
-  'EFECTIVO': '#2DD4BF',
-  'CHEQUE': '#5EEAD4',
-  'CREDITO': '#99F6E4',
-  'DEFAULT': '#5EEAD4',
+  'KUSPIT': '#A855F7',     // Purple
+  'ALBO': '#EC4899',       // Pink
+  'NUBANK': '#8B5CF6',     // Violet
+  'MERCADOPAGO': '#3B82F6', // Blue
+  'PAYPAL': '#0EA5E9',     // Sky
+  'CLIP': '#F97316',       // Orange
+  'STRIPE': '#6366F1',     // Indigo
+  'TRANSFERENCIA': '#10B981', // Emerald
+  'TARJETA': '#F59E0B',    // Amber
+  'EFECTIVO': '#84CC16',   // Lime
+  'CHEQUE': '#06B6D4',     // Cyan
+  'CREDITO': '#EC4899',    // Pink
+  'DEFAULT': '#A855F7',    // Purple
 };
 
 // Función para obtener color de forma de pago
@@ -171,8 +200,8 @@ export const GastosNoImpactadosPage = () => {
   const [filtros, setFiltros] = useState<GNIFiltros>({});
   const [showFilters, setShowFilters] = useState(false);
 
-  // Tipo de gráfica: 'bar', 'pie', o 'line'
-  const [chartType, setChartType] = useState<'bar' | 'pie' | 'line'>('bar');
+  // Tipo de gráfica: 'bar' (horizontal), 'vbar' (vertical), 'pie', o 'line'
+  const [chartType, setChartType] = useState<'bar' | 'vbar' | 'pie' | 'line'>('bar');
 
   // Modales
   const [showGastoModal, setShowGastoModal] = useState(false);
@@ -985,43 +1014,66 @@ export const GastosNoImpactadosPage = () => {
               </motion.div>
             </div>
 
-            {/* Toggle tipo de gráfica - 3 opciones */}
+            {/* Toggle tipo de gráfica - 4 opciones con animación */}
             <div className="flex justify-end mb-3">
-              <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-                <button
+              <motion.div
+                className="flex items-center gap-1 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-1 shadow-sm border"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <motion.button
                   onClick={() => setChartType('bar')}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
                     chartType === 'bar'
-                      ? 'bg-white shadow text-teal-700'
-                      : 'text-gray-500 hover:text-gray-700'
+                      ? 'bg-white shadow-md text-blue-600 border border-blue-200'
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'
                   }`}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <BarChart3 className="w-4 h-4 rotate-90" />
+                  Horizontal
+                </motion.button>
+                <motion.button
+                  onClick={() => setChartType('vbar')}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
+                    chartType === 'vbar'
+                      ? 'bg-white shadow-md text-violet-600 border border-violet-200'
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'
+                  }`}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                 >
                   <BarChart3 className="w-4 h-4" />
-                  Barras
-                </button>
-                <button
+                  Vertical
+                </motion.button>
+                <motion.button
                   onClick={() => setChartType('pie')}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
                     chartType === 'pie'
-                      ? 'bg-white shadow text-teal-700'
-                      : 'text-gray-500 hover:text-gray-700'
+                      ? 'bg-white shadow-md text-pink-600 border border-pink-200'
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'
                   }`}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                 >
                   <PieChart className="w-4 h-4" />
                   Pastel 3D
-                </button>
-                <button
+                </motion.button>
+                <motion.button
                   onClick={() => setChartType('line')}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
                     chartType === 'line'
-                      ? 'bg-white shadow text-teal-700'
-                      : 'text-gray-500 hover:text-gray-700'
+                      ? 'bg-white shadow-md text-emerald-600 border border-emerald-200'
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'
                   }`}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                 >
                   <LineChart className="w-4 h-4" />
-                  Líneas
-                </button>
-              </div>
+                  Tendencia
+                </motion.button>
+              </motion.div>
             </div>
 
             {/* Gráficas mejoradas - Layout: Cuenta(1) + Mes(2) + Forma(1) = 4 cols */}
@@ -1034,7 +1086,7 @@ export const GastosNoImpactadosPage = () => {
                 className="bg-white p-4 rounded-xl shadow-sm border"
               >
                 <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                  {chartType === 'pie' ? <PieChart className="w-4 h-4 text-teal-600" /> : chartType === 'line' ? <LineChart className="w-4 h-4 text-teal-600" /> : <BarChart3 className="w-4 h-4 text-teal-600" />}
+                  {chartType === 'pie' ? <PieChart className="w-4 h-4 text-pink-600" /> : chartType === 'line' ? <LineChart className="w-4 h-4 text-emerald-600" /> : chartType === 'vbar' ? <BarChart3 className="w-4 h-4 text-violet-600" /> : <BarChart3 className="w-4 h-4 text-blue-600 rotate-90" />}
                   Por Cuenta
                 </h3>
                 {chartType === 'bar' && (
@@ -1072,6 +1124,86 @@ export const GastosNoImpactadosPage = () => {
                           </div>
                         );
                       })}
+                  </div>
+                )}
+                {chartType === 'vbar' && (
+                  /* Vista Barras Verticales con animación */
+                  <div className="relative h-44">
+                    {(() => {
+                      const sortedData = Object.entries(dashboardData.porCuenta)
+                        .sort((a, b) => b[1].total - a[1].total)
+                        .slice(0, 6);
+                      const maxVal = Math.max(...sortedData.map(([, d]) => d.total), 1);
+                      const total = sortedData.reduce((sum, [, d]) => sum + d.total, 0);
+                      const barWidth = sortedData.length > 0 ? Math.floor(160 / sortedData.length) : 20;
+
+                      return (
+                        <svg viewBox="0 0 200 130" className="w-full h-full">
+                          {/* Grid lines horizontales */}
+                          {[0, 25, 50, 75, 100].map(pct => (
+                            <g key={pct}>
+                              <line x1="35" y1={100 - pct} x2="195" y2={100 - pct} stroke="#e5e7eb" strokeWidth="0.5" strokeDasharray={pct === 0 ? '' : '2,2'} />
+                              <text x="32" y={103 - pct} fontSize="6" textAnchor="end" fill="#9ca3af">{pct}%</text>
+                            </g>
+                          ))}
+                          {/* Barras verticales */}
+                          {sortedData.map(([cuenta, data], i) => {
+                            const pct = maxVal > 0 ? (data.total / maxVal) * 100 : 0;
+                            const barHeight = pct;
+                            const x = 42 + i * barWidth;
+                            const color = getCuentaColor(cuenta);
+                            const pctTotal = total > 0 ? ((data.total / total) * 100).toFixed(0) : '0';
+                            return (
+                              <g key={cuenta}>
+                                {/* Barra con gradiente */}
+                                <defs>
+                                  <linearGradient id={`vbarGrad-${i}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" stopColor={color} stopOpacity="1" />
+                                    <stop offset="100%" stopColor={color} stopOpacity="0.6" />
+                                  </linearGradient>
+                                </defs>
+                                <motion.rect
+                                  x={x}
+                                  y={100 - barHeight}
+                                  width={barWidth - 4}
+                                  height={barHeight}
+                                  fill={`url(#vbarGrad-${i})`}
+                                  rx="2"
+                                  initial={{ height: 0, y: 100 }}
+                                  animate={{ height: barHeight, y: 100 - barHeight }}
+                                  transition={{ delay: 0.3 + i * 0.1, duration: 0.5, ease: 'easeOut' }}
+                                />
+                                {/* Valor en la parte superior */}
+                                <motion.text
+                                  x={x + (barWidth - 4) / 2}
+                                  y={97 - barHeight}
+                                  fontSize="5"
+                                  textAnchor="middle"
+                                  fill={color}
+                                  fontWeight="bold"
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  transition={{ delay: 0.6 + i * 0.1 }}
+                                >
+                                  {pctTotal}%
+                                </motion.text>
+                                {/* Etiqueta abreviada */}
+                                <text
+                                  x={x + (barWidth - 4) / 2}
+                                  y="112"
+                                  fontSize="5"
+                                  textAnchor="middle"
+                                  fill="#6b7280"
+                                  className="truncate"
+                                >
+                                  {cuenta.slice(0, 4)}
+                                </text>
+                              </g>
+                            );
+                          })}
+                        </svg>
+                      );
+                    })()}
                   </div>
                 )}
                 {chartType === 'pie' && (
@@ -1240,11 +1372,18 @@ export const GastosNoImpactadosPage = () => {
                     );
                   } else if (chartType === 'pie') {
                     let currentAngle = 0;
+                    // Usar todos los meses disponibles (hasta 12)
+                    const mesesParaPie = mesesOrdenados;
                     return (
-                      <div className="flex items-center gap-4">
-                        <svg viewBox="0 0 100 100" className="w-36 h-36" style={{ filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.15))' }}>
+                      <motion.div
+                        className="flex flex-col lg:flex-row items-center gap-4"
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.5 }}
+                      >
+                        <svg viewBox="0 0 100 100" className="w-40 h-40 flex-shrink-0" style={{ filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.2))' }}>
                           <ellipse cx="50" cy="55" rx="45" ry="8" fill="rgba(0,0,0,0.1)" />
-                          {mesesOrdenados.slice(-6).map(([mes, cuentas], i) => {
+                          {mesesParaPie.map(([mes, cuentas], i) => {
                             const total = Object.values(cuentas).reduce((s, v) => s + v, 0);
                             const angle = totalGeneral > 0 ? (total / totalGeneral) * 360 : 0;
                             const startAngle = currentAngle;
@@ -1254,51 +1393,200 @@ export const GastosNoImpactadosPage = () => {
                             const y1 = 50 + 40 * Math.sin((Math.PI * startAngle) / 180);
                             const x2 = 50 + 40 * Math.cos((Math.PI * (startAngle + angle)) / 180);
                             const y2 = 50 + 40 * Math.sin((Math.PI * (startAngle + angle)) / 180);
-                            return <path key={mes} d={`M50,50 L${x1},${y1} A40,40 0 ${largeArc},1 ${x2},${y2} Z`}
-                              fill={MINT_COLORS[i % MINT_COLORS.length]} stroke="white" strokeWidth="0.5"
-                              style={{ transform: 'translateY(-3px)', filter: `brightness(${1 - i * 0.05})` }} />;
+                            return (
+                              <motion.path
+                                key={mes}
+                                d={`M50,50 L${x1},${y1} A40,40 0 ${largeArc},1 ${x2},${y2} Z`}
+                                fill={DYNAMIC_COLORS[i % DYNAMIC_COLORS.length]}
+                                stroke="white"
+                                strokeWidth="0.5"
+                                style={{ transform: 'translateY(-3px)' }}
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ delay: i * 0.05, duration: 0.3 }}
+                              />
+                            );
                           })}
                         </svg>
-                        <div className="flex-1 space-y-1">
-                          {mesesOrdenados.slice(-6).map(([mes, cuentas], i) => {
-                            const [, mesNum] = mes.split('-');
+                        <div className="flex-1 grid grid-cols-2 gap-x-4 gap-y-1 max-h-40 overflow-y-auto">
+                          {mesesParaPie.map(([mes, cuentas], i) => {
+                            const [anio, mesNum] = mes.split('-');
                             const total = Object.values(cuentas).reduce((s, v) => s + v, 0);
                             const pct = totalGeneral > 0 ? ((total / totalGeneral) * 100).toFixed(0) : '0';
                             return (
-                              <div key={mes} className="flex items-center gap-1">
-                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: MINT_COLORS[i % MINT_COLORS.length] }} />
-                                <span className="text-[9px] text-gray-600">{mesesLabels[parseInt(mesNum) - 1]}</span>
+                              <motion.div
+                                key={mes}
+                                className="flex items-center gap-1"
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: i * 0.03, duration: 0.3 }}
+                              >
+                                <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: DYNAMIC_COLORS[i % DYNAMIC_COLORS.length] }} />
+                                <span className="text-[9px] text-gray-600">{mesesLabels[parseInt(mesNum) - 1]} {anio?.slice(-2)}</span>
                                 <span className="text-[9px] font-bold text-gray-800 ml-auto">{formatCurrency(total).replace('$', '')} ({pct}%)</span>
-                              </div>
+                              </motion.div>
                             );
                           })}
                         </div>
-                      </div>
+                      </motion.div>
                     );
-                  } else {
+                  } else if (chartType === 'vbar') {
+                    // Gráfica de barras verticales por mes
+                    const barWidth = Math.floor(290 / Math.max(mesesOrdenados.length, 1));
                     return (
-                      <div className="h-40">
-                        <svg viewBox="0 0 300 120" className="w-full h-full">
-                          {[0, 30, 60, 90, 120].map(y => <line key={y} x1="25" y1={y} x2="290" y2={y} stroke="#f0f0f0" strokeWidth="0.5" />)}
-                          <polyline fill="none" stroke="#14B8A6" strokeWidth="2" points={
-                            mesesOrdenados.map(([, c], i) => `${30 + i * (260 / Math.max(mesesOrdenados.length - 1, 1))},${110 - (Object.values(c).reduce((s, v) => s + v, 0) / maxMes) * 100}`).join(' ')
-                          } />
+                      <motion.div
+                        className="h-48"
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.4 }}
+                      >
+                        <svg viewBox="0 0 350 150" className="w-full h-full">
+                          {/* Grid horizontal */}
+                          {[0, 25, 50, 75, 100].map(pct => (
+                            <g key={pct}>
+                              <line x1="40" y1={115 - pct} x2="340" y2={115 - pct} stroke="#e5e7eb" strokeWidth="0.5" strokeDasharray={pct === 0 ? '' : '2,2'} />
+                              <text x="37" y={118 - pct} fontSize="7" textAnchor="end" fill="#9ca3af">{pct}%</text>
+                            </g>
+                          ))}
+                          {/* Barras verticales */}
                           {mesesOrdenados.map(([mes, cuentas], i) => {
-                            const x = 30 + i * (260 / Math.max(mesesOrdenados.length - 1, 1));
                             const total = Object.values(cuentas).reduce((s, v) => s + v, 0);
-                            const y = 110 - (total / maxMes) * 100;
-                            const [, mesNum] = mes.split('-');
-                            const pct = totalGeneral > 0 ? ((total / totalGeneral) * 100).toFixed(0) : '0';
+                            const pct = maxMes > 0 ? (total / maxMes) * 100 : 0;
+                            const x = 45 + i * barWidth;
+                            const [anio, mesNum] = mes.split('-');
+                            const color = DYNAMIC_COLORS[i % DYNAMIC_COLORS.length];
+                            const pctTotal = totalGeneral > 0 ? ((total / totalGeneral) * 100).toFixed(0) : '0';
                             return (
                               <g key={mes}>
-                                <circle cx={x} cy={y} r="4" fill="#0D9488" />
-                                <text x={x} y={y - 8} textAnchor="middle" className="text-[7px] fill-gray-700 font-medium">{pct}%</text>
-                                <text x={x} y="118" textAnchor="middle" className="text-[7px] fill-gray-500">{mesesLabels[parseInt(mesNum) - 1]}</text>
+                                <defs>
+                                  <linearGradient id={`vbarMes-${i}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" stopColor={color} stopOpacity="1" />
+                                    <stop offset="100%" stopColor={color} stopOpacity="0.5" />
+                                  </linearGradient>
+                                </defs>
+                                <motion.rect
+                                  x={x}
+                                  y={115 - pct}
+                                  width={barWidth - 4}
+                                  height={pct}
+                                  fill={`url(#vbarMes-${i})`}
+                                  rx="3"
+                                  initial={{ height: 0, y: 115 }}
+                                  animate={{ height: pct, y: 115 - pct }}
+                                  transition={{ delay: 0.2 + i * 0.06, duration: 0.5, ease: 'easeOut' }}
+                                />
+                                <motion.text
+                                  x={x + (barWidth - 4) / 2}
+                                  y={111 - pct}
+                                  fontSize="6"
+                                  textAnchor="middle"
+                                  fill={color}
+                                  fontWeight="bold"
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  transition={{ delay: 0.5 + i * 0.06 }}
+                                >
+                                  {pctTotal}%
+                                </motion.text>
+                                <text x={x + (barWidth - 4) / 2} y="128" fontSize="6" textAnchor="middle" fill="#6b7280">
+                                  {mesesLabels[parseInt(mesNum) - 1]}
+                                </text>
+                                <text x={x + (barWidth - 4) / 2} y="138" fontSize="5" textAnchor="middle" fill="#9ca3af">
+                                  {anio?.slice(-2)}
+                                </text>
                               </g>
                             );
                           })}
                         </svg>
-                      </div>
+                      </motion.div>
+                    );
+                  } else {
+                    // Gráfica de líneas mejorada
+                    return (
+                      <motion.div
+                        className="h-48"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.5 }}
+                      >
+                        <svg viewBox="0 0 350 140" className="w-full h-full">
+                          {/* Grid de fondo */}
+                          {[0, 28, 56, 84, 112].map(y => (
+                            <g key={y}>
+                              <line x1="35" y1={y + 5} x2="340" y2={y + 5} stroke="#e5e7eb" strokeWidth="0.5" strokeDasharray="2,2" />
+                              <text x="30" y={y + 8} textAnchor="end" className="text-[6px] fill-gray-400">
+                                {formatCurrency(maxMes * (1 - y / 112)).replace('$', '').split('.')[0]}
+                              </text>
+                            </g>
+                          ))}
+                          {/* Área degradada bajo la línea */}
+                          <defs>
+                            <linearGradient id="lineGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                              <stop offset="0%" stopColor="#8B5CF6" stopOpacity="0.3" />
+                              <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0.05" />
+                            </linearGradient>
+                          </defs>
+                          <motion.polygon
+                            fill="url(#lineGradient)"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: 0.8 }}
+                            points={`35,115 ${mesesOrdenados.map(([, c], i) => {
+                              const x = 35 + i * (305 / Math.max(mesesOrdenados.length - 1, 1));
+                              const y = 110 - (Object.values(c).reduce((s, v) => s + v, 0) / maxMes) * 100;
+                              return `${x},${y}`;
+                            }).join(' ')} ${35 + (mesesOrdenados.length - 1) * (305 / Math.max(mesesOrdenados.length - 1, 1))},115`}
+                          />
+                          {/* Línea principal */}
+                          <motion.polyline
+                            fill="none"
+                            stroke="#8B5CF6"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            initial={{ pathLength: 0 }}
+                            animate={{ pathLength: 1 }}
+                            transition={{ duration: 1.2, ease: "easeInOut" }}
+                            points={mesesOrdenados.map(([, c], i) => {
+                              const x = 35 + i * (305 / Math.max(mesesOrdenados.length - 1, 1));
+                              const y = 110 - (Object.values(c).reduce((s, v) => s + v, 0) / maxMes) * 100;
+                              return `${x},${y}`;
+                            }).join(' ')}
+                          />
+                          {/* Puntos y etiquetas */}
+                          {mesesOrdenados.map(([mes, cuentas], i) => {
+                            const x = 35 + i * (305 / Math.max(mesesOrdenados.length - 1, 1));
+                            const total = Object.values(cuentas).reduce((s, v) => s + v, 0);
+                            const y = 110 - (total / maxMes) * 100;
+                            const [anio, mesNum] = mes.split('-');
+                            const pct = totalGeneral > 0 ? ((total / totalGeneral) * 100).toFixed(0) : '0';
+                            return (
+                              <motion.g
+                                key={mes}
+                                initial={{ opacity: 0, scale: 0 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                transition={{ delay: 0.5 + i * 0.05, duration: 0.3 }}
+                              >
+                                {/* Círculo exterior */}
+                                <circle cx={x} cy={y} r="6" fill="white" stroke="#8B5CF6" strokeWidth="2" />
+                                {/* Círculo interior */}
+                                <circle cx={x} cy={y} r="3" fill="#8B5CF6" />
+                                {/* Tooltip con monto */}
+                                <rect x={x - 22} y={y - 22} width="44" height="14" rx="3" fill="#1f2937" opacity="0.9" />
+                                <text x={x} y={y - 12} textAnchor="middle" className="text-[7px] fill-white font-bold">
+                                  ${(total / 1000).toFixed(0)}K
+                                </text>
+                                {/* Porcentaje */}
+                                <text x={x} y={y + 18} textAnchor="middle" className="text-[7px] fill-violet-600 font-bold">{pct}%</text>
+                                {/* Etiqueta del mes */}
+                                <text x={x} y="130" textAnchor="middle" className="text-[7px] fill-gray-500 font-medium">
+                                  {mesesLabels[parseInt(mesNum) - 1]} {anio?.slice(-2)}
+                                </text>
+                              </motion.g>
+                            );
+                          })}
+                        </svg>
+                      </motion.div>
                     );
                   }
                 })()}
@@ -1312,7 +1600,7 @@ export const GastosNoImpactadosPage = () => {
                 className="bg-white p-4 rounded-xl shadow-sm border"
               >
                 <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                  {chartType === 'pie' ? <PieChart className="w-4 h-4 text-blue-600" /> : chartType === 'line' ? <LineChart className="w-4 h-4 text-blue-600" /> : <Banknote className="w-4 h-4 text-blue-600" />}
+                  {chartType === 'pie' ? <PieChart className="w-4 h-4 text-pink-600" /> : chartType === 'line' ? <LineChart className="w-4 h-4 text-emerald-600" /> : chartType === 'vbar' ? <BarChart3 className="w-4 h-4 text-violet-600" /> : <BarChart3 className="w-4 h-4 text-blue-600 rotate-90" />}
                   Por Forma de Pago
                 </h3>
                 {chartType === 'bar' && (
@@ -1344,6 +1632,74 @@ export const GastosNoImpactadosPage = () => {
                     })}
                   </div>
                 )}
+                {chartType === 'vbar' && (() => {
+                  const sortedFP = Object.entries(dashboardData.porFormaPago).sort((a, b) => b[1].total - a[1].total).slice(0, 6);
+                  const maxVal = Math.max(...sortedFP.map(([, d]) => d.total), 1);
+                  const total = sortedFP.reduce((sum, [, d]) => sum + d.total, 0);
+                  const barWidth = sortedFP.length > 0 ? Math.floor(160 / sortedFP.length) : 20;
+                  return (
+                    <motion.div
+                      className="h-44"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.4 }}
+                    >
+                      <svg viewBox="0 0 200 130" className="w-full h-full">
+                        {/* Grid horizontal */}
+                        {[0, 25, 50, 75, 100].map(pct => (
+                          <g key={pct}>
+                            <line x1="35" y1={100 - pct} x2="195" y2={100 - pct} stroke="#e5e7eb" strokeWidth="0.5" strokeDasharray={pct === 0 ? '' : '2,2'} />
+                            <text x="32" y={103 - pct} fontSize="6" textAnchor="end" fill="#9ca3af">{pct}%</text>
+                          </g>
+                        ))}
+                        {/* Barras verticales */}
+                        {sortedFP.map(([fp, data], i) => {
+                          const pct = maxVal > 0 ? (data.total / maxVal) * 100 : 0;
+                          const x = 42 + i * barWidth;
+                          const color = getFormaPagoColor(fp);
+                          const pctTotal = total > 0 ? ((data.total / total) * 100).toFixed(0) : '0';
+                          return (
+                            <g key={fp}>
+                              <defs>
+                                <linearGradient id={`vbarFP-${i}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                  <stop offset="0%" stopColor={color} stopOpacity="1" />
+                                  <stop offset="100%" stopColor={color} stopOpacity="0.5" />
+                                </linearGradient>
+                              </defs>
+                              <motion.rect
+                                x={x}
+                                y={100 - pct}
+                                width={barWidth - 4}
+                                height={pct}
+                                fill={`url(#vbarFP-${i})`}
+                                rx="2"
+                                initial={{ height: 0, y: 100 }}
+                                animate={{ height: pct, y: 100 - pct }}
+                                transition={{ delay: 0.2 + i * 0.1, duration: 0.5, ease: 'easeOut' }}
+                              />
+                              <motion.text
+                                x={x + (barWidth - 4) / 2}
+                                y={96 - pct}
+                                fontSize="5"
+                                textAnchor="middle"
+                                fill={color}
+                                fontWeight="bold"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ delay: 0.5 + i * 0.1 }}
+                              >
+                                {pctTotal}%
+                              </motion.text>
+                              <text x={x + (barWidth - 4) / 2} y="112" fontSize="5" textAnchor="middle" fill="#6b7280">
+                                {fp.slice(0, 5)}
+                              </text>
+                            </g>
+                          );
+                        })}
+                      </svg>
+                    </motion.div>
+                  );
+                })()}
                 {chartType === 'pie' && (() => {
                   const sortedFP = Object.entries(dashboardData.porFormaPago).sort((a, b) => b[1].total - a[1].total).slice(0, 6);
                   const total = sortedFP.reduce((sum, [, d]) => sum + d.total, 0);

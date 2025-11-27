@@ -4,22 +4,23 @@ import {
   Package, Plus, Search, Edit, Trash2, AlertCircle, X,
   Save, DollarSign, Tag, BarChart3, Upload, Download
 } from 'lucide-react';
-import { useProductos } from '../hooks/useProductos';
+import { useProductos, Producto } from '../hooks/useProductos';
 import { ImportProductosModal } from '../components/ImportProductosModal';
 import { useAuth } from '../../../core/auth/AuthProvider';
 
-interface Producto {
-  id?: number;
-  company_id?: string;
-  codigo: string;
+// Interfaz del formulario (campos editables)
+interface ProductoFormData {
+  clave: string;
   nombre: string;
   descripcion: string;
   categoria: string;
-  unidad_medida: string;
-  precio_compra: number;
+  unidad: string;
+  precio_base: number;
   precio_venta: number;
-  stock_minimo: number;
-  stock_maximo: number;
+  costo: number;
+  margen: number;
+  iva: boolean;
+  tipo: string;
   activo: boolean;
 }
 
@@ -30,16 +31,18 @@ export const ProductosPage: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [editingProducto, setEditingProducto] = useState<Producto | null>(null);
-  const [formData, setFormData] = useState<Producto>({
-    codigo: '',
+  const [formData, setFormData] = useState<ProductoFormData>({
+    clave: '',
     nombre: '',
     descripcion: '',
     categoria: '',
-    unidad_medida: 'PZA',
-    precio_compra: 0,
+    unidad: 'PZA',
+    precio_base: 0,
     precio_venta: 0,
-    stock_minimo: 0,
-    stock_maximo: 100,
+    costo: 0,
+    margen: 30,
+    iva: true,
+    tipo: 'producto',
     activo: true
   });
 
@@ -50,6 +53,17 @@ export const ProductosPage: React.FC = () => {
     'Equipo Audiovisual',
     'Mobiliario',
     'Servicios',
+    'Iluminación',
+    'Estructuras',
+    'Carpas',
+    'Textiles',
+    'Pirotecnia',
+    'Papelería',
+    'Limpieza',
+    'Herramientas',
+    'Electrónica',
+    'Seguridad',
+    'General',
     'Otros'
   ];
 
@@ -64,8 +78,8 @@ export const ProductosPage: React.FC = () => {
   ];
 
   const filteredProductos = productos?.filter(p =>
-    p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.clave?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.categoria?.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
@@ -83,18 +97,20 @@ export const ProductosPage: React.FC = () => {
     }
   };
 
-  const handleEdit = (producto: any) => {
+  const handleEdit = (producto: Producto) => {
     setEditingProducto(producto);
     setFormData({
-      codigo: producto.codigo,
-      nombre: producto.nombre,
+      clave: producto.clave || '',
+      nombre: producto.nombre || '',
       descripcion: producto.descripcion || '',
       categoria: producto.categoria || '',
-      unidad_medida: producto.unidad_medida || 'PZA',
-      precio_compra: producto.precio_compra || 0,
+      unidad: producto.unidad || 'PZA',
+      precio_base: producto.precio_base || 0,
       precio_venta: producto.precio_venta || 0,
-      stock_minimo: producto.stock_minimo || 0,
-      stock_maximo: producto.stock_maximo || 100,
+      costo: producto.costo || 0,
+      margen: producto.margen || 30,
+      iva: producto.iva !== false,
+      tipo: producto.tipo || 'producto',
       activo: producto.activo !== false
     });
     setShowModal(true);
@@ -114,22 +130,24 @@ export const ProductosPage: React.FC = () => {
     setShowModal(false);
     setEditingProducto(null);
     setFormData({
-      codigo: '',
+      clave: '',
       nombre: '',
       descripcion: '',
       categoria: '',
-      unidad_medida: 'PZA',
-      precio_compra: 0,
+      unidad: 'PZA',
+      precio_base: 0,
       precio_venta: 0,
-      stock_minimo: 0,
-      stock_maximo: 100,
+      costo: 0,
+      margen: 30,
+      iva: true,
+      tipo: 'producto',
       activo: true
     });
   };
 
   const calcularMargen = () => {
-    if (formData.precio_venta > 0 && formData.precio_compra > 0) {
-      const margen = ((formData.precio_venta - formData.precio_compra) / formData.precio_venta) * 100;
+    if (formData.precio_venta > 0 && formData.precio_base > 0) {
+      const margen = ((formData.precio_venta - formData.precio_base) / formData.precio_venta) * 100;
       return margen.toFixed(2);
     }
     return '0.00';
@@ -290,15 +308,15 @@ export const ProductosPage: React.FC = () => {
                 </tr>
               ) : (
                 filteredProductos.map((producto) => {
-                  const margen = producto.precio_venta > 0 && producto.precio_compra > 0
-                    ? ((producto.precio_venta - producto.precio_compra) / producto.precio_venta) * 100
-                    : 0;
+                  const margen = producto.precio_venta > 0 && producto.precio_base > 0
+                    ? ((producto.precio_venta - producto.precio_base) / producto.precio_venta) * 100
+                    : producto.margen || 0;
 
                   return (
                     <tr key={producto.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4">
                         <span className="text-sm font-mono font-medium text-gray-900">
-                          {producto.codigo}
+                          {producto.clave}
                         </span>
                       </td>
                       <td className="px-6 py-4">
@@ -317,13 +335,13 @@ export const ProductosPage: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900">
-                        {producto.unidad_medida}
+                        {producto.unidad}
                       </td>
                       <td className="px-6 py-4 text-right text-sm text-gray-900">
-                        ${producto.precio_compra?.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                        ${(producto.precio_base || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="px-6 py-4 text-right text-sm font-medium text-gray-900">
-                        ${producto.precio_venta?.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                        ${(producto.precio_venta || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="px-6 py-4 text-center">
                         <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
@@ -391,17 +409,17 @@ export const ProductosPage: React.FC = () => {
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              {/* Código y Nombre */}
+              {/* Clave y Nombre */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Código <span className="text-red-500">*</span>
+                    Clave <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     required
-                    value={formData.codigo}
-                    onChange={(e) => setFormData({ ...formData, codigo: e.target.value.toUpperCase() })}
+                    value={formData.clave}
+                    onChange={(e) => setFormData({ ...formData, clave: e.target.value.toUpperCase() })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono"
                     placeholder="PROD-001"
                   />
@@ -461,8 +479,8 @@ export const ProductosPage: React.FC = () => {
                   </label>
                   <select
                     required
-                    value={formData.unidad_medida}
-                    onChange={(e) => setFormData({ ...formData, unidad_medida: e.target.value })}
+                    value={formData.unidad}
+                    onChange={(e) => setFormData({ ...formData, unidad: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     {unidades.map(u => (
@@ -476,7 +494,7 @@ export const ProductosPage: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Precio de Compra <span className="text-red-500">*</span>
+                    Precio Base <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
@@ -485,8 +503,8 @@ export const ProductosPage: React.FC = () => {
                       required
                       step="0.01"
                       min="0"
-                      value={formData.precio_compra}
-                      onChange={(e) => setFormData({ ...formData, precio_compra: parseFloat(e.target.value) || 0 })}
+                      value={formData.precio_base}
+                      onChange={(e) => setFormData({ ...formData, precio_base: parseFloat(e.target.value) || 0 })}
                       className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="0.00"
                     />
@@ -513,49 +531,88 @@ export const ProductosPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Margen */}
-              {formData.precio_venta > 0 && formData.precio_compra > 0 && (
+              {/* Costo y Margen */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Costo
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.costo}
+                      onChange={(e) => setFormData({ ...formData, costo: parseFloat(e.target.value) || 0 })}
+                      className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Margen (%)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    value={formData.margen}
+                    onChange={(e) => setFormData({ ...formData, margen: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="30"
+                  />
+                </div>
+              </div>
+
+              {/* Margen calculado */}
+              {formData.precio_venta > 0 && formData.precio_base > 0 && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-blue-900">
-                      Margen de Utilidad
+                      Margen de Utilidad Calculado
                     </span>
                     <span className="text-lg font-bold text-blue-700">
                       {calcularMargen()}%
                     </span>
                   </div>
                   <div className="text-xs text-blue-600 mt-1">
-                    Ganancia: ${(formData.precio_venta - formData.precio_compra).toFixed(2)} MXN
+                    Ganancia: ${(formData.precio_venta - formData.precio_base).toFixed(2)} MXN
                   </div>
                 </div>
               )}
 
-              {/* Stock */}
+              {/* IVA y Tipo */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Stock Mínimo
-                  </label>
+                <div className="flex items-center gap-2">
                   <input
-                    type="number"
-                    min="0"
-                    value={formData.stock_minimo}
-                    onChange={(e) => setFormData({ ...formData, stock_minimo: parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    type="checkbox"
+                    id="iva"
+                    checked={formData.iva}
+                    onChange={(e) => setFormData({ ...formData, iva: e.target.checked })}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                   />
+                  <label htmlFor="iva" className="text-sm font-medium text-gray-700">
+                    Aplica IVA
+                  </label>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Stock Máximo
+                    Tipo
                   </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.stock_maximo}
-                    onChange={(e) => setFormData({ ...formData, stock_maximo: parseInt(e.target.value) || 0 })}
+                  <select
+                    value={formData.tipo}
+                    onChange={(e) => setFormData({ ...formData, tipo: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
+                  >
+                    <option value="producto">Producto</option>
+                    <option value="servicio">Servicio</option>
+                    <option value="materia_prima">Materia Prima</option>
+                  </select>
                 </div>
               </div>
 

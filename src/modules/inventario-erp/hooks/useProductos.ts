@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../../../core/config/supabase';
+import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../../../core/auth/AuthProvider';
 import {
   fetchProductos,
   createProducto as createProductoService,
@@ -7,7 +7,8 @@ import {
   deleteProducto as deleteProductoService
 } from '../services/inventarioService';
 
-interface Producto {
+// Interfaz que coincide exactamente con la BD
+export interface Producto {
   id?: number;
   company_id?: string;
   clave: string;
@@ -19,9 +20,9 @@ interface Producto {
   precio_venta: number;
   costo: number;
   margen: number;
-  iva: number;
-  clave_sat: string;
-  clave_unidad_sat: string;
+  iva: boolean;
+  clave_sat: string | null;
+  clave_unidad_sat: string | null;
   tipo: string;
   activo: boolean;
   fecha_creacion?: string;
@@ -29,27 +30,22 @@ interface Producto {
 }
 
 export const useProductos = () => {
+  const { user } = useAuth();
   const [productos, setProductos] = useState<Producto[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadProductos = async () => {
+  const loadProductos = useCallback(async () => {
+    if (!user?.company_id) {
+      setProductos([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
-
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuario no autenticado');
-
-      const { data: userData } = await supabase
-        .from('users_erp')
-        .select('company_id')
-        .eq('id', user.id)
-        .single();
-
-      if (!userData?.company_id) throw new Error('No se encontró company_id');
-
-      const data = await fetchProductos(userData.company_id);
+      const data = await fetchProductos(user.company_id);
       setProductos(data || []);
     } catch (err: any) {
       console.error('Error al cargar productos:', err);
@@ -58,30 +54,20 @@ export const useProductos = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.company_id]);
 
   useEffect(() => {
     loadProductos();
-  }, []);
+  }, [loadProductos]);
 
-  const createProducto = async (producto: Omit<Producto, 'id' | 'created_at' | 'updated_at'>) => {
+  const createProducto = async (producto: Partial<Producto>) => {
+    if (!user?.company_id) throw new Error('No se encontró company_id');
+
     try {
       setError(null);
-
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuario no autenticado');
-
-      const { data: userData } = await supabase
-        .from('users_erp')
-        .select('company_id')
-        .eq('id', user.id)
-        .single();
-
-      if (!userData?.company_id) throw new Error('No se encontró company_id');
-
       const nuevoProducto = {
         ...producto,
-        company_id: userData.company_id
+        company_id: user.company_id
       };
 
       const created = await createProductoService(nuevoProducto);
