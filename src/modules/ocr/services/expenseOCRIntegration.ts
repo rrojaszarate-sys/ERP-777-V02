@@ -8,6 +8,7 @@
 
 import { IntelligentExpenseClassifier, ExpenseClassificationResult, ExpenseCategory } from './intelligentOCRClassifier';
 import { tesseractOCRService } from './tesseractOCRService_OPTIMIZED';
+import { processWithBestOCR } from '../../eventos-erp/components/finances/bestOCR';
 import { Expense } from '../../eventos/types/Finance';
 import { FinancesService } from '../../eventos/services/financesService';
 
@@ -75,9 +76,26 @@ export class ExpenseOCRIntegrationService {
       console.log('🚀 [ExpenseOCRIntegration] Iniciando procesamiento completo...');
       console.log('📄 Archivo:', file.name, `(${(file.size / 1024).toFixed(1)} KB)`);
 
-      // PASO 1: Ejecutar OCR base
+      // PASO 1: Ejecutar OCR base (detectar si es PDF o imagen)
       console.log('🔍 Paso 1/4: Ejecutando OCR...');
-      const ocrResult = await tesseractOCRService.processDocument(file);
+      const isPDF = file.type === 'application/pdf';
+
+      let ocrResult: { texto_completo: string; datos_ticket?: any; datos_factura?: any };
+
+      if (isPDF) {
+        // Para PDFs usar bestOCR que soporta OCR.space
+        console.log('📄 PDF detectado - usando OCR.space...');
+        const bestResult = await processWithBestOCR(file);
+        ocrResult = {
+          texto_completo: bestResult.text,
+          datos_ticket: null,
+          datos_factura: null
+        };
+      } else {
+        // Para imágenes usar Tesseract
+        console.log('🖼️ Imagen detectada - usando Tesseract...');
+        ocrResult = await tesseractOCRService.processDocument(file);
+      }
 
       if (!ocrResult || !ocrResult.texto_completo) {
         errors.push('No se pudo extraer texto del documento');
