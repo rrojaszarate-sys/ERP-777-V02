@@ -83,22 +83,22 @@ import { ExportPDFModal } from '../components/ExportPDFModal';
 import { supabase } from '../../../core/config/supabase';
 import toast from 'react-hot-toast';
 
-// Colores paleta MADE Mint
-const MINT_COLORS = ['#14B8A6', '#0EA5E9', '#8B5CF6', '#F59E0B', '#EF4444', '#10B981'];
+// Colores paleta MADE Mint - Tonos monocromáticos para gráficas minimalistas
+const MINT_COLORS = ['#0D9488', '#14B8A6', '#2DD4BF', '#5EEAD4', '#99F6E4', '#CCFBF1'];
 
-// Colores por tipo de cuenta (paleta armoniosa con Mint)
+// Colores por tipo de cuenta - Tonos de Teal/Mint (minimalista)
 const CUENTA_COLORS: Record<string, string> = {
-  'GASTOS FIJOS': '#14B8A6',      // Teal (principal)
-  'MATERIALES': '#0EA5E9',         // Sky blue
-  'MANTENIMIENTO': '#8B5CF6',      // Violet
-  'ACTIVOS FIJOS': '#F59E0B',      // Amber
-  'LOGÍSTICA': '#EC4899',          // Pink
-  'DISEÑOS': '#10B981',            // Emerald
-  'TOKA': '#6366F1',               // Indigo
-  'GASTOS VARIOS': '#F97316',      // Orange
-  'EVENTOS INTERNOS': '#06B6D4',   // Cyan
-  'CAJA CHICA': '#84CC16',         // Lime
-  'DEFAULT': '#94A3B8'             // Slate (para cuentas no mapeadas)
+  'GASTOS FIJOS': '#0F766E',      // Teal 700
+  'MATERIALES': '#0D9488',         // Teal 600
+  'MANTENIMIENTO': '#14B8A6',      // Teal 500 (principal)
+  'ACTIVOS FIJOS': '#2DD4BF',      // Teal 400
+  'LOGÍSTICA': '#5EEAD4',          // Teal 300
+  'DISEÑOS': '#99F6E4',            // Teal 200
+  'TOKA': '#115E59',               // Teal 800
+  'GASTOS VARIOS': '#134E4A',      // Teal 900
+  'EVENTOS INTERNOS': '#CCFBF1',   // Teal 100
+  'CAJA CHICA': '#2DD4BF',         // Teal 400
+  'DEFAULT': '#5EEAD4'             // Teal 300 (para cuentas no mapeadas)
 };
 
 // Función para obtener color de cuenta
@@ -112,35 +112,35 @@ const getCuentaColor = (cuenta: string): string => {
   return CUENTA_COLORS.DEFAULT;
 };
 
-// Colores sobrios de bancos mexicanos (versión suavizada)
+// Colores de formas de pago - Tonos Teal (minimalista, coherente con paleta principal)
 const BANK_COLORS: Record<string, string> = {
-  // Bancos principales - Tonos más sobrios
-  'SANTANDER': '#DC6B6B',
-  'BBVA': '#5A7FAA',
-  'BANORTE': '#D97070',
-  'HSBC': '#C96B6B',
-  'BANAMEX': '#5A6B8A',
-  'CITIBANAMEX': '#5A6B8A',
-  'SCOTIABANK': '#D97575',
-  'BANREGIO': '#5A8AB3',
-  'INBURSA': '#5A7A9B',
-  'BAJIO': '#5A8A6B',
-  'AFIRME': '#5A6B8F',
-  'MULTIVA': '#9A5A6B',
-  // Fintechs y otros - Tonos más sobrios
-  'KUSPIT': '#5AA98B',
-  'ALBO': '#8A8AD7',
-  'NUBANK': '#9A6ABD',
-  'MERCADOPAGO': '#5A9FBF',
-  'PAYPAL': '#5A6B97',
-  'CLIP': '#D9956B',
-  'STRIPE': '#8A85BF',
-  'TRANSFERENCIA': '#6B9BD6',
-  'TARJETA': '#9A8AC6',
-  'EFECTIVO': '#5AA97B',
-  'CHEQUE': '#D9B36B',
-  'CREDITO': '#C97AA9',
-  'DEFAULT': '#8B9BAB',
+  // Todos los bancos y métodos de pago usan tonos de teal para mantener coherencia visual
+  'SANTANDER': '#0F766E',
+  'BBVA': '#115E59',
+  'BANORTE': '#134E4A',
+  'HSBC': '#0D9488',
+  'BANAMEX': '#14B8A6',
+  'CITIBANAMEX': '#14B8A6',
+  'SCOTIABANK': '#2DD4BF',
+  'BANREGIO': '#5EEAD4',
+  'INBURSA': '#99F6E4',
+  'BAJIO': '#0F766E',
+  'AFIRME': '#0D9488',
+  'MULTIVA': '#115E59',
+  // Fintechs y métodos
+  'KUSPIT': '#2DD4BF',
+  'ALBO': '#5EEAD4',
+  'NUBANK': '#14B8A6',
+  'MERCADOPAGO': '#0D9488',
+  'PAYPAL': '#115E59',
+  'CLIP': '#2DD4BF',
+  'STRIPE': '#0F766E',
+  'TRANSFERENCIA': '#14B8A6',
+  'TARJETA': '#0D9488',
+  'EFECTIVO': '#2DD4BF',
+  'CHEQUE': '#5EEAD4',
+  'CREDITO': '#99F6E4',
+  'DEFAULT': '#5EEAD4',
 };
 
 // Función para obtener color de forma de pago

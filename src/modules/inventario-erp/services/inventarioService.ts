@@ -100,6 +100,16 @@ export const deleteAlmacen = async (id: number) => {
 // ============================================================================
 
 export const fetchMovimientos = async (companyId: string) => {
+  // Primero obtener almacenes de la empresa
+  const { data: almacenes } = await supabase
+    .from('almacenes_erp')
+    .select('id')
+    .eq('company_id', companyId);
+
+  if (!almacenes || almacenes.length === 0) return [];
+
+  const almacenIds = almacenes.map(a => a.id);
+
   const { data, error } = await supabase
     .from('movimientos_inventario_erp')
     .select(`
@@ -107,9 +117,9 @@ export const fetchMovimientos = async (companyId: string) => {
       producto:productos_erp(*),
       almacen:almacenes_erp(*)
     `)
-    .eq('company_id', companyId)
-    .order('created_at', { ascending: false })
-    .limit(100);
+    .in('almacen_id', almacenIds)
+    .order('fecha_creacion', { ascending: false })
+    .limit(500);
   if (error) throw error;
   return data;
 };
@@ -129,11 +139,21 @@ export const createMovimiento = async (movimiento: Partial<MovimientoInventario>
 // ============================================================================
 
 export const calcularStockPorProducto = async (companyId: string) => {
-  // Obtener todos los movimientos
+  // Primero obtener almacenes de la empresa
+  const { data: almacenes } = await supabase
+    .from('almacenes_erp')
+    .select('id')
+    .eq('company_id', companyId);
+
+  if (!almacenes || almacenes.length === 0) return {};
+
+  const almacenIds = almacenes.map(a => a.id);
+
+  // Obtener todos los movimientos de los almacenes de la empresa
   const { data: movimientos, error: movError } = await supabase
     .from('movimientos_inventario_erp')
     .select('producto_id, tipo, cantidad')
-    .eq('company_id', companyId);
+    .in('almacen_id', almacenIds);
 
   if (movError) throw movError;
 
