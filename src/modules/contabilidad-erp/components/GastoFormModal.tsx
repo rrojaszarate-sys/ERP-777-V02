@@ -10,12 +10,11 @@
  */
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { X, Search, Plus, Upload, FileText, Calculator, Loader2, Save, Pencil, DollarSign, Camera, Eye, Zap } from 'lucide-react';
+import { X, Search, Plus, Upload, FileText, Calculator, Loader2, Save, Pencil, DollarSign, Bot, Zap } from 'lucide-react';
 import { useAuth } from '../../../core/auth/AuthProvider';
 import { supabase } from '../../../core/config/supabase';
 import { useTheme } from '../../../shared/components/theme';
-import { processFileWithOCR, getOCRProvider } from '../../ocr/services/dualOCRService';
-import tesseractOCRService from '../../ocr/services/tesseractOCRService';
+import { expenseOCRIntegration } from '../../ocr/services/expenseOCRIntegration';
 import {
   createGasto,
   updateGasto,
@@ -161,10 +160,9 @@ export const GastoFormModal = ({
   const [saving, setSaving] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
 
-  // Estados para OCR
+  // Estados para OCR (servicio inteligente igual que Eventos)
   const [isProcessingOCR, setIsProcessingOCR] = useState(false);
   const [ocrProgress, setOcrProgress] = useState<string>('');
-  const [ocrProvider, setOcrProvider] = useState<'google' | 'tesseract'>('google');
   const ocrFileInputRef = useRef<HTMLInputElement>(null);
 
   // Hook de tema para colores dinámicos
@@ -412,193 +410,93 @@ export const GastoFormModal = ({
   };
 
   // =============================================
-  // FUNCIONALIDAD OCR - Google Vision o Tesseract
+  // FUNCIONALIDAD OCR INTELIGENTE (igual que Eventos)
+  // Solo acepta PDF - Usa clasificador inteligente
   // =============================================
 
-  // Extraer datos de ticket mexicano del texto OCR
-  const extractTicketData = (text: string) => {
-    console.log('🔍 Extrayendo datos del ticket OCR...');
-    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-
-    const data: {
-      establecimiento: string | null;
-      rfc: string | null;
-      total: number | null;
-      subtotal: number | null;
-      iva: number | null;
-      fecha: string | null;
-      concepto: string | null;
-    } = {
-      establecimiento: null,
-      rfc: null,
-      total: null,
-      subtotal: null,
-      iva: null,
-      fecha: null,
-      concepto: null
-    };
-
-    // 1. Establecimiento - primeras líneas con texto
-    for (let i = 0; i < Math.min(5, lines.length); i++) {
-      const line = lines[i];
-      if (line.length > 4 &&
-          !line.match(/^\d+\.?\d*$/) &&
-          !line.match(/rfc|total|subtotal|iva|fecha/i) &&
-          line.match(/[a-zA-Z]/)) {
-        data.establecimiento = line.toUpperCase();
-        break;
-      }
-    }
-
-    // 2. RFC - Patrón mexicano
-    const rfcMatch = text.match(/([A-Z&Ñ]{3,4}[-\s]?\d{6}[-\s]?[A-Z0-9]{2,3})/i);
-    if (rfcMatch) {
-      data.rfc = rfcMatch[1].replace(/[-\s]/g, '').toUpperCase();
-    }
-
-    // 3. Total - buscar "TOTAL" seguido de número
-    const totalPatterns = [
-      /total[:\s]*\$?\s*([\d,]+\.?\d*)/i,
-      /importe[:\s]*\$?\s*([\d,]+\.?\d*)/i,
-      /a\s*pagar[:\s]*\$?\s*([\d,]+\.?\d*)/i
-    ];
-    for (const pattern of totalPatterns) {
-      const match = text.match(pattern);
-      if (match) {
-        data.total = parseFloat(match[1].replace(/,/g, ''));
-        break;
-      }
-    }
-
-    // 4. Subtotal
-    const subtotalMatch = text.match(/subtotal[:\s]*\$?\s*([\d,]+\.?\d*)/i);
-    if (subtotalMatch) {
-      data.subtotal = parseFloat(subtotalMatch[1].replace(/,/g, ''));
-    }
-
-    // 5. IVA
-    const ivaMatch = text.match(/i\.?v\.?a\.?[:\s]*\$?\s*([\d,]+\.?\d*)/i);
-    if (ivaMatch) {
-      data.iva = parseFloat(ivaMatch[1].replace(/,/g, ''));
-    }
-
-    // 6. Fecha
-    const fechaMatch = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
-    if (fechaMatch) {
-      const [, dia, mes, anio] = fechaMatch;
-      const anioCompleto = anio.length === 2 ? `20${anio}` : anio;
-      data.fecha = `${anioCompleto}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
-    }
-
-    // 7. Concepto - líneas que parecen descripción de producto
-    const conceptoLines = lines.filter(l =>
-      l.length > 10 &&
-      !l.match(/total|subtotal|iva|rfc|fecha|ticket|folio/i) &&
-      l.match(/[a-zA-Z]/)
-    );
-    if (conceptoLines.length > 0) {
-      data.concepto = conceptoLines.slice(0, 2).join(' - ');
-    }
-
-    console.log('📋 Datos extraídos:', data);
-    return data;
-  };
-
-  // Procesar imagen con OCR
+  // Procesar PDF con OCR Inteligente
   const handleOCRProcess = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || !user?.id) return;
 
-    // Solo imágenes
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
-      toast.error('Solo se permiten imágenes (JPG, PNG, WEBP)');
+    // Solo PDF
+    if (file.type !== 'application/pdf') {
+      toast.error('Solo se permiten archivos PDF');
       return;
     }
 
     setIsProcessingOCR(true);
-    setOcrProgress('Iniciando procesamiento...');
+    setOcrProgress('Procesando PDF con OCR...');
 
     try {
-      let ocrText = '';
+      console.log('🔍 Procesando PDF con OCR Inteligente:', file.name);
 
-      if (ocrProvider === 'google') {
-        // Google Vision via Supabase/Node.js
-        setOcrProgress('Procesando con Google Vision...');
-        const result = await processFileWithOCR(file);
-        ocrText = result.texto_completo || '';
-        console.log('✅ Google Vision OCR completado');
-      } else {
-        // Tesseract local
-        setOcrProgress('Procesando con Tesseract (local)...');
-        const result = await tesseractOCRService.processDocument(file);
-        ocrText = result.texto_completo || '';
-        console.log('✅ Tesseract OCR completado');
-      }
+      // Usar el servicio inteligente (igual que Eventos)
+      const result = await expenseOCRIntegration.processFileToExpense(
+        file,
+        'gni', // eventoId - usamos 'gni' como identificador
+        user.id
+      );
 
-      if (!ocrText) {
-        toast.error('No se pudo extraer texto de la imagen');
+      if (!result.success && result.errors.length > 0) {
+        toast.error(result.errors.join(', '));
         return;
       }
 
-      // Extraer datos del texto
-      setOcrProgress('Extrayendo datos...');
-      const extractedData = extractTicketData(ocrText);
+      const { expense, classification, warnings } = result;
 
       // Llenar formulario con datos extraídos
-      if (extractedData.establecimiento) {
-        // Buscar proveedor existente o crear sugerencia
-        const proveedorEncontrado = proveedores.find(p =>
-          p.razon_social.toLowerCase().includes(extractedData.establecimiento!.toLowerCase().substring(0, 10))
-        );
-        if (proveedorEncontrado) {
-          setFormData(prev => ({ ...prev, proveedor_id: proveedorEncontrado.id }));
-          setProveedorSearch(proveedorEncontrado.razon_social);
-        } else {
-          setProveedorSearch(extractedData.establecimiento);
+      if (expense) {
+        // Buscar proveedor
+        if (expense.proveedor) {
+          const proveedorEncontrado = proveedores.find(p =>
+            p.razon_social.toLowerCase().includes(expense.proveedor!.toLowerCase().substring(0, 10))
+          );
+          if (proveedorEncontrado) {
+            setFormData(prev => ({ ...prev, proveedor_id: proveedorEncontrado.id }));
+            setProveedorSearch(proveedorEncontrado.razon_social);
+          } else {
+            setProveedorSearch(expense.proveedor);
+          }
+        }
+
+        // Montos
+        if (expense.total && expense.total > 0) {
+          setFormData(prev => ({
+            ...prev,
+            subtotal: expense.subtotal || Math.round((expense.total! / (1 + IVA_RATE)) * 100) / 100,
+            iva: expense.iva || Math.round((expense.total! - (expense.total! / (1 + IVA_RATE))) * 100) / 100,
+            total: expense.total!
+          }));
+        }
+
+        // Concepto
+        if (expense.concepto) {
+          setFormData(prev => ({ ...prev, concepto: expense.concepto! }));
+        }
+
+        // Fecha
+        if (expense.fecha_gasto) {
+          setFormData(prev => ({ ...prev, fecha_gasto: expense.fecha_gasto! }));
+        }
+
+        // Folio/Referencia
+        if (expense.referencia) {
+          setFormData(prev => ({ ...prev, folio_factura: expense.referencia! }));
         }
       }
 
-      if (extractedData.total) {
-        // Si tenemos subtotal e IVA, usar esos; si no, calcular
-        if (extractedData.subtotal && extractedData.iva) {
-          setFormData(prev => ({
-            ...prev,
-            subtotal: extractedData.subtotal!,
-            iva: extractedData.iva!,
-            total: extractedData.total!
-          }));
-        } else {
-          // Calcular subtotal e IVA desde total
-          const subtotalCalc = extractedData.total / (1 + IVA_RATE);
-          const ivaCalc = extractedData.total - subtotalCalc;
-          setFormData(prev => ({
-            ...prev,
-            subtotal: Math.round(subtotalCalc * 100) / 100,
-            iva: Math.round(ivaCalc * 100) / 100,
-            total: extractedData.total!
-          }));
-        }
+      // Mostrar resultado
+      const confianza = classification?.confianzaClasificacion || 0;
+      toast.success(`PDF procesado (${confianza}% confianza)${warnings.length > 0 ? ' - Revise los datos' : ''}`);
+
+      if (warnings.length > 0) {
+        console.warn('Advertencias OCR:', warnings);
       }
 
-      if (extractedData.fecha) {
-        setFormData(prev => ({ ...prev, fecha_gasto: extractedData.fecha! }));
-      }
-
-      if (extractedData.concepto) {
-        setFormData(prev => ({ ...prev, concepto: extractedData.concepto! }));
-      }
-
-      toast.success(`OCR completado con ${ocrProvider === 'google' ? 'Google Vision' : 'Tesseract'}`);
     } catch (error: any) {
       console.error('❌ Error en OCR:', error);
-
-      // Si falla Google Vision, sugerir Tesseract
-      if (ocrProvider === 'google') {
-        toast.error('Error con Google Vision. Intenta con Tesseract.');
-      } else {
-        toast.error('Error en OCR: ' + (error.message || 'Error desconocido'));
-      }
+      toast.error('Error procesando PDF: ' + (error.message || 'Error desconocido'));
     } finally {
       setIsProcessingOCR(false);
       setOcrProgress('');
@@ -694,88 +592,47 @@ export const GastoFormModal = ({
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
-          {/* Sección: OCR - Escanear Comprobante */}
-          <div className="mb-6 p-4 rounded-xl border-2 border-dashed" style={{ borderColor: themeColors.primary + '50', backgroundColor: themeColors.primaryLight + '20' }}>
-            <div className="flex items-center justify-between mb-3">
-              <h3
-                className="text-sm font-semibold uppercase tracking-wide flex items-center gap-2"
-                style={{ color: themeColors.secondary }}
-              >
-                <Camera className="w-4 h-4" />
-                Escanear Comprobante (OCR)
-              </h3>
-              {/* Selector de proveedor OCR */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs" style={{ color: themeColors.textSecondary }}>Motor:</span>
-                <button
-                  type="button"
-                  onClick={() => setOcrProvider('google')}
-                  className="px-2 py-1 text-xs rounded-l-lg border transition-all"
-                  style={{
-                    backgroundColor: ocrProvider === 'google' ? themeColors.primary : 'transparent',
-                    color: ocrProvider === 'google' ? '#fff' : themeColors.textSecondary,
-                    borderColor: themeColors.border
-                  }}
-                >
-                  <Eye className="w-3 h-3 inline mr-1" />
-                  Google Vision
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOcrProvider('tesseract')}
-                  className="px-2 py-1 text-xs rounded-r-lg border-t border-b border-r transition-all"
-                  style={{
-                    backgroundColor: ocrProvider === 'tesseract' ? themeColors.primary : 'transparent',
-                    color: ocrProvider === 'tesseract' ? '#fff' : themeColors.textSecondary,
-                    borderColor: themeColors.border
-                  }}
-                >
-                  <Zap className="w-3 h-3 inline mr-1" />
-                  Tesseract
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <input
-                type="file"
-                ref={ocrFileInputRef}
-                accept="image/*"
-                onChange={handleOCRProcess}
-                className="hidden"
-              />
-              <button
-                type="button"
-                onClick={() => ocrFileInputRef.current?.click()}
-                disabled={isProcessingOCR}
-                className="flex-1 py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-all font-medium"
-                style={{
-                  backgroundColor: isProcessingOCR ? themeColors.border : themeColors.primary,
-                  color: '#fff'
-                }}
-              >
-                {isProcessingOCR ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    {ocrProgress || 'Procesando...'}
-                  </>
-                ) : (
-                  <>
-                    <Camera className="w-5 h-5" />
-                    Escanear Ticket/Factura
-                  </>
-                )}
-              </button>
-            </div>
-
-            <p className="text-xs mt-2" style={{ color: themeColors.textSecondary }}>
-              Sube una imagen del ticket o factura para llenar el formulario automáticamente
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4">
+          {/* Sección: OCR Inteligente - Solo PDF (compacta) */}
+          <div className="mb-4 p-3 rounded-xl border-2 border-dashed" style={{ borderColor: themeColors.primary + '50', backgroundColor: themeColors.primaryLight + '20' }}>
+            <input
+              type="file"
+              ref={ocrFileInputRef}
+              accept=".pdf,application/pdf"
+              onChange={handleOCRProcess}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => ocrFileInputRef.current?.click()}
+              disabled={isProcessingOCR}
+              className="w-full py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-all font-medium text-sm"
+              style={{
+                backgroundColor: isProcessingOCR ? themeColors.border : 'transparent',
+                color: isProcessingOCR ? '#fff' : themeColors.primary,
+                border: `2px solid ${themeColors.primary}`
+              }}
+            >
+              {isProcessingOCR ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {ocrProgress || 'Procesando PDF...'}
+                </>
+              ) : (
+                <>
+                  <Bot className="w-4 h-4" />
+                  <Zap className="w-3 h-3" />
+                  Extraer datos de PDF (OCR Inteligente)
+                </>
+              )}
+            </button>
+            <p className="text-xs mt-1 text-center" style={{ color: themeColors.textSecondary }}>
+              Sube un PDF y el sistema llenará automáticamente los campos
             </p>
           </div>
 
           {/* Sección: Proveedor */}
-          <div className="mb-6">
+          <div className="mb-4">
             <h3
               className="text-sm font-semibold uppercase tracking-wide mb-3"
               style={{ color: themeColors.secondary }}
