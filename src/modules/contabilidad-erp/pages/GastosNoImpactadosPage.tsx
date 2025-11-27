@@ -166,11 +166,12 @@ export const GastosNoImpactadosPage = () => {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [ejecutivos, setEjecutivos] = useState<Ejecutivo[]>([]);
 
-  // Filtros
-  const [filtros, setFiltros] = useState<GNIFiltros>({
-    periodo: getPeriodoActual()
-  });
+  // Filtros - Sin periodo inicial para mostrar todos los registros
+  const [filtros, setFiltros] = useState<GNIFiltros>({});
   const [showFilters, setShowFilters] = useState(false);
+
+  // Tipo de gráfica: 'bar' o 'pie'
+  const [chartType, setChartType] = useState<'bar' | 'pie'>('bar');
 
   // Modales
   const [showGastoModal, setShowGastoModal] = useState(false);
@@ -983,6 +984,34 @@ export const GastosNoImpactadosPage = () => {
               </motion.div>
             </div>
 
+            {/* Toggle tipo de gráfica */}
+            <div className="flex justify-end mb-3">
+              <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setChartType('bar')}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${
+                    chartType === 'bar'
+                      ? 'bg-white shadow text-teal-700'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  Barras
+                </button>
+                <button
+                  onClick={() => setChartType('pie')}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${
+                    chartType === 'pie'
+                      ? 'bg-white shadow text-teal-700'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <PieChart className="w-4 h-4" />
+                  Pastel 3D
+                </button>
+              </div>
+            </div>
+
             {/* Gráficas mejoradas - Layout: Cuenta(1) + Mes(2) + Forma(1) = 4 cols */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
               {/* Distribución por Cuenta */}
@@ -993,39 +1022,92 @@ export const GastosNoImpactadosPage = () => {
                 className="bg-white p-4 rounded-xl shadow-sm border"
               >
                 <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                  <PieChart className="w-4 h-4 text-teal-600" />
+                  {chartType === 'pie' ? <PieChart className="w-4 h-4 text-teal-600" /> : <BarChart3 className="w-4 h-4 text-teal-600" />}
                   Por Cuenta
                 </h3>
-                <div className="space-y-2.5">
-                  {Object.entries(dashboardData.porCuenta)
-                    .sort((a, b) => b[1].total - a[1].total)
-                    .slice(0, 6)
-                    .map(([cuenta, data], index) => {
-                      const maxTotal = Math.max(...Object.values(dashboardData.porCuenta).map(d => d.total));
-                      const percentage = maxTotal > 0 ? (data.total / maxTotal) * 100 : 0;
-                      const cuentaColor = getCuentaColor(cuenta);
-                      return (
-                        <div key={cuenta}>
-                          <div className="flex justify-between items-center mb-1">
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cuentaColor }} />
-                              <span className="text-xs font-medium text-gray-700 truncate max-w-[120px]">{cuenta}</span>
+                {chartType === 'bar' ? (
+                  <div className="space-y-2.5">
+                    {Object.entries(dashboardData.porCuenta)
+                      .sort((a, b) => b[1].total - a[1].total)
+                      .slice(0, 6)
+                      .map(([cuenta, data], index) => {
+                        const maxTotal = Math.max(...Object.values(dashboardData.porCuenta).map(d => d.total));
+                        const percentage = maxTotal > 0 ? (data.total / maxTotal) * 100 : 0;
+                        const cuentaColor = getCuentaColor(cuenta);
+                        return (
+                          <div key={cuenta}>
+                            <div className="flex justify-between items-center mb-1">
+                              <div className="flex items-center gap-1.5">
+                                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cuentaColor }} />
+                                <span className="text-xs font-medium text-gray-700 truncate max-w-[120px]">{cuenta}</span>
+                              </div>
+                              <span className="text-xs font-bold text-gray-900">{formatCurrency(data.total)}</span>
                             </div>
-                            <span className="text-xs font-bold text-gray-900">{formatCurrency(data.total)}</span>
+                            <div className="relative h-4 bg-gray-100 rounded-full overflow-hidden">
+                              <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${percentage}%` }}
+                                transition={{ delay: 0.4 + index * 0.05, duration: 0.6 }}
+                                className="h-full rounded-full"
+                                style={{ backgroundColor: cuentaColor }}
+                              />
+                            </div>
                           </div>
-                          <div className="relative h-4 bg-gray-100 rounded-full overflow-hidden">
-                            <motion.div
-                              initial={{ width: 0 }}
-                              animate={{ width: `${percentage}%` }}
-                              transition={{ delay: 0.4 + index * 0.05, duration: 0.6 }}
-                              className="h-full rounded-full"
-                              style={{ backgroundColor: cuentaColor }}
-                            />
+                        );
+                      })}
+                  </div>
+                ) : (
+                  /* Vista Pastel 3D */
+                  <div className="relative">
+                    {(() => {
+                      const sortedData = Object.entries(dashboardData.porCuenta)
+                        .sort((a, b) => b[1].total - a[1].total)
+                        .slice(0, 8);
+                      const total = sortedData.reduce((sum, [, d]) => sum + d.total, 0);
+                      let currentAngle = 0;
+
+                      return (
+                        <div className="flex items-center gap-4">
+                          {/* Pastel SVG con efecto 3D */}
+                          <svg viewBox="0 0 100 100" className="w-32 h-32" style={{ filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.15))' }}>
+                            <ellipse cx="50" cy="55" rx="45" ry="8" fill="rgba(0,0,0,0.1)" />
+                            {sortedData.map(([cuenta, data], i) => {
+                              const angle = total > 0 ? (data.total / total) * 360 : 0;
+                              const startAngle = currentAngle;
+                              currentAngle += angle;
+                              const largeArc = angle > 180 ? 1 : 0;
+                              const x1 = 50 + 40 * Math.cos((Math.PI * startAngle) / 180);
+                              const y1 = 50 + 40 * Math.sin((Math.PI * startAngle) / 180);
+                              const x2 = 50 + 40 * Math.cos((Math.PI * (startAngle + angle)) / 180);
+                              const y2 = 50 + 40 * Math.sin((Math.PI * (startAngle + angle)) / 180);
+                              const color = getCuentaColor(cuenta);
+                              return (
+                                <path
+                                  key={cuenta}
+                                  d={`M50,50 L${x1},${y1} A40,40 0 ${largeArc},1 ${x2},${y2} Z`}
+                                  fill={color}
+                                  stroke="white"
+                                  strokeWidth="0.5"
+                                  style={{ transform: 'translateY(-3px)', filter: `brightness(${1 - i * 0.03})` }}
+                                />
+                              );
+                            })}
+                          </svg>
+                          {/* Leyenda */}
+                          <div className="flex-1 space-y-1">
+                            {sortedData.slice(0, 5).map(([cuenta, data]) => (
+                              <div key={cuenta} className="flex items-center gap-1.5">
+                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: getCuentaColor(cuenta) }} />
+                                <span className="text-[10px] text-gray-600 truncate max-w-[80px]">{cuenta}</span>
+                                <span className="text-[10px] font-bold text-gray-800 ml-auto">{total > 0 ? ((data.total / total) * 100).toFixed(0) : 0}%</span>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       );
-                    })}
-                </div>
+                    })()}
+                  </div>
+                )}
               </motion.div>
 
               {/* Gráfica por Mes - Barras apiladas por cuenta */}
@@ -1244,7 +1326,21 @@ export const GastosNoImpactadosPage = () => {
 
         {/* Filtros avanzados */}
         {showFilters && (
-          <div className="mt-4 pt-4 border-t grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="mt-4 pt-4 border-t grid grid-cols-2 md:grid-cols-6 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Periodo</label>
+              <select
+                value={filtros.periodo || ''}
+                onChange={(e) => setFiltros({ ...filtros, periodo: e.target.value || undefined })}
+                className="w-full px-3 py-2 border rounded-lg"
+              >
+                <option value="">Todos los periodos</option>
+                {periodos.map(p => (
+                  <option key={p} value={p}>{getPeriodoLabel(p)}</option>
+                ))}
+              </select>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Cuenta</label>
               <select
