@@ -387,15 +387,16 @@ export class TextDataExtractor {
   }
 
   private static extractSubtotal(texto: string): number | null {
+    // Patrones SIN flag global para capturar grupos
     const patterns = [
-      /sub\s*-?\s*total[:\s$]*\$?\s*([0-9]{1,3}(?:[,\s]?[0-9]{3})*(?:\.[0-9]{1,2})?)/gi,
-      /subtotal[:\s$]*\$?\s*([0-9]{1,3}(?:[,\s]?[0-9]{3})*(?:\.[0-9]{1,2})?)/gi,
-      /importe\s*antes[:\s$]*\$?\s*([0-9]{1,3}(?:[,\s]?[0-9]{3})*(?:\.[0-9]{1,2})?)/gi
+      /sub\s*-?\s*total[:\s$]*\$?\s*([0-9]{1,3}(?:[,\s]?[0-9]{3})*(?:\.[0-9]{1,2})?)/i,
+      /subtotal[:\s$]*\$?\s*([0-9]{1,3}(?:[,\s]?[0-9]{3})*(?:\.[0-9]{1,2})?)/i,
+      /importe\s*antes[:\s$]*\$?\s*([0-9]{1,3}(?:[,\s]?[0-9]{3})*(?:\.[0-9]{1,2})?)/i
     ];
 
     for (const pattern of patterns) {
       const match = texto.match(pattern);
-      if (match) {
+      if (match && match[1]) {
         const numStr = match[1].replace(/,/g, '').replace(/\s/g, '');
         const num = parseFloat(numStr);
         if (!isNaN(num) && num > 0) {
@@ -409,15 +410,16 @@ export class TextDataExtractor {
   }
 
   private static extractIVA(texto: string, total: number | null, subtotal: number | null): number | null {
+    // Patrones SIN flag global para capturar grupos
     const patterns = [
-      /i\.?v\.?a\.?\s*(?:\d+%)?[:\s$]*\$?\s*([0-9]{1,3}(?:[,\s]?[0-9]{3})*(?:\.[0-9]{1,2})?)/gi,
-      /impuesto[:\s$]*\$?\s*([0-9]{1,3}(?:[,\s]?[0-9]{3})*(?:\.[0-9]{1,2})?)/gi,
-      /tax[:\s$]*\$?\s*([0-9]{1,3}(?:[,\s]?[0-9]{3})*(?:\.[0-9]{1,2})?)/gi
+      /i\.?v\.?a\.?\s*(?:\d+%)?[:\s$]*\$?\s*([0-9]{1,3}(?:[,\s]?[0-9]{3})*(?:\.[0-9]{1,2})?)/i,
+      /impuesto[:\s$]*\$?\s*([0-9]{1,3}(?:[,\s]?[0-9]{3})*(?:\.[0-9]{1,2})?)/i,
+      /tax[:\s$]*\$?\s*([0-9]{1,3}(?:[,\s]?[0-9]{3})*(?:\.[0-9]{1,2})?)/i
     ];
 
     for (const pattern of patterns) {
       const match = texto.match(pattern);
-      if (match) {
+      if (match && match[1]) {
         const numStr = match[1].replace(/,/g, '').replace(/\s/g, '');
         const num = parseFloat(numStr);
         if (!isNaN(num) && num > 0) {
@@ -718,14 +720,15 @@ export class TextDataExtractor {
   }
 
   private static extractSubtotalFactura(texto: string): number | null {
+    // Patrones SIN flag global para capturar grupos
     const patterns = [
-      /sub\s*-?\s*total[:\s$]*\$?\s*([0-9]{1,3}(?:[,\s]?[0-9]{3})*(?:\.[0-9]{2})?)/gi,
-      /importe\s*antes[:\s$]*\$?\s*([0-9]{1,3}(?:[,\s]?[0-9]{3})*(?:\.[0-9]{2})?)/gi
+      /sub\s*-?\s*total[:\s$]*\$?\s*([0-9]{1,3}(?:[,\s]?[0-9]{3})*(?:\.[0-9]{2})?)/i,
+      /importe\s*antes[:\s$]*\$?\s*([0-9]{1,3}(?:[,\s]?[0-9]{3})*(?:\.[0-9]{2})?)/i
     ];
 
     for (const pattern of patterns) {
       const match = texto.match(pattern);
-      if (match) {
+      if (match && match[1]) {
         const numStr = match[1].replace(/,/g, '').replace(/\s/g, '');
         const num = parseFloat(numStr);
         if (!isNaN(num) && num > 0) {
@@ -739,14 +742,15 @@ export class TextDataExtractor {
   }
 
   private static extractIVAFactura(texto: string, total: number | null, subtotal: number | null): number | null {
+    // Patrones SIN flag global para capturar grupos
     const patterns = [
-      /(?:iva|i\.v\.a\.?)\s*(?:trasladado)?(?:\s*16\s*%)?[:\s$]*\$?\s*([0-9]{1,3}(?:[,\s]?[0-9]{3})*(?:\.[0-9]{2})?)/gi,
-      /impuesto\s*trasladado[:\s$]*\$?\s*([0-9]{1,3}(?:[,\s]?[0-9]{3})*(?:\.[0-9]{2})?)/gi
+      /(?:iva|i\.v\.a\.?)\s*(?:trasladado)?(?:\s*16\s*%)?[:\s$]*\$?\s*([0-9]{1,3}(?:[,\s]?[0-9]{3})*(?:\.[0-9]{2})?)/i,
+      /impuesto\s*trasladado[:\s$]*\$?\s*([0-9]{1,3}(?:[,\s]?[0-9]{3})*(?:\.[0-9]{2})?)/i
     ];
 
     for (const pattern of patterns) {
       const match = texto.match(pattern);
-      if (match) {
+      if (match && match[1]) {
         const numStr = match[1].replace(/,/g, '').replace(/\s/g, '');
         const num = parseFloat(numStr);
         if (!isNaN(num) && num > 0) {
