@@ -164,6 +164,7 @@ export const GastoFormModal = ({
   const [isProcessingOCR, setIsProcessingOCR] = useState(false);
   const [ocrProgress, setOcrProgress] = useState<string>('');
   const ocrFileInputRef = useRef<HTMLInputElement>(null);
+  const [shouldProcessOCR, setShouldProcessOCR] = useState(false); // true = procesar OCR, false = solo subir
 
   // Hook de tema para colores dinámicos
   const { paletteConfig, isDark } = useTheme();
@@ -397,9 +398,9 @@ export const GastoFormModal = ({
       const fileName = `${fechaArchivo}_${tipoGasto}_${consecutivo}.${extension}`;
       const filePath = `gni/${periodoFolder}/${fileName}`;
 
-      // Subir al bucket 'documentos-gastos'
+      // Subir al bucket 'event_docs'
       const { data, error } = await supabase.storage
-        .from('documentos-gastos')
+        .from('event_docs')
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false
@@ -408,7 +409,7 @@ export const GastoFormModal = ({
       if (error) {
         // Si el bucket no existe, mostrar error específico
         if (error.message.includes('not found')) {
-          toast.error('Bucket "documentos-gastos" no configurado en Supabase');
+          toast.error('Bucket "event_docs" no configurado en Supabase');
           return;
         }
         throw error;
@@ -416,7 +417,7 @@ export const GastoFormModal = ({
 
       // Obtener URL pública
       const { data: urlData } = supabase.storage
-        .from('documentos-gastos')
+        .from('event_docs')
         .getPublicUrl(filePath);
 
       setFormData(prev => ({ ...prev, documento_url: urlData.publicUrl }));
@@ -433,23 +434,70 @@ export const GastoFormModal = ({
   };
 
   // =============================================
-  // FUNCIONALIDAD OCR INTELIGENTE (igual que Eventos)
-  // Solo acepta PDF - Usa clasificador inteligente
+  // FUNCIONALIDAD DE SUBIDA DE ARCHIVOS
   // =============================================
 
-  // Procesar PDF con OCR Inteligente
+  // Solo subir archivo (sin OCR)
+  const handleFileUploadOnly = async (file: File) => {
+    if (!companyId) return;
+
+    setUploadingFile(true);
+    try {
+      const fechaArchivo = formData.fecha_gasto.replace(/-/g, '');
+      const tipoGasto = cuentaSeleccionada?.replace(/\s+/g, '_') || 'COMPROBANTE';
+      const consecutivo = Date.now().toString().slice(-6);
+      const extension = file.name.split('.').pop()?.toLowerCase() || 'pdf';
+      const periodoFolder = formData.fecha_gasto.substring(0, 7);
+      const fileName = `${fechaArchivo}_${tipoGasto}_${consecutivo}.${extension}`;
+      const filePath = `gni/${periodoFolder}/${fileName}`;
+
+      const { error } = await supabase.storage
+        .from('event_docs')
+        .upload(filePath, file, { cacheControl: '3600', upsert: false });
+
+      if (error) {
+        if (error.message.includes('not found')) {
+          toast.error('Bucket "event_docs" no configurado');
+          return;
+        }
+        throw error;
+      }
+
+      const { data: urlData } = supabase.storage
+        .from('event_docs')
+        .getPublicUrl(filePath);
+
+      setFormData(prev => ({ ...prev, documento_url: urlData.publicUrl }));
+      toast.success('Comprobante subido correctamente');
+    } catch (error: any) {
+      console.error('Error subiendo archivo:', error);
+      toast.error('Error al subir: ' + (error.message || 'Error desconocido'));
+    } finally {
+      setUploadingFile(false);
+      if (ocrFileInputRef.current) {
+        ocrFileInputRef.current.value = '';
+      }
+    }
+  };
+
+  // =============================================
+  // FUNCIONALIDAD OCR INTELIGENTE (igual que Eventos)
+  // =============================================
+
+  // Procesar archivo: subir y opcionalmente procesar con OCR
   const handleOCRProcess = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !user?.id) return;
 
-    // Solo PDF
-    if (file.type !== 'application/pdf') {
-      toast.error('Solo se permiten archivos PDF');
+    // Si no es modo OCR, solo subir el archivo
+    if (!shouldProcessOCR) {
+      await handleFileUploadOnly(file);
+      setShouldProcessOCR(false);
       return;
     }
 
     setIsProcessingOCR(true);
-    setOcrProgress('Procesando PDF con OCR...');
+    setOcrProgress('Procesando con OCR...');
 
     try {
       console.log('🔍 Procesando PDF con OCR Inteligente:', file.name);
@@ -521,12 +569,17 @@ export const GastoFormModal = ({
           const filePath = `gni/${periodoFolder}/${fileName}`;
 
           const { error: uploadError } = await supabase.storage
-            .from('documentos-gastos')
+            .from('event_docs')
             .upload(filePath, file, { cacheControl: '3600', upsert: false });
+
+          if (uploadError && uploadError.message.includes('Bucket not found')) {
+            toast.error('Error de configuración: El bucket "event_docs" no existe en Supabase.', { duration: 6000 });
+            // No detenemos el flujo, solo advertimos y continuamos.
+          }
 
           if (!uploadError) {
             const { data: urlData } = supabase.storage
-              .from('documentos-gastos')
+              .from('event_docs')
               .getPublicUrl(filePath);
             setFormData(prev => ({ ...prev, documento_url: urlData.publicUrl }));
             console.log('✅ PDF OCR guardado como comprobante');
@@ -645,22 +698,101 @@ export const GastoFormModal = ({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4">
-          {/* Sección: OCR Inteligente - Solo PDF (compacta) */}
-          <div className="mb-4 p-3 rounded-xl border-2 border-dashed" style={{ borderColor: themeColors.primary + '50', backgroundColor: themeColors.primaryLight + '20' }}>
+          {/* Sección: Comprobante + OCR (como en Eventos) */}
+          <div className="mb-4 p-3 rounded-xl border-2" style={{ borderColor: themeColors.primary + '40', backgroundColor: themeColors.primaryLight + '10' }}>
+            <h3
+              className="text-sm font-semibold uppercase tracking-wide mb-3 flex items-center gap-2"
+              style={{ color: themeColors.secondary }}
+            >
+              <FileText className="w-4 h-4" />
+              Comprobante (PDF/Imagen)
+            </h3>
+
+            {/* Input file oculto */}
             <input
               type="file"
               ref={ocrFileInputRef}
-              accept=".pdf,application/pdf"
+              accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/*"
               onChange={handleOCRProcess}
               className="hidden"
             />
+
+            {/* Preview del archivo si existe */}
+            {formData.documento_url ? (
+              <div className="flex items-center justify-between p-3 rounded-lg mb-2" style={{ backgroundColor: `${themeColors.primary}15` }}>
+                <div className="flex items-center gap-2">
+                  <FileText className="w-5 h-5" style={{ color: themeColors.primary }} />
+                  <span className="text-sm truncate max-w-[200px]" style={{ color: themeColors.text }}>
+                    Archivo cargado
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <a
+                    href={formData.documento_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 text-xs rounded-lg transition-colors"
+                    style={{ backgroundColor: themeColors.primary, color: '#fff' }}
+                  >
+                    Ver
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, documento_url: null }))}
+                    className="px-3 py-1.5 text-xs rounded-lg border"
+                    style={{ borderColor: themeColors.border, color: themeColors.textSecondary }}
+                  >
+                    Quitar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setShouldProcessOCR(false); // Solo subir, sin OCR
+                  ocrFileInputRef.current?.click();
+                }}
+                disabled={uploadingFile}
+                className="w-full py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-all text-sm border-2 border-dashed mb-2"
+                style={{
+                  borderColor: themeColors.border,
+                  color: themeColors.textSecondary,
+                  backgroundColor: 'transparent'
+                }}
+              >
+                {uploadingFile ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Subiendo archivo...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    Click para subir comprobante (PDF o imagen)
+                  </>
+                )}
+              </button>
+            )}
+
+            {/* Separador */}
+            <div className="flex items-center gap-2 my-2">
+              <div className="flex-1 border-t" style={{ borderColor: themeColors.border }}></div>
+              <span className="text-xs" style={{ color: themeColors.textSecondary }}>o procesar con OCR</span>
+              <div className="flex-1 border-t" style={{ borderColor: themeColors.border }}></div>
+            </div>
+
+            {/* Botón OCR */}
             <button
               type="button"
-              onClick={() => ocrFileInputRef.current?.click()}
+              onClick={() => {
+                setShouldProcessOCR(true); // Procesar con OCR
+                ocrFileInputRef.current?.click();
+              }}
               disabled={isProcessingOCR}
               className="w-full py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-all font-medium text-sm"
               style={{
-                backgroundColor: isProcessingOCR ? themeColors.border : 'transparent',
+                backgroundColor: isProcessingOCR ? themeColors.primary : `${themeColors.primary}15`,
                 color: isProcessingOCR ? '#fff' : themeColors.primary,
                 border: `2px solid ${themeColors.primary}`
               }}
@@ -668,18 +800,18 @@ export const GastoFormModal = ({
               {isProcessingOCR ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  {ocrProgress || 'Procesando PDF...'}
+                  {ocrProgress || 'Procesando con OCR...'}
                 </>
               ) : (
                 <>
                   <Bot className="w-4 h-4" />
                   <Zap className="w-3 h-3" />
-                  Extraer datos de PDF (OCR Inteligente)
+                  Subir y extraer datos automáticamente (OCR)
                 </>
               )}
             </button>
             <p className="text-xs mt-1 text-center" style={{ color: themeColors.textSecondary }}>
-              Sube un PDF y el sistema llenará automáticamente los campos
+              Sube un PDF o imagen y el sistema llenará automáticamente los campos
             </p>
           </div>
 
@@ -1086,68 +1218,6 @@ export const GastoFormModal = ({
                 />
               </div>
 
-              {/* Documento PDF */}
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
-                  Comprobante (PDF/Imagen)
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={formData.documento_url || ''}
-                    readOnly
-                    className="flex-1 px-4 py-2.5 border-2 rounded-lg truncate"
-                    placeholder="Sin documento"
-                    style={{
-                      borderColor: themeColors.border,
-                      backgroundColor: `${themeColors.border}30`,
-                      color: themeColors.textSecondary
-                    }}
-                  />
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploadingFile}
-                    className="px-4 py-2.5 border-2 rounded-lg flex items-center gap-2 transition-colors"
-                    style={{
-                      borderColor: themeColors.primary,
-                      color: themeColors.primary,
-                      backgroundColor: 'transparent'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${themeColors.primary}15`}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                    title="Subir archivo PDF o imagen"
-                  >
-                    {uploadingFile ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Upload className="w-4 h-4" />
-                    )}
-                  </button>
-                  {formData.documento_url && (
-                    <a
-                      href={formData.documento_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-4 py-2.5 border-2 rounded-lg flex items-center transition-colors"
-                      style={{
-                        borderColor: '#22C55E',
-                        color: '#22C55E'
-                      }}
-                      title="Ver documento"
-                    >
-                      <FileText className="w-4 h-4" />
-                    </a>
-                  )}
-                </div>
-              </div>
             </div>
           </div>
 

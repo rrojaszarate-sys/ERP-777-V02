@@ -1699,7 +1699,7 @@ export const DualOCRExpenseForm: React.FC<DualOCRExpenseFormProps> = ({
       console.log('📁 Guardando imagen en bucket event_docs:', filePath);
       
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('event_docs')
+        .from('event_docs') // Correcto, no necesita cambio
         .upload(filePath, processedFile, {
           cacheControl: '3600',
           upsert: false
