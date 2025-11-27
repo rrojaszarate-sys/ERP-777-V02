@@ -10,18 +10,22 @@ import {
 interface Producto {
   id?: number;
   company_id?: string;
-  codigo: string;
+  clave: string;
   nombre: string;
   descripcion: string;
   categoria: string;
-  unidad_medida: string;
-  precio_compra: number;
+  unidad: string;
+  precio_base: number;
   precio_venta: number;
-  stock_minimo: number;
-  stock_maximo: number;
+  costo: number;
+  margen: number;
+  iva: number;
+  clave_sat: string;
+  clave_unidad_sat: string;
+  tipo: string;
   activo: boolean;
-  created_at?: string;
-  updated_at?: string;
+  fecha_creacion?: string;
+  fecha_actualizacion?: string;
 }
 
 export const useProductos = () => {

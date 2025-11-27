@@ -175,18 +175,22 @@ export const calcularStockPorProducto = async (companyId: string) => {
   return stockMap;
 };
 
-export const getProductosBajoStock = async (companyId: string) => {
+export const getProductosBajoStock = async (companyId: string, umbralMinimo: number = 10) => {
   // Obtener productos
   const productos = await fetchProductos(companyId);
 
   // Calcular stock actual
   const stockMap = await calcularStockPorProducto(companyId);
 
-  // Filtrar productos con stock bajo
+  // Filtrar productos con stock bajo (usando umbral por defecto ya que la tabla no tiene stock_minimo)
+  // Si el producto tuviera un campo stock_minimo, lo usaríamos: p.stock_minimo || umbralMinimo
   const productosBajos = productos.filter(p => {
     const stockActual = stockMap[p.id!] || 0;
-    return stockActual < p.stock_minimo;
-  });
+    return stockActual > 0 && stockActual < umbralMinimo;
+  }).map(p => ({
+    ...p,
+    stock_actual: stockMap[p.id!] || 0
+  }));
 
   return productosBajos;
 };
