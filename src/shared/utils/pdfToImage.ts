@@ -10,8 +10,8 @@ import * as pdfjsLib from 'pdfjs-dist';
 // Configurar el worker de PDF.js
 // Usar CDN con la versión correcta que coincida con la instalada
 if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-  // Usar la versión 5.4.296 que coincide con la instalada en node_modules
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/build/pdf.worker.min.mjs`;
+  // Usar la versión 5.4.394 que coincide con la instalada en node_modules
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.394/build/pdf.worker.min.mjs`;
 }
 
 export interface PDFToImageOptions {
