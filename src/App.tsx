@@ -40,6 +40,7 @@ const ProductosPage = lazy(() => import('./modules/inventario-erp/pages/Producto
 const AlmacenesPage = lazy(() => import('./modules/inventario-erp/pages/AlmacenesPage').then(m => ({ default: m.AlmacenesPage })));
 const MovimientosPage = lazy(() => import('./modules/inventario-erp/pages/MovimientosPage').then(m => ({ default: m.MovimientosPage })));
 const StockPage = lazy(() => import('./modules/inventario-erp/pages/StockPage').then(m => ({ default: m.StockPage })));
+const DocumentosInventarioPage = lazy(() => import('./modules/inventario-erp/pages/DocumentosInventarioPage').then(m => ({ default: m.DocumentosInventarioPage })));
 
 // MÓDULO DE RRHH Y NÓMINA
 const RRHHDashboard = lazy(() => import('./modules/rrhh-erp/pages/RRHHDashboard').then(m => ({ default: m.RRHHDashboard })));
@@ -138,6 +139,7 @@ function App() {
                 <Route path="inventario/almacenes" element={<AlmacenesPage />} />
                 <Route path="inventario/movimientos" element={<MovimientosPage />} />
                 <Route path="inventario/stock" element={<StockPage />} />
+                <Route path="inventario/documentos" element={<DocumentosInventarioPage />} />
 
                 {/* Rutas de RRHH y Nómina */}
                 <Route path="rrhh" element={<RRHHDashboard />} />

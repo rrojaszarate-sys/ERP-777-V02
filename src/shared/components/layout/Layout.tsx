@@ -107,7 +107,8 @@ export const Layout: React.FC = () => {
         { name: 'Productos', path: '/inventario/productos', icon: Package },
         { name: 'Almacenes', path: '/inventario/almacenes', icon: Warehouse },
         { name: 'Movimientos', path: '/inventario/movimientos', icon: List },
-        { name: 'Stock', path: '/inventario/stock', icon: BarChart3 }
+        { name: 'Stock', path: '/inventario/stock', icon: BarChart3 },
+        { name: 'Documentos', path: '/inventario/documentos', icon: FileText }
       ]
     },
     {
