@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { DollarSign, Calendar, CheckCircle, Clock, AlertTriangle, Paperclip, CreditCard as Edit, Trash2 } from 'lucide-react';
+import { DollarSign, Calendar, CheckCircle, Clock, AlertTriangle, Paperclip, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '../../../../shared/components/ui/Button';
 import { Badge } from '../../../../shared/components/ui/Badge';
 import { formatCurrency, formatDate } from '../../../../shared/utils/formatters';
@@ -267,7 +267,7 @@ export const IncomeCard: React.FC<IncomeCardProps> = ({
               variant="outline"
               size="sm"
             >
-              <Edit className="w-3 h-3" />
+              <Pencil className="w-3 h-3" />
             </Button>
           )}
           

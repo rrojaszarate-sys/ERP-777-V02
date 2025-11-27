@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, User, MapPin, DollarSign, TrendingUp, TrendingDown, Plus, CreditCard as Edit, Trash2, Eye, FileText, Paperclip, X, Receipt } from 'lucide-react';
+import { Calendar, User, MapPin, DollarSign, TrendingUp, TrendingDown, Plus, Pencil, Trash2, Eye, FileText, Paperclip, X, Receipt } from 'lucide-react';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { Modal } from '../../../../shared/components/ui/Modal';
 import { Button } from '../../../../shared/components/ui/Button';
@@ -233,7 +233,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({
                 variant="outline"
                 size="sm"
               >
-                <Edit className="w-4 h-4 mr-2" />
+                <Pencil className="w-4 h-4 mr-2" />
                 Editar
               </Button>
               <Button

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingUp, TrendingDown, Plus, CreditCard as Edit, Trash2, Eye, X, Settings as SettingsIcon, XCircle, CheckCircle, Loader2, Wallet, FileText, Pencil } from 'lucide-react';
+import { TrendingUp, TrendingDown, Plus, Pencil, Trash2, Eye, X, Settings as SettingsIcon, XCircle, CheckCircle, Loader2, Wallet, FileText } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Modal } from '../../../shared/components/ui/Modal';
 import { Button } from '../../../shared/components/ui/Button';
@@ -1133,7 +1133,7 @@ const IngresosTab: React.FC<{
                       className="p-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 transition-colors border border-blue-200"
                       title="Editar ingreso"
                     >
-                      <Edit className="w-4 h-4" />
+                      <Pencil className="w-4 h-4" />
                     </button>
                   )}
                   {canDelete('ingresos') && (
@@ -1438,7 +1438,7 @@ const GastosTab: React.FC<{
                       className="p-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 transition-colors border border-blue-200"
                       title="Editar gasto"
                     >
-                      <Edit className="w-4 h-4" />
+                      <Pencil className="w-4 h-4" />
                     </button>
                   )}
                   {canDelete('gastos') && (

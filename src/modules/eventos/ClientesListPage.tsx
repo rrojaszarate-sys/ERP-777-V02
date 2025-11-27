@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Plus, CreditCard as Edit, Eye, Trash2, Building2, Mail, Phone, MapPin, Calendar } from 'lucide-react';
+import { Plus, Pencil, Eye, Trash2, Building2, Mail, Phone, MapPin, Calendar } from 'lucide-react';
 import { supabase } from '../../core/config/supabase';
 import { usePermissions } from '../../core/permissions/usePermissions';
 import { useClients } from './hooks/useClients';

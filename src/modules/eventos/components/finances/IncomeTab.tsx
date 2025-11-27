@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, CreditCard as Edit, Trash2, FileText, DollarSign, Loader2, Paperclip } from 'lucide-react';
+import { Plus, Pencil, Trash2, FileText, DollarSign, Loader2, Paperclip } from 'lucide-react';
 import { Button } from '../../../../shared/components/ui/Button';
 import { Badge } from '../../../../shared/components/ui/Badge';
 import { Modal } from '../../../../shared/components/ui/Modal';
@@ -121,7 +121,7 @@ export const IncomeTab: React.FC<IncomeTabProps> = ({
         
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
           <div className="flex items-center space-x-3">
-            <Edit className="w-6 h-6 text-gray-600" />
+            <Pencil className="w-6 h-6 text-gray-600" />
             <div>
               <div className="text-lg font-bold text-gray-700">{ingresosSinArchivo.length}</div>
               <div className="text-sm text-gray-600">Sin Archivo</div>

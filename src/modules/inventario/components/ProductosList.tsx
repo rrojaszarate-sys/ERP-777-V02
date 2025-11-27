@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useProductos } from '../hooks';
-import { Package, Plus, Edit, Trash2, Search, Filter } from 'lucide-react';
+import { Package, Plus, Pencil, Trash2, Search, Filter } from 'lucide-react';
 import { ProductoFormModal } from './ProductoFormModal';
 import type { Producto } from '../types';
 
@@ -167,7 +167,7 @@ export const ProductosList: React.FC = () => {
                         }}
                         className="text-blue-600 hover:text-blue-900"
                       >
-                        <Edit className="w-4 h-4" />
+                        <Pencil className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => {

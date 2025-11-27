@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useEmpleados } from '../hooks';
-import { Users, Plus, Edit, UserX, Search, Briefcase } from 'lucide-react';
+import { Users, Plus, Pencil, UserX, Search, Briefcase } from 'lucide-react';
 import { EmpleadoFormModal } from './EmpleadoFormModal';
 import type { Empleado } from '../types';
 
@@ -155,7 +155,7 @@ export const EmpleadosList: React.FC = () => {
                         }}
                         className="text-blue-600 hover:text-blue-900"
                       >
-                        <Edit className="w-4 h-4" />
+                        <Pencil className="w-4 h-4" />
                       </button>
                       {empleado.estatus === 'ACTIVO' && (
                         <button

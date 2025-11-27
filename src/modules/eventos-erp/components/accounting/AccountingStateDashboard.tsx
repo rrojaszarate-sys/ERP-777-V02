@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  DollarSign, Clock, CheckCircle, AlertTriangle, 
+import {
+  DollarSign, Clock, CheckCircle, AlertTriangle,
   RefreshCw, Calendar, TrendingUp, FileText,
-  Eye, CreditCard as Edit, Settings
+  Eye, Pencil, Settings
 } from 'lucide-react';
 import { useAccountingStates } from '../../hooks/useAccountingStates';
 import { usePermissions } from '../../../../core/permissions/usePermissions';

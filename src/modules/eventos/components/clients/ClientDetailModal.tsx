@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Building2, Mail, Phone, MapPin, CreditCard, Calendar, DollarSign, FileText, X, CreditCard as Edit, Trash2, Eye, TrendingUp } from 'lucide-react';
+import { Building2, Mail, Phone, MapPin, CreditCard, Calendar, DollarSign, FileText, X, Pencil, Trash2, Eye, TrendingUp } from 'lucide-react';
 import { Modal } from '../../../../shared/components/ui/Modal';
 import { Button } from '../../../../shared/components/ui/Button';
 import { Badge } from '../../../../shared/components/ui/Badge';
@@ -117,7 +117,7 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                   variant="outline"
                   size="sm"
                 >
-                  <Edit className="w-4 h-4 mr-2" />
+                  <Pencil className="w-4 h-4 mr-2" />
                   Editar
                 </Button>
               )}

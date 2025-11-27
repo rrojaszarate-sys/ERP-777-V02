@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useProyectos } from '../hooks';
-import { Briefcase, Plus, Edit, Trash2, Search, TrendingUp, Calendar } from 'lucide-react';
+import { Briefcase, Plus, Pencil, Trash2, Search, TrendingUp, Calendar } from 'lucide-react';
 import { ProyectoFormModal } from './ProyectoFormModal';
 import type { Proyecto } from '../types';
 
@@ -179,7 +179,7 @@ export const ProyectosList: React.FC = () => {
                         }}
                         className="text-blue-600 hover:text-blue-900"
                       >
-                        <Edit className="w-4 h-4" />
+                        <Pencil className="w-4 h-4" />
                       </button>
                       {proyecto.estatus === 'PLANEACION' && (
                         <button
