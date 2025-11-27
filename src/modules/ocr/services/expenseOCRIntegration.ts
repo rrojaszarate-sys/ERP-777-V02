@@ -9,6 +9,7 @@
 import { IntelligentExpenseClassifier, ExpenseClassificationResult, ExpenseCategory } from './intelligentOCRClassifier';
 import { tesseractOCRService } from './tesseractOCRService_OPTIMIZED';
 import { processWithBestOCR } from '../../eventos-erp/components/finances/bestOCR';
+import { processWithRealGoogleVision } from '../../eventos-erp/components/finances/realGoogleVision';
 import { Expense } from '../../eventos/types/Finance';
 import { FinancesService } from '../../eventos/services/financesService';
 
@@ -76,25 +77,47 @@ export class ExpenseOCRIntegrationService {
       console.log('🚀 [ExpenseOCRIntegration] Iniciando procesamiento completo...');
       console.log('📄 Archivo:', file.name, `(${(file.size / 1024).toFixed(1)} KB)`);
 
-      // PASO 1: Ejecutar OCR base (detectar si es PDF o imagen)
+      // PASO 1: Ejecutar OCR base (Google Vision primero, luego fallback)
       console.log('🔍 Paso 1/4: Ejecutando OCR...');
-      const isPDF = file.type === 'application/pdf';
+      console.log('📄 Tipo de archivo:', file.type);
 
       let ocrResult: { texto_completo: string; datos_ticket?: any; datos_factura?: any };
 
-      if (isPDF) {
-        // Para PDFs usar bestOCR que soporta OCR.space
-        console.log('📄 PDF detectado - usando OCR.space...');
-        const bestResult = await processWithBestOCR(file);
-        ocrResult = {
-          texto_completo: bestResult.text,
-          datos_ticket: null,
-          datos_factura: null
-        };
-      } else {
-        // Para imágenes usar Tesseract
-        console.log('🖼️ Imagen detectada - usando Tesseract...');
-        ocrResult = await tesseractOCRService.processDocument(file);
+      // ESTRATEGIA: Google Vision PRIMERO, luego fallback
+      // (igual que módulo de Eventos)
+      try {
+        console.log('🔄 Intentando Google Vision PRIMERO...');
+        const visionResult = await processWithRealGoogleVision(file);
+
+        if (visionResult.text && visionResult.text.trim().length > 20) {
+          console.log('✅ Google Vision exitoso:', visionResult.text.length, 'caracteres');
+          ocrResult = {
+            texto_completo: visionResult.text,
+            datos_ticket: null,
+            datos_factura: null
+          };
+        } else {
+          throw new Error('Google Vision: texto muy corto');
+        }
+      } catch (visionError) {
+        console.warn('⚠️ Google Vision falló, usando fallback...', visionError);
+
+        const isPDF = file.type === 'application/pdf';
+
+        if (isPDF) {
+          // Para PDFs: usar bestOCR (Tesseract → OCR.space)
+          console.log('📄 PDF - usando bestOCR como fallback...');
+          const bestResult = await processWithBestOCR(file);
+          ocrResult = {
+            texto_completo: bestResult.text,
+            datos_ticket: null,
+            datos_factura: null
+          };
+        } else {
+          // Para imágenes: usar Tesseract
+          console.log('🖼️ Imagen - usando Tesseract como fallback...');
+          ocrResult = await tesseractOCRService.processDocument(file);
+        }
       }
 
       if (!ocrResult || !ocrResult.texto_completo) {
