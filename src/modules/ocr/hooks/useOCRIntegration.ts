@@ -63,6 +63,12 @@ export const useOCRIntegration = (eventId: string) => {
         console.warn('⚠️ Advertencias OCR:', integrationResult.warnings);
       }
 
+      // Determinar tipo de documento por tipo de archivo:
+      // - PDFs = facturas
+      // - Imágenes = tickets
+      const isPDF = file.type === 'application/pdf';
+      const documentType = isPDF ? 'factura' : 'ticket';
+
       // Convertir a formato del formulario (para compatibilidad)
       const formData = {
         concepto: expense?.concepto || '',
@@ -83,7 +89,7 @@ export const useOCRIntegration = (eventId: string) => {
         _ocrConfidence: confidence,
         _needsValidation: needsValidation,
         _ocrFile: file,
-        _documentType: 'ticket',
+        _documentType: documentType, // Ahora depende del tipo de archivo
         _warnings: integrationResult.warnings,
         _classification: classification
       };

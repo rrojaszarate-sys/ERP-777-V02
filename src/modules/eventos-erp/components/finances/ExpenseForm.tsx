@@ -166,13 +166,12 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   const handleOCRFile = async (file: File) => {
     try {
       console.log('🔍 Procesando archivo OCR para prellenar formulario:', file.name);
+      console.log(`📄 Tipo: ${file.type} → ${file.type === 'application/pdf' ? 'FACTURA' : 'TICKET'}`);
 
       const result = await processOCRFile(file);
 
-      if (result.formData._documentType !== 'ticket') {
-        alert('⚠️ Este documento parece ser una factura. Use el formulario de ingresos para facturas.');
-        return;
-      }
+      // Ahora aceptamos tanto tickets (imágenes) como facturas (PDFs)
+      // Ambos son gastos válidos
 
       // Prellenar formulario con datos OCR
       const ocrData = result.formData;
