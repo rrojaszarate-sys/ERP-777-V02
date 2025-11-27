@@ -196,8 +196,8 @@ BEGIN
         WHERE table_name = 'productos_erp' AND column_name = 'codigo_qr'
     ) THEN
         ALTER TABLE productos_erp ADD COLUMN codigo_qr VARCHAR(50);
-        -- Por defecto, código QR = código del producto o SKU
-        UPDATE productos_erp SET codigo_qr = COALESCE(codigo, sku, 'PROD-' || id::VARCHAR) WHERE codigo_qr IS NULL;
+        -- Por defecto, código QR = clave del producto
+        UPDATE productos_erp SET codigo_qr = COALESCE(clave, 'PROD-' || id::VARCHAR) WHERE codigo_qr IS NULL;
     END IF;
 END $$;
 
@@ -205,12 +205,12 @@ END $$;
 ALTER TABLE documentos_inventario_erp ENABLE ROW LEVEL SECURITY;
 ALTER TABLE detalles_documento_inventario_erp ENABLE ROW LEVEL SECURITY;
 
--- Política para documentos
+-- Política para documentos (usando id de users_erp que corresponde al auth.uid)
 DROP POLICY IF EXISTS "documentos_inventario_company_isolation" ON documentos_inventario_erp;
 CREATE POLICY "documentos_inventario_company_isolation" ON documentos_inventario_erp
     FOR ALL
     USING (company_id IN (
-        SELECT company_id FROM users_erp WHERE user_id = auth.uid()
+        SELECT company_id FROM users_erp WHERE id = auth.uid()
     ));
 
 -- Política para detalles (a través del documento)
@@ -220,7 +220,7 @@ CREATE POLICY "detalles_documento_inventario_company_isolation" ON detalles_docu
     USING (documento_id IN (
         SELECT d.id FROM documentos_inventario_erp d
         WHERE d.company_id IN (
-            SELECT company_id FROM users_erp WHERE user_id = auth.uid()
+            SELECT company_id FROM users_erp WHERE id = auth.uid()
         )
     ));
 
@@ -234,7 +234,7 @@ SELECT
     d.almacen_id,
     a.nombre AS almacen_nombre,
     d.evento_id,
-    e.nombre AS evento_nombre,
+    e.nombre_proyecto AS evento_nombre,
     d.nombre_entrega,
     d.nombre_recibe,
     d.estado,
@@ -248,7 +248,7 @@ FROM documentos_inventario_erp d
 LEFT JOIN almacenes_erp a ON d.almacen_id = a.id
 LEFT JOIN eventos_erp e ON d.evento_id = e.id
 LEFT JOIN detalles_documento_inventario_erp det ON d.id = det.documento_id
-GROUP BY d.id, a.nombre, e.nombre;
+GROUP BY d.id, a.nombre, e.nombre_proyecto;
 
 COMMENT ON TABLE documentos_inventario_erp IS 'Documentos de entrada/salida de inventario con firmas digitales';
 COMMENT ON TABLE detalles_documento_inventario_erp IS 'Líneas de detalle de documentos de inventario';
