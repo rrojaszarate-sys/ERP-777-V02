@@ -1,8 +1,10 @@
 /**
  * DASHBOARD EJECUTIVO PARA GASTOS NO IMPACTADOS (GNI)
  * Gráficas profesionales para análisis ejecutivo
+ * - Filtros por período
+ * - Diseño responsivo
  */
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   LineChart, Line, RadialBarChart, RadialBar,
@@ -12,7 +14,7 @@ import {
 import {
   TrendingUp, TrendingDown, DollarSign, Clock, CheckCircle,
   AlertTriangle, Users, Building2, Calendar, PieChart as PieChartIcon,
-  BarChart3, Activity, X
+  BarChart3, Activity, X, Filter
 } from 'lucide-react';
 import { useTheme } from '../../../shared/components/theme';
 import type { GastoNoImpactadoView } from '../types/gastosNoImpactados';
@@ -40,6 +42,21 @@ export const DashboardEjecutivoGNI: React.FC<DashboardEjecutivoGNIProps> = ({
   onClose,
 }) => {
   const { paletteConfig, isDark } = useTheme();
+
+  // Estado para filtro de período
+  const [periodoFiltro, setPeriodoFiltro] = useState<string>('todos');
+
+  // Obtener períodos únicos de los gastos
+  const periodosDisponibles = useMemo(() => {
+    const periodos = [...new Set(gastos.map(g => g.periodo).filter(Boolean))];
+    return periodos.sort().reverse();
+  }, [gastos]);
+
+  // Filtrar gastos por período
+  const gastosFiltrados = useMemo(() => {
+    if (periodoFiltro === 'todos') return gastos;
+    return gastos.filter(g => g.periodo === periodoFiltro);
+  }, [gastos, periodoFiltro]);
 
   // Colores dinámicos basados en la paleta
   const themeColors = useMemo(() => {
@@ -76,14 +93,14 @@ export const DashboardEjecutivoGNI: React.FC<DashboardEjecutivoGNIProps> = ({
 
   // ==================== CÁLCULOS DE DATOS ====================
 
-  // KPIs principales
+  // KPIs principales (usando gastosFiltrados)
   const kpis = useMemo(() => {
-    const totalGastos = gastos.reduce((sum, g) => sum + (g.total || 0), 0);
-    const totalPendientes = gastos.filter(g => g.status_pago === 'pendiente').reduce((sum, g) => sum + (g.total || 0), 0);
-    const totalPagados = gastos.filter(g => g.status_pago === 'pagado').reduce((sum, g) => sum + (g.total || 0), 0);
-    const cantidadRegistros = gastos.length;
-    const registrosPendientes = gastos.filter(g => g.status_pago === 'pendiente').length;
-    const registrosPagados = gastos.filter(g => g.status_pago === 'pagado').length;
+    const totalGastos = gastosFiltrados.reduce((sum, g) => sum + (g.total || 0), 0);
+    const totalPendientes = gastosFiltrados.filter(g => g.status_pago === 'pendiente').reduce((sum, g) => sum + (g.total || 0), 0);
+    const totalPagados = gastosFiltrados.filter(g => g.status_pago === 'pagado').reduce((sum, g) => sum + (g.total || 0), 0);
+    const cantidadRegistros = gastosFiltrados.length;
+    const registrosPendientes = gastosFiltrados.filter(g => g.status_pago === 'pendiente').length;
+    const registrosPagados = gastosFiltrados.filter(g => g.status_pago === 'pagado').length;
     const promedioGasto = cantidadRegistros > 0 ? totalGastos / cantidadRegistros : 0;
     const porcentajePagado = totalGastos > 0 ? (totalPagados / totalGastos) * 100 : 0;
 
@@ -97,13 +114,13 @@ export const DashboardEjecutivoGNI: React.FC<DashboardEjecutivoGNIProps> = ({
       promedioGasto,
       porcentajePagado,
     };
-  }, [gastos]);
+  }, [gastosFiltrados]);
 
   // Datos para gráfica de tendencia mensual (Área)
   const datosTendenciaMensual = useMemo(() => {
     const porMes: Record<string, { mes: string; total: number; pagado: number; pendiente: number; cantidad: number }> = {};
 
-    gastos.forEach(g => {
+    gastosFiltrados.forEach(g => {
       const mes = g.periodo || g.fecha_gasto?.substring(0, 7) || 'Sin fecha';
       if (!porMes[mes]) {
         porMes[mes] = { mes, total: 0, pagado: 0, pendiente: 0, cantidad: 0 };
@@ -120,12 +137,12 @@ export const DashboardEjecutivoGNI: React.FC<DashboardEjecutivoGNIProps> = ({
     return Object.values(porMes)
       .sort((a, b) => a.mes.localeCompare(b.mes))
       .slice(-12); // Últimos 12 meses
-  }, [gastos]);
+  }, [gastosFiltrados]);
 
   // Datos para gráfica de distribución por cuenta (Dona)
   const datosPorCuenta = useMemo(() => {
     const porCuenta: Record<string, number> = {};
-    gastos.forEach(g => {
+    gastosFiltrados.forEach(g => {
       const cuenta = g.cuenta || 'Sin clasificar';
       porCuenta[cuenta] = (porCuenta[cuenta] || 0) + (g.total || 0);
     });
@@ -133,12 +150,12 @@ export const DashboardEjecutivoGNI: React.FC<DashboardEjecutivoGNIProps> = ({
     return Object.entries(porCuenta)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
-  }, [gastos]);
+  }, [gastosFiltrados]);
 
   // Datos para Top 10 Proveedores (Barras Horizontales)
   const datosTopProveedores = useMemo(() => {
     const porProveedor: Record<string, { name: string; total: number; cantidad: number }> = {};
-    gastos.forEach(g => {
+    gastosFiltrados.forEach(g => {
       const proveedor = g.proveedor || 'Sin proveedor';
       if (!porProveedor[proveedor]) {
         porProveedor[proveedor] = { name: proveedor, total: 0, cantidad: 0 };
@@ -150,12 +167,12 @@ export const DashboardEjecutivoGNI: React.FC<DashboardEjecutivoGNIProps> = ({
     return Object.values(porProveedor)
       .sort((a, b) => b.total - a.total)
       .slice(0, 10);
-  }, [gastos]);
+  }, [gastosFiltrados]);
 
   // Datos para distribución por subcuenta (Treemap)
   const datosTreemap = useMemo(() => {
     const jerarquia: Record<string, Record<string, number>> = {};
-    gastos.forEach(g => {
+    gastosFiltrados.forEach(g => {
       const cuenta = g.cuenta || 'Sin clasificar';
       const subcuenta = g.subcuenta || 'General';
       if (!jerarquia[cuenta]) jerarquia[cuenta] = {};
@@ -171,12 +188,12 @@ export const DashboardEjecutivoGNI: React.FC<DashboardEjecutivoGNIProps> = ({
         colorIndex: idx,
       }))
     ).sort((a, b) => b.size - a.size).slice(0, 20);
-  }, [gastos]);
+  }, [gastosFiltrados]);
 
   // Datos para ejecutivo responsable
   const datosPorEjecutivo = useMemo(() => {
     const porEjecutivo: Record<string, number> = {};
-    gastos.forEach(g => {
+    gastosFiltrados.forEach(g => {
       const ejecutivo = g.ejecutivo || 'Sin asignar';
       porEjecutivo[ejecutivo] = (porEjecutivo[ejecutivo] || 0) + (g.total || 0);
     });
@@ -185,12 +202,12 @@ export const DashboardEjecutivoGNI: React.FC<DashboardEjecutivoGNIProps> = ({
       .map(([name, value]) => ({ name: name.length > 20 ? name.substring(0, 20) + '...' : name, value }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 8);
-  }, [gastos]);
+  }, [gastosFiltrados]);
 
   // Datos para forma de pago
   const datosPorFormaPago = useMemo(() => {
     const porFormaPago: Record<string, number> = {};
-    gastos.forEach(g => {
+    gastosFiltrados.forEach(g => {
       const forma = g.forma_pago || 'No especificada';
       porFormaPago[forma] = (porFormaPago[forma] || 0) + (g.total || 0);
     });
@@ -198,12 +215,12 @@ export const DashboardEjecutivoGNI: React.FC<DashboardEjecutivoGNIProps> = ({
     return Object.entries(porFormaPago)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
-  }, [gastos]);
+  }, [gastosFiltrados]);
 
   // Datos para estado de validación (Radial)
   const datosValidacion = useMemo(() => {
     const estados = { correcto: 0, pendiente: 0, revisar: 0 };
-    gastos.forEach(g => {
+    gastosFiltrados.forEach(g => {
       const val = g.validacion || 'pendiente';
       if (val in estados) {
         estados[val as keyof typeof estados] += 1;
@@ -216,7 +233,7 @@ export const DashboardEjecutivoGNI: React.FC<DashboardEjecutivoGNIProps> = ({
       { name: 'Pendientes', value: estados.pendiente, fill: themeColors.warning, percent: total > 0 ? (estados.pendiente / total) * 100 : 0 },
       { name: 'Por revisar', value: estados.revisar, fill: themeColors.danger, percent: total > 0 ? (estados.revisar / total) * 100 : 0 },
     ];
-  }, [gastos, themeColors]);
+  }, [gastosFiltrados, themeColors]);
 
   // Tooltip personalizado
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -264,6 +281,49 @@ export const DashboardEjecutivoGNI: React.FC<DashboardEjecutivoGNIProps> = ({
             >
               <X className="w-5 h-5" />
             </button>
+          </div>
+
+          {/* Barra de Filtros */}
+          <div
+            className="px-6 py-3 flex items-center gap-4 border-b"
+            style={{ backgroundColor: themeColors.chartBg, borderColor: themeColors.border }}
+          >
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4" style={{ color: themeColors.textSecondary }} />
+              <span className="text-sm font-medium" style={{ color: themeColors.textSecondary }}>Período:</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setPeriodoFiltro('todos')}
+                className="px-3 py-1.5 text-sm rounded-lg transition-all"
+                style={{
+                  backgroundColor: periodoFiltro === 'todos' ? themeColors.primary : 'transparent',
+                  color: periodoFiltro === 'todos' ? '#fff' : themeColors.textSecondary,
+                  border: `1px solid ${periodoFiltro === 'todos' ? themeColors.primary : themeColors.border}`
+                }}
+              >
+                Todos ({gastos.length})
+              </button>
+              {periodosDisponibles.slice(0, 6).map(periodo => (
+                <button
+                  key={periodo}
+                  onClick={() => setPeriodoFiltro(periodo)}
+                  className="px-3 py-1.5 text-sm rounded-lg transition-all"
+                  style={{
+                    backgroundColor: periodoFiltro === periodo ? themeColors.primary : 'transparent',
+                    color: periodoFiltro === periodo ? '#fff' : themeColors.textSecondary,
+                    border: `1px solid ${periodoFiltro === periodo ? themeColors.primary : themeColors.border}`
+                  }}
+                >
+                  {periodo}
+                </button>
+              ))}
+            </div>
+            {periodoFiltro !== 'todos' && (
+              <span className="ml-auto text-sm" style={{ color: themeColors.textSecondary }}>
+                {gastosFiltrados.length} de {gastos.length} registros
+              </span>
+            )}
           </div>
 
           {/* KPIs Cards */}
@@ -587,7 +647,7 @@ export const DashboardEjecutivoGNI: React.FC<DashboardEjecutivoGNIProps> = ({
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4" style={{ color: themeColors.textSecondary }} />
               <span className="text-sm" style={{ color: themeColors.textSecondary }}>
-                Datos actualizados • {gastos.length} registros analizados
+                Datos actualizados • {gastosFiltrados.length} registros analizados
               </span>
             </div>
             <button
