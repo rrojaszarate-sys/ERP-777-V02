@@ -13,6 +13,7 @@ import { PageSkeleton } from '../../shared/components/ui/LoadingSpinner';
 import { EventoModal } from './components/EventoModal';
 import { EventoDetailModal } from './components/EventoDetailModal';
 import { GaugeChart } from './components/GaugeChart'; // ⚡ NUEVO: Gauge Chart para Utilidad
+import { useTheme } from '../../shared/components/theme'; // 🎨 Paleta dinámica
 import {
   useEventosFinancialList,
   useEventosFinancialDashboard,
@@ -32,13 +33,28 @@ import { useConfiguracionERP } from './hooks/useConfiguracionERP';
  */
 export const EventosListPage: React.FC = () => {
   const [showFilters, setShowFilters] = useState(true);
-  
+
+  // 🎨 PALETA DINÁMICA
+  const { paletteConfig, isDark } = useTheme();
+  const themeColors = useMemo(() => ({
+    primary: paletteConfig.primary,
+    secondary: paletteConfig.secondary,
+    accent: paletteConfig.accent,
+    shades: paletteConfig.shades,
+    cardBg: isDark ? '#1f2937' : '#ffffff',
+    headerBg: isDark ? '#111827' : '#f9fafb',
+    textPrimary: isDark ? '#f3f4f6' : '#111827',
+    textSecondary: isDark ? '#9ca3af' : '#6b7280',
+    border: isDark ? '#374151' : '#e5e7eb',
+    hoverBg: isDark ? '#374151' : `${paletteConfig.primary}10`,
+  }), [paletteConfig, isDark]);
+
   // Estados para los modales
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [editingEvento, setEditingEvento] = useState<any>(null);
   const [viewingEvento, setViewingEvento] = useState<any>(null);
-  
+
   // Estado ÚNICO para controlar TODAS las tarjetas del dashboard simultáneamente
   const [showAllCardDetails, setShowAllCardDetails] = useState(false);
 
@@ -574,8 +590,8 @@ export const EventosListPage: React.FC = () => {
       {/* Header con título y botones */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Gestión de Eventos</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-2xl font-bold" style={{ color: themeColors.textPrimary }}>Gestión de Eventos</h1>
+          <p className="mt-1" style={{ color: themeColors.textSecondary }}>
             Administra todos los eventos con control financiero y OCR integrado
           </p>
         </div>
@@ -640,7 +656,8 @@ export const EventosListPage: React.FC = () => {
       {/* Panel de Filtros */}
       {showFilters && (
         <motion.div
-          className="bg-white rounded-lg border p-4"
+          className="rounded-lg border p-4"
+          style={{ backgroundColor: themeColors.cardBg, borderColor: themeColors.border }}
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
           exit={{ opacity: 0, height: 0 }}
@@ -778,7 +795,8 @@ export const EventosListPage: React.FC = () => {
       {/* Dashboard de Sumatorias - Diseño con separadores verticales */}
       {dashboard && (
         <div
-          className="bg-white rounded-lg border cursor-pointer hover:shadow-md transition-shadow"
+          className="rounded-lg border cursor-pointer hover:shadow-md transition-shadow"
+          style={{ backgroundColor: themeColors.cardBg, borderColor: themeColors.border }}
           onClick={() => setShowAllCardDetails(!showAllCardDetails)}
         >
           <div className="flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-gray-200">
@@ -936,10 +954,10 @@ export const EventosListPage: React.FC = () => {
       </div>
 
       {/* Tabla de eventos con filas expandibles */}
-      <div className="bg-white rounded-lg border overflow-hidden">
+      <div className="rounded-lg border overflow-hidden" style={{ backgroundColor: themeColors.cardBg, borderColor: themeColors.border }}>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y" style={{ borderColor: themeColors.border }}>
+            <thead style={{ backgroundColor: themeColors.headerBg }}>
               <tr>
                 {columns.map((column) => (
                   <th

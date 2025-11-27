@@ -283,7 +283,7 @@ export const GastoFormModal = ({
     }
   }, [gasto, claves, formasPago, ejecutivos, periodo]);
 
-  // Calcular IVA y total automáticamente
+  // Calcular IVA y total automáticamente desde subtotal
   const handleSubtotalChange = useCallback((newSubtotal: number) => {
     let nuevoIva = 0;
     if (calcularIVA && newSubtotal > 0) {
@@ -297,6 +297,29 @@ export const GastoFormModal = ({
       iva: nuevoIva,
       total: nuevoTotal
     }));
+  }, [calcularIVA]);
+
+  // NUEVO: Calcular Subtotal e IVA desde el Total (cálculo inverso)
+  const handleTotalChange = useCallback((newTotal: number) => {
+    if (calcularIVA && newTotal > 0) {
+      // Total = Subtotal * (1 + IVA_RATE) => Subtotal = Total / (1 + IVA_RATE)
+      const nuevoSubtotal = Math.round((newTotal / (1 + IVA_RATE)) * 100) / 100;
+      const nuevoIva = Math.round((newTotal - nuevoSubtotal) * 100) / 100;
+      setFormData(prev => ({
+        ...prev,
+        subtotal: nuevoSubtotal,
+        iva: nuevoIva,
+        total: newTotal
+      }));
+    } else {
+      // Sin IVA: subtotal = total
+      setFormData(prev => ({
+        ...prev,
+        subtotal: newTotal,
+        iva: 0,
+        total: newTotal
+      }));
+    }
   }, [calcularIVA]);
 
   // Recalcular cuando cambia el toggle de IVA
@@ -483,6 +506,35 @@ export const GastoFormModal = ({
         // Folio/Referencia
         if (expense.referencia) {
           setFormData(prev => ({ ...prev, folio_factura: expense.referencia! }));
+        }
+      }
+
+      // SUBIR EL PDF DEL OCR COMO COMPROBANTE
+      if (companyId) {
+        try {
+          setOcrProgress('Guardando comprobante...');
+          const fechaArchivo = formData.fecha_gasto.replace(/-/g, '');
+          const tipoGasto = cuentaSeleccionada?.replace(/\s+/g, '_') || 'OCR';
+          const consecutivo = Date.now().toString().slice(-6);
+          const periodoFolder = formData.fecha_gasto.substring(0, 7);
+          const fileName = `${fechaArchivo}_${tipoGasto}_${consecutivo}.pdf`;
+          const filePath = `gni/${periodoFolder}/${fileName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('documentos-gastos')
+            .upload(filePath, file, { cacheControl: '3600', upsert: false });
+
+          if (!uploadError) {
+            const { data: urlData } = supabase.storage
+              .from('documentos-gastos')
+              .getPublicUrl(filePath);
+            setFormData(prev => ({ ...prev, documento_url: urlData.publicUrl }));
+            console.log('✅ PDF OCR guardado como comprobante');
+          } else {
+            console.warn('⚠️ No se pudo guardar comprobante:', uploadError.message);
+          }
+        } catch (uploadErr) {
+          console.warn('⚠️ Error guardando comprobante:', uploadErr);
         }
       }
 
@@ -872,20 +924,19 @@ export const GastoFormModal = ({
                 />
               </div>
 
-              {/* Total */}
+              {/* Total - EDITABLE (calcula subtotal e IVA automáticamente) */}
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
-                  Total
+                  Total *
                 </label>
                 <CurrencyInput
                   value={formData.total}
-                  onChange={() => {}}
-                  readOnly
+                  onChange={handleTotalChange}
                   themeColors={themeColors}
-                  className="font-bold"
+                  className="font-bold focus:ring-2"
                   style={{
                     borderColor: themeColors.primary,
-                    backgroundColor: `${themeColors.primary}20`,
+                    backgroundColor: themeColors.bg,
                     color: themeColors.secondary
                   }}
                 />

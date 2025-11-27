@@ -76,11 +76,11 @@ export const DashboardEjecutivoGNI: React.FC<DashboardEjecutivoGNIProps> = ({
         shades[800],
         shades[100],
       ],
-      // Colores para estados
-      success: '#22c55e',
-      warning: '#f59e0b',
-      danger: '#ef4444',
-      info: shades[400],
+      // Colores para estados - usando paleta dinámica
+      success: shades[700],  // Tono oscuro para "pagado/correcto"
+      warning: shades[400],  // Tono medio para "pendiente"
+      danger: shades[200],   // Tono claro para "revisar"
+      info: shades[500],
       // Fondos
       cardBg: isDark ? '#1f2937' : '#ffffff',
       chartBg: isDark ? '#374151' : '#f9fafb',

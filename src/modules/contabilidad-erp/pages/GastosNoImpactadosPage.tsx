@@ -217,8 +217,12 @@ export const GastosNoImpactadosPage = () => {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [ejecutivos, setEjecutivos] = useState<Ejecutivo[]>([]);
 
-  // Filtros - Sin periodo inicial para mostrar todos los registros
-  const [filtros, setFiltros] = useState<GNIFiltros>({});
+  // Filtros - Periodo actual por default para carga rápida
+  const periodoActual = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
+  const [filtros, setFiltros] = useState<GNIFiltros>({ periodo: periodoActual });
   const [showFilters, setShowFilters] = useState(false);
 
   // Tipo de gráfica: 'bar' (horizontal), 'vbar' (vertical), 'pie', o 'line'
