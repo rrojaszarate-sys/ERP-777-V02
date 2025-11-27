@@ -50,7 +50,8 @@ import {
   LayoutGrid,
   LayoutList,
   Columns,
-  Table2
+  Table2,
+  Presentation
 } from 'lucide-react';
 import { useAuth } from '../../../core/auth/AuthProvider';
 import {
@@ -81,6 +82,7 @@ import type {
 import { GastoFormModal } from '../components/GastoFormModal';
 import { ImportExcelModal } from '../components/ImportExcelModal';
 import { ExportPDFModal } from '../components/ExportPDFModal';
+import { DashboardEjecutivoGNI } from '../components/DashboardEjecutivoGNI';
 import { supabase } from '../../../core/config/supabase';
 import toast from 'react-hot-toast';
 
@@ -207,6 +209,7 @@ export const GastosNoImpactadosPage = () => {
   const [showGastoModal, setShowGastoModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showExportPDFModal, setShowExportPDFModal] = useState(false);
+  const [showDashboardEjecutivo, setShowDashboardEjecutivo] = useState(false);
   const [gastoEditar, setGastoEditar] = useState<GastoNoImpactadoView | null>(null);
 
   // Administración de catálogos
@@ -742,6 +745,16 @@ export const GastosNoImpactadosPage = () => {
           >
             <BarChart3 className="w-4 h-4" />
             Dashboard
+          </button>
+
+          {/* Dashboard Ejecutivo */}
+          <button
+            onClick={() => setShowDashboardEjecutivo(true)}
+            className="px-3 py-2 rounded-lg flex items-center gap-2 transition-all bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:from-violet-600 hover:to-purple-700 shadow-md"
+            title="Dashboard Ejecutivo con Gráficas Avanzadas"
+          >
+            <Presentation className="w-4 h-4" />
+            Ejecutivo
           </button>
 
           {/* Dropdown de Catálogos */}
@@ -2317,6 +2330,14 @@ export const GastosNoImpactadosPage = () => {
           periodo={filtros.periodo || getPeriodoActual()}
           totales={totales}
           onClose={() => setShowExportPDFModal(false)}
+        />
+      )}
+
+      {/* Dashboard Ejecutivo */}
+      {showDashboardEjecutivo && (
+        <DashboardEjecutivoGNI
+          gastos={gastos}
+          onClose={() => setShowDashboardEjecutivo(false)}
         />
       )}
 

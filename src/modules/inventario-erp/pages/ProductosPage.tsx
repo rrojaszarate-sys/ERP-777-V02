@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   Package, Plus, Search, Edit, Trash2, AlertCircle, X,
-  Save, DollarSign, Tag, BarChart3, Upload, Download
+  Save, DollarSign, Tag, BarChart3, Upload, Download,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
 } from 'lucide-react';
 import { useProductos, Producto } from '../hooks/useProductos';
 import { ImportProductosModal } from '../components/ImportProductosModal';
@@ -31,6 +32,10 @@ export const ProductosPage: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [editingProducto, setEditingProducto] = useState<Producto | null>(null);
+
+  // Estados de paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(25); // 10, 25, 50, 100, 'all'
   const [formData, setFormData] = useState<ProductoFormData>({
     clave: '',
     nombre: '',
@@ -77,11 +82,44 @@ export const ProductosPage: React.FC = () => {
     { value: 'DÍA', label: 'Día' }
   ];
 
-  const filteredProductos = productos?.filter(p =>
-    p.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.clave?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.categoria?.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  const filteredProductos = useMemo(() =>
+    productos?.filter(p =>
+      p.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.clave?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.categoria?.toLowerCase().includes(searchTerm.toLowerCase())
+    ) || []
+  , [productos, searchTerm]);
+
+  // Productos paginados
+  const { paginatedProductos, totalPages, startIndex, endIndex } = useMemo(() => {
+    const total = filteredProductos.length;
+
+    if (itemsPerPage === 'all') {
+      return {
+        paginatedProductos: filteredProductos,
+        totalPages: 1,
+        startIndex: 0,
+        endIndex: total
+      };
+    }
+
+    const totalPgs = Math.ceil(total / itemsPerPage);
+    const validPage = Math.min(currentPage, totalPgs || 1);
+    const start = (validPage - 1) * itemsPerPage;
+    const end = Math.min(start + itemsPerPage, total);
+
+    return {
+      paginatedProductos: filteredProductos.slice(start, end),
+      totalPages: totalPgs,
+      startIndex: start,
+      endIndex: end
+    };
+  }, [filteredProductos, currentPage, itemsPerPage]);
+
+  // Reset page cuando cambia el filtro
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -307,7 +345,7 @@ export const ProductosPage: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                filteredProductos.map((producto) => {
+                paginatedProductos.map((producto) => {
                   const margen = producto.precio_venta > 0 && producto.precio_base > 0
                     ? ((producto.precio_venta - producto.precio_base) / producto.precio_venta) * 100
                     : producto.margen || 0;
@@ -386,6 +424,84 @@ export const ProductosPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Paginación */}
+        {filteredProductos.length > 0 && (
+          <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+            {/* Info de registros */}
+            <div className="text-sm text-gray-600">
+              Mostrando {startIndex + 1} - {endIndex} de {filteredProductos.length} productos
+            </div>
+
+            {/* Controles de paginación */}
+            <div className="flex items-center gap-4">
+              {/* Selector de items por página */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">Mostrar:</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    const value = e.target.value === 'all' ? 'all' : Number(e.target.value);
+                    setItemsPerPage(value);
+                    setCurrentPage(1);
+                  }}
+                  className="border border-gray-300 rounded-lg px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                  <option value="all">Todos</option>
+                </select>
+              </div>
+
+              {/* Botones de navegación */}
+              {itemsPerPage !== 'all' && totalPages > 1 && (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    className="p-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="Primera página"
+                  >
+                    <ChevronsLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="p-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="Página anterior"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+
+                  <div className="flex items-center gap-1 px-2">
+                    <span className="text-sm font-medium text-gray-900">{currentPage}</span>
+                    <span className="text-sm text-gray-500">de</span>
+                    <span className="text-sm font-medium text-gray-900">{totalPages}</span>
+                  </div>
+
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="Página siguiente"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className="p-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="Última página"
+                  >
+                    <ChevronsRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal */}
