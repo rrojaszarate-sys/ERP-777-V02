@@ -239,8 +239,6 @@ export const DashboardEjecutivoGNI: React.FC<DashboardEjecutivoGNIProps> = ({
     );
   };
 
-  if (!isOpen) return null;
-
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
       <div className="min-h-screen p-4 flex items-start justify-center">

@@ -16,6 +16,7 @@ import toast from 'react-hot-toast';
 import { DualOCRExpenseForm } from './finances/DualOCRExpenseForm';
 import { IncomeForm } from './finances/IncomeForm';
 import { GaugeChart } from './GaugeChart';
+import { useTheme } from '../../../shared/components/theme';
 
 interface EventoDetailModalProps {
   eventoId: number;
@@ -56,6 +57,15 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
   const { data: estados } = useEventStates();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { paletteConfig } = useTheme();
+
+  // Colores dinámicos del tema
+  const themeColors = {
+    primary: paletteConfig.primary,
+    secondary: paletteConfig.secondary,
+    accent: paletteConfig.accent,
+    shades: paletteConfig.shades
+  };
 
   const { data: evento, isLoading: isLoadingEvent } = useQuery({
     queryKey: ['evento', eventoId],
@@ -478,16 +488,26 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center ${
+                className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center transition-colors ${
                   activeTab === tab.id
-                    ? 'border-mint-500 text-mint-600'
+                    ? ''
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
+                style={activeTab === tab.id ? {
+                  borderBottomColor: themeColors.primary,
+                  color: themeColors.secondary
+                } : undefined}
               >
                 <tab.icon className="w-4 h-4 mr-2" />
                 {tab.label}
                 {tab.id === 'archivos' && eventDocuments.length > 0 && (
-                  <span className="ml-2 bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">
+                  <span
+                    className="ml-2 text-xs px-2 py-0.5 rounded-full"
+                    style={{
+                      backgroundColor: `${themeColors.primary}20`,
+                      color: themeColors.secondary
+                    }}
+                  >
                     {eventDocuments.length}
                   </span>
                 )}
@@ -801,37 +821,42 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
               </div>
             </div>
 
-            {/* Provisión Bar */}
+            {/* Provisión Bar - INVERTIDA: Provisión izquierda (verde billete), Gastado derecha */}
             <div>
               <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-medium text-amber-700">💼 PROVISIÓN</span>
+                <span className="text-xs font-medium text-emerald-700">💼 PROVISIÓN vs GASTADO</span>
                 <div className="flex gap-4 text-xs">
-                  <span className="text-gray-500">Provisionado: {formatCurrency(provisionesTotal)}</span>
-                  <span className="text-amber-700 font-bold">Restante: {formatCurrency(provisionesDisponibles)}</span>
+                  <span className="text-emerald-600 font-bold">Provisión: {formatCurrency(provisionesDisponibles)}</span>
+                  <span className="text-slate-600">Gastado: {formatCurrency(gastosTotales)}</span>
                 </div>
               </div>
-              <div className="relative h-10 bg-gray-100 rounded-lg overflow-hidden">
-                {/* Fondo: Provisionado total */}
-                <div className="absolute inset-0 flex items-center justify-end px-3">
-                  <span className="text-xs font-medium text-gray-400">
-                    {formatCurrency(provisionesTotal)}
-                  </span>
-                </div>
-                {/* Barra: Provisión restante - SIEMPRE AZUL */}
+              <div className="relative h-10 bg-slate-200 rounded-lg overflow-hidden flex">
+                {/* Barra izquierda: Provisión restante - COLOR BILLETE (verde esmeralda oscuro) */}
                 <div
-                  className="absolute h-full bg-blue-600 transition-all duration-500 flex items-center"
+                  className="h-full bg-emerald-600 transition-all duration-500 flex items-center justify-start"
                   style={{ width: `${provisionesTotal > 0 ? Math.min((provisionesDisponibles / provisionesTotal) * 100, 100) : 0}%` }}
                 >
                   {provisionesDisponibles > 0 && (
-                    <span className="text-xs font-bold text-white px-3 whitespace-nowrap">
+                    <span className="text-xs font-bold text-white px-2 whitespace-nowrap">
                       {formatCurrency(provisionesDisponibles)}
                     </span>
                   )}
                 </div>
+                {/* Barra derecha: Gastado - COLOR GRIS/SLATE */}
+                <div
+                  className="h-full bg-slate-500 transition-all duration-500 flex items-center justify-end"
+                  style={{ width: `${provisionesTotal > 0 ? Math.min((gastosTotales / provisionesTotal) * 100, 100) : 0}%` }}
+                >
+                  {gastosTotales > 0 && (
+                    <span className="text-xs font-bold text-white px-2 whitespace-nowrap">
+                      {formatCurrency(gastosTotales)}
+                    </span>
+                  )}
+                </div>
                 {/* Porcentaje centrado */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-xs font-bold text-white drop-shadow-md">
-                    {provisionesTotal > 0 ? ((provisionesDisponibles / provisionesTotal) * 100).toFixed(0) : 0}%
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <span className="text-xs font-bold text-white drop-shadow-md bg-black/30 px-2 py-0.5 rounded">
+                    {provisionesTotal > 0 ? ((provisionesDisponibles / provisionesTotal) * 100).toFixed(0) : 0}% disponible
                   </span>
                 </div>
               </div>
@@ -876,6 +901,10 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded bg-blue-600" />
                 <span>Ejercido/Real</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded bg-emerald-600" />
+                <span>Provisión</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded bg-green-600" />
@@ -1207,20 +1236,20 @@ const GastosTab: React.FC<{
       exit={{ opacity: 0, y: -20 }}
       className="p-6"
     >
-      {/* RESUMEN DE GASTOS - 4 FICHAS + BOTÓN AGREGAR */}
-      <div className="grid grid-cols-5 gap-3 mb-6">
+      {/* RESUMEN DE GASTOS - 3 FICHAS + BOTÓN AGREGAR */}
+      <div className="grid grid-cols-4 gap-3 mb-6">
         {/* FICHA 1: Provisionado - Clickeable completa */}
         <button
           onClick={() => setIsDesgloseExpanded(!isDesgloseExpanded)}
-          className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200 hover:shadow-md transition-all text-left"
+          className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-lg p-3 border border-emerald-300 hover:shadow-md transition-all text-left"
         >
           <div className="flex items-start justify-between gap-2 mb-0.5">
-            <div className="text-[10px] text-blue-700 font-semibold uppercase tracking-wide">Provisionado</div>
-            <div className="text-[10px] text-blue-600 font-semibold">100%</div>
+            <div className="text-[10px] text-emerald-700 font-semibold uppercase tracking-wide">Provisionado</div>
+            <div className="text-[10px] text-emerald-600 font-semibold">100%</div>
           </div>
-          <div className="text-xl font-bold text-blue-900">{formatCurrency(totalProvisionado)}</div>
+          <div className="text-xl font-bold text-emerald-800">{formatCurrency(totalProvisionado)}</div>
           {isDesgloseExpanded && (
-            <div className="text-[10px] text-blue-600 mt-1.5 space-y-0.5">
+            <div className="text-[10px] text-emerald-600 mt-1.5 space-y-0.5">
               <div>⛽ {formatCurrency(evento.provision_combustible_peaje || 0)}</div>
               <div>🛠️ {formatCurrency(evento.provision_materiales || 0)}</div>
               <div>👥 {formatCurrency(evento.provision_recursos_humanos || 0)}</div>
@@ -1229,35 +1258,35 @@ const GastosTab: React.FC<{
           )}
         </button>
 
-        {/* FICHA 2: Gastado - Clickeable completa */}
+        {/* FICHA 2: Gastado + Pagados + Por Pagar - Todo junto con líneas verticales */}
         <button
           onClick={() => setIsDesgloseExpanded(!isDesgloseExpanded)}
-          className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg p-3 border border-slate-200 hover:shadow-md transition-all text-left"
+          className="col-span-2 bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg p-3 border border-slate-200 hover:shadow-md transition-all text-left flex"
         >
-          <div className="flex items-start justify-between gap-2 mb-0.5">
-            <div className="text-[10px] text-slate-700 font-semibold uppercase tracking-wide">Gastado</div>
-            <div className="text-[10px] text-slate-600 font-semibold">
-              {totalProvisionado > 0 ? ((totalGastos / totalProvisionado) * 100).toFixed(0) : 0}%
+          {/* Gastado - Lado izquierdo */}
+          <div className="flex-1 pr-3">
+            <div className="flex items-start justify-between gap-1 mb-0.5">
+              <div className="text-[10px] text-slate-700 font-semibold uppercase tracking-wide">Gastado</div>
+              <div className="text-[10px] text-slate-600 font-semibold">
+                {totalProvisionado > 0 ? ((totalGastos / totalProvisionado) * 100).toFixed(0) : 0}%
+              </div>
             </div>
+            <div className="text-xl font-bold text-slate-900">{formatCurrency(totalGastos)}</div>
+            {isDesgloseExpanded && (
+              <div className="text-[9px] text-slate-600 mt-1 space-y-0.5">
+                <div>⛽ {formatCurrency(gastosCombustible)}</div>
+                <div>🛠️ {formatCurrency(gastosMateriales)}</div>
+                <div>👥 {formatCurrency(gastosRH)}</div>
+                <div>💳 {formatCurrency(gastosSPS)}</div>
+              </div>
+            )}
           </div>
-          <div className="text-xl font-bold text-slate-900">{formatCurrency(totalGastos)}</div>
-          {isDesgloseExpanded && (
-            <div className="text-[10px] text-slate-600 mt-1.5 space-y-0.5">
-              <div>⛽ {formatCurrency(gastosCombustible)}</div>
-              <div>🛠️ {formatCurrency(gastosMateriales)}</div>
-              <div>👥 {formatCurrency(gastosRH)}</div>
-              <div>💳 {formatCurrency(gastosSPS)}</div>
-            </div>
-          )}
-        </button>
 
-        {/* FICHA 3: Pagados y Por Pagar - Siempre visible, agrupados en una sola ficha dividida verticalmente */}
-        <button
-          onClick={() => setIsDesgloseExpanded(!isDesgloseExpanded)}
-          className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg p-3 border border-slate-200 hover:shadow-md transition-all text-left flex gap-0"
-        >
-          {/* Pagados - Lado izquierdo */}
-          <div className="flex-1 pr-2">
+          {/* Divisor vertical */}
+          <div className="w-px bg-slate-300 my-1"></div>
+
+          {/* Pagados - Centro */}
+          <div className="flex-1 px-3">
             <div className="flex items-start justify-between gap-1 mb-0.5">
               <div className="text-[10px] text-blue-700 font-semibold uppercase tracking-wide">Pagados</div>
               <div className="text-[10px] text-blue-600 font-semibold">
@@ -1279,16 +1308,16 @@ const GastosTab: React.FC<{
           <div className="w-px bg-slate-300 my-1"></div>
 
           {/* Por Pagar - Lado derecho */}
-          <div className="flex-1 pl-2">
+          <div className="flex-1 pl-3">
             <div className="flex items-start justify-between gap-1 mb-0.5">
-              <div className="text-[10px] text-slate-700 font-semibold uppercase tracking-wide">Por Pagar</div>
-              <div className="text-[10px] text-slate-600 font-semibold">
+              <div className="text-[10px] text-orange-700 font-semibold uppercase tracking-wide">Por Pagar</div>
+              <div className="text-[10px] text-orange-600 font-semibold">
                 {totalGastos > 0 ? ((totalPendiente / totalGastos) * 100).toFixed(0) : 0}%
               </div>
             </div>
-            <div className="text-lg font-bold text-slate-900">{formatCurrency(totalPendiente)}</div>
+            <div className="text-lg font-bold text-orange-900">{formatCurrency(totalPendiente)}</div>
             {isDesgloseExpanded && (
-              <div className="text-[9px] text-slate-600 mt-1 space-y-0.5">
+              <div className="text-[9px] text-orange-600 mt-1 space-y-0.5">
                 <div>⛽ {formatCurrency(evento.gastos_combustible_pendientes || 0)}</div>
                 <div>🛠️ {formatCurrency(evento.gastos_materiales_pendientes || 0)}</div>
                 <div>👥 {formatCurrency(evento.gastos_rh_pendientes || 0)}</div>

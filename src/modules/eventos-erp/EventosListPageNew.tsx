@@ -360,13 +360,28 @@ export const EventosListPage: React.FC = () => {
       filterType: 'number' as const,
       align: 'right' as const,
       render: (value: number, row: any) => {
-        // Tooltip con desglose
-        const tooltip = `Cobrados: $${formatMoney(row.ingresos_cobrados || 0)}\nPendientes: $${formatMoney(row.ingresos_pendientes || 0)}\nEstimados: $${formatMoney(row.ingreso_estimado || 0)}`;
+        const isExpanded = hoveredRow === row.id || expandedRows.has(row.id);
         return (
-          <div className="text-right" title={tooltip}>
+          <div className="text-right">
             <div className="font-bold text-blue-900 text-base">
               ${formatMoney(row.ingresos_totales || 0)}
             </div>
+            {isExpanded && (
+              <div className="text-xs text-gray-500 mt-1 space-y-0.5 border-t pt-1">
+                <div className="flex justify-between gap-2">
+                  <span>Cobrados:</span>
+                  <span className="text-green-600 font-medium">${formatMoney(row.ingresos_cobrados || 0)}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span>Pendientes:</span>
+                  <span className="text-yellow-600 font-medium">${formatMoney(row.ingresos_pendientes || 0)}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span>Estimados:</span>
+                  <span className="text-gray-400">${formatMoney(row.ingreso_estimado || 0)}</span>
+                </div>
+              </div>
+            )}
           </div>
         );
       }
@@ -377,16 +392,42 @@ export const EventosListPage: React.FC = () => {
       filterType: 'number' as const,
       align: 'right' as const,
       render: (_value: number, row: any) => {
+        const isExpanded = hoveredRow === row.id || expandedRows.has(row.id);
         const gastosPagados = row.gastos_pagados_total || 0;
         const gastosPendientes = row.gastos_pendientes_total || 0;
         const gastosTotal = gastosPagados + gastosPendientes;
-        // Tooltip con desglose
-        const tooltip = `⛽ Combustible: $${formatMoney((row.gastos_combustible_pagados || 0) + (row.gastos_combustible_pendientes || 0))}\n🛠️ Materiales: $${formatMoney((row.gastos_materiales_pagados || 0) + (row.gastos_materiales_pendientes || 0))}\n👥 RH: $${formatMoney((row.gastos_rh_pagados || 0) + (row.gastos_rh_pendientes || 0))}\n💳 Solicitudes: $${formatMoney((row.gastos_sps_pagados || 0) + (row.gastos_sps_pendientes || 0))}`;
+
+        // Desglose por categoría
+        const combustible = (row.gastos_combustible_pagados || 0) + (row.gastos_combustible_pendientes || 0);
+        const materiales = (row.gastos_materiales_pagados || 0) + (row.gastos_materiales_pendientes || 0);
+        const rh = (row.gastos_rh_pagados || 0) + (row.gastos_rh_pendientes || 0);
+        const sps = (row.gastos_sps_pagados || 0) + (row.gastos_sps_pendientes || 0);
+
         return (
-          <div className="text-right" title={tooltip}>
+          <div className="text-right">
             <div className="font-bold text-red-900 text-base">
               ${formatMoney(gastosTotal)}
             </div>
+            {isExpanded && (
+              <div className="text-xs text-gray-500 mt-1 space-y-0.5 border-t pt-1">
+                <div className="flex justify-between gap-2">
+                  <span>Combustible:</span>
+                  <span className="font-medium">${formatMoney(combustible)}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span>Materiales:</span>
+                  <span className="font-medium">${formatMoney(materiales)}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span>RH:</span>
+                  <span className="font-medium">${formatMoney(rh)}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span>Solicitudes:</span>
+                  <span className="font-medium">${formatMoney(sps)}</span>
+                </div>
+              </div>
+            )}
           </div>
         );
       }
@@ -397,6 +438,7 @@ export const EventosListPage: React.FC = () => {
       filterType: 'number' as const,
       align: 'right' as const,
       render: (_value: any, row: any) => {
+        const isExpanded = hoveredRow === row.id || expandedRows.has(row.id);
         const provisionesTotal = (row.provision_combustible_peaje || 0) +
                                  (row.provision_materiales || 0) +
                                  (row.provision_recursos_humanos || 0) +
@@ -406,20 +448,39 @@ export const EventosListPage: React.FC = () => {
         const gastosTotales = gastosPagados + gastosPendientes;
         const disponible = provisionesTotal - gastosTotales;
 
-        // Desglose para tooltip
+        // Desglose por categoría (disponible = provisión - gastos)
         const disponibleCombustible = (row.provision_combustible_peaje || 0) - ((row.gastos_combustible_pagados || 0) + (row.gastos_combustible_pendientes || 0));
         const disponibleMateriales = (row.provision_materiales || 0) - ((row.gastos_materiales_pagados || 0) + (row.gastos_materiales_pendientes || 0));
         const disponibleRH = (row.provision_recursos_humanos || 0) - ((row.gastos_rh_pagados || 0) + (row.gastos_rh_pendientes || 0));
         const disponibleSPs = (row.provision_solicitudes_pago || 0) - ((row.gastos_sps_pagados || 0) + (row.gastos_sps_pendientes || 0));
 
         const colorClass = disponible > 0 ? 'text-green-700' : disponible < 0 ? 'text-red-700' : 'text-gray-700';
-        const tooltip = `⛽ Combustible: $${formatMoney(Math.max(0, disponibleCombustible))}\n🛠️ Materiales: $${formatMoney(Math.max(0, disponibleMateriales))}\n👥 RH: $${formatMoney(Math.max(0, disponibleRH))}\n💳 Solicitudes: $${formatMoney(Math.max(0, disponibleSPs))}`;
 
         return (
-          <div className="text-right" title={tooltip}>
+          <div className="text-right">
             <div className={`font-bold text-base ${colorClass}`}>
               ${formatMoney(Math.max(0, disponible))}
             </div>
+            {isExpanded && (
+              <div className="text-xs text-gray-500 mt-1 space-y-0.5 border-t pt-1">
+                <div className={`flex justify-between gap-2 ${disponibleCombustible < 0 ? 'text-red-500' : ''}`}>
+                  <span>Combustible:</span>
+                  <span className="font-medium">${formatMoney(Math.max(0, disponibleCombustible))}</span>
+                </div>
+                <div className={`flex justify-between gap-2 ${disponibleMateriales < 0 ? 'text-red-500' : ''}`}>
+                  <span>Materiales:</span>
+                  <span className="font-medium">${formatMoney(Math.max(0, disponibleMateriales))}</span>
+                </div>
+                <div className={`flex justify-between gap-2 ${disponibleRH < 0 ? 'text-red-500' : ''}`}>
+                  <span>RH:</span>
+                  <span className="font-medium">${formatMoney(Math.max(0, disponibleRH))}</span>
+                </div>
+                <div className={`flex justify-between gap-2 ${disponibleSPs < 0 ? 'text-red-500' : ''}`}>
+                  <span>Solicitudes:</span>
+                  <span className="font-medium">${formatMoney(Math.max(0, disponibleSPs))}</span>
+                </div>
+              </div>
+            )}
           </div>
         );
       }
@@ -431,7 +492,7 @@ export const EventosListPage: React.FC = () => {
       align: 'center' as const,
       width: '130px',
       render: (_value: number, row: any) => {
-        const isExpanded = expandedRows.has(row.id);
+        const isExpanded = hoveredRow === row.id || expandedRows.has(row.id);
         const ingresosTotales = row.ingresos_totales || 0;
         const gastosPagados = row.gastos_pagados_total || 0;
         const gastosPendientes = row.gastos_pendientes_total || 0;

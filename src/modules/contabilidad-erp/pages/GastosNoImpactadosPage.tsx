@@ -85,6 +85,7 @@ import { ExportPDFModal } from '../components/ExportPDFModal';
 import { DashboardEjecutivoGNI } from '../components/DashboardEjecutivoGNI';
 import { supabase } from '../../../core/config/supabase';
 import toast from 'react-hot-toast';
+import { useTheme } from '../../../shared/components/theme';
 
 // Colores paleta DINÁMICA - Variedad de colores vibrantes para gráficas
 const DYNAMIC_COLORS = [
@@ -188,6 +189,24 @@ const getFormaPagoColor = (formaPago: string): string => {
 export const GastosNoImpactadosPage = () => {
   const { user } = useAuth();
   const companyId = user?.company_id;
+  const { paletteConfig, isDark } = useTheme();
+
+  // Colores dinámicos del tema
+  const themeColors = useMemo(() => ({
+    primary: paletteConfig.primary,
+    secondary: paletteConfig.secondary,
+    accent: paletteConfig.accent,
+    shades: paletteConfig.shades,
+    // Colores de interfaz
+    primaryBg: `${paletteConfig.primary}15`,
+    primaryBgHover: `${paletteConfig.primary}25`,
+    primaryBorder: `${paletteConfig.primary}40`,
+    textPrimary: isDark ? '#f3f4f6' : '#111827',
+    textSecondary: isDark ? '#9ca3af' : '#6b7280',
+    cardBg: isDark ? '#1f2937' : '#ffffff',
+    headerBg: isDark ? '#111827' : '#f9fafb',
+  }), [paletteConfig, isDark]);
+
   const [gastos, setGastos] = useState<GastoNoImpactadoView[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -231,6 +250,10 @@ export const GastosNoImpactadosPage = () => {
 
   // Guía de ayuda
   const [showHelp, setShowHelp] = useState(false);
+
+  // Configuración de formato de cifras
+  const [showDecimals, setShowDecimals] = useState(true);
+  const [numberGrouping, setNumberGrouping] = useState<'none' | 'thousands' | 'millions'>('none');
 
   // Configuración de columnas visibles
   const [showColumnConfig, setShowColumnConfig] = useState(false);
@@ -485,10 +508,26 @@ export const GastosNoImpactadosPage = () => {
   };
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('es-MX', {
+    let displayValue = value;
+    let suffix = '';
+
+    // Agrupar por miles o millones
+    if (numberGrouping === 'millions' && Math.abs(value) >= 1000000) {
+      displayValue = value / 1000000;
+      suffix = 'M';
+    } else if (numberGrouping === 'thousands' && Math.abs(value) >= 1000) {
+      displayValue = value / 1000;
+      suffix = 'K';
+    }
+
+    const formatted = new Intl.NumberFormat('es-MX', {
       style: 'currency',
-      currency: 'MXN'
-    }).format(value);
+      currency: 'MXN',
+      minimumFractionDigits: showDecimals ? 2 : 0,
+      maximumFractionDigits: showDecimals ? 2 : 0,
+    }).format(displayValue);
+
+    return suffix ? formatted + suffix : formatted;
   };
 
   const formatDate = (dateStr: string | null) => {
@@ -757,6 +796,59 @@ export const GastosNoImpactadosPage = () => {
             Ejecutivo
           </button>
 
+          {/* Controles de Formato Numérico */}
+          <div className="flex items-center gap-1 bg-white border border-gray-300 rounded-lg px-2 py-1">
+            <span className="text-xs text-gray-500 mr-1">Formato:</span>
+            {/* Toggle Decimales */}
+            <button
+              onClick={() => setShowDecimals(!showDecimals)}
+              className="px-2 py-1 text-xs rounded transition-all"
+              style={{
+                backgroundColor: showDecimals ? themeColors.primaryBg : '#f3f4f6',
+                color: showDecimals ? themeColors.secondary : '#6b7280'
+              }}
+              title={showDecimals ? 'Ocultar decimales' : 'Mostrar decimales'}
+            >
+              .00
+            </button>
+            {/* Agrupación */}
+            <div className="flex border-l border-gray-300 ml-1 pl-1">
+              <button
+                onClick={() => setNumberGrouping('none')}
+                className="px-2 py-1 text-xs rounded-l transition-all"
+                style={{
+                  backgroundColor: numberGrouping === 'none' ? themeColors.primaryBg : '#f3f4f6',
+                  color: numberGrouping === 'none' ? themeColors.secondary : '#6b7280'
+                }}
+                title="Sin agrupación"
+              >
+                $
+              </button>
+              <button
+                onClick={() => setNumberGrouping('thousands')}
+                className="px-2 py-1 text-xs transition-all"
+                style={{
+                  backgroundColor: numberGrouping === 'thousands' ? themeColors.primaryBg : '#f3f4f6',
+                  color: numberGrouping === 'thousands' ? themeColors.secondary : '#6b7280'
+                }}
+                title="Agrupar en miles (K)"
+              >
+                K
+              </button>
+              <button
+                onClick={() => setNumberGrouping('millions')}
+                className="px-2 py-1 text-xs rounded-r transition-all"
+                style={{
+                  backgroundColor: numberGrouping === 'millions' ? themeColors.primaryBg : '#f3f4f6',
+                  color: numberGrouping === 'millions' ? themeColors.secondary : '#6b7280'
+                }}
+                title="Agrupar en millones (M)"
+              >
+                M
+              </button>
+            </div>
+          </div>
+
           {/* Dropdown de Catálogos */}
           <div className="relative">
             <button
@@ -928,16 +1020,17 @@ export const GastosNoImpactadosPage = () => {
           >
             {/* KPIs - Layout mejorado */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              {/* Total Período - Ficha principal mejorada */}
+              {/* Total Período - Ficha principal mejorada con colores dinámicos */}
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.1 }}
-                className="bg-gradient-to-br from-teal-500 to-teal-600 p-4 rounded-xl shadow-lg"
+                className="p-4 rounded-xl shadow-lg"
+                style={{ background: `linear-gradient(135deg, ${themeColors.primary}, ${themeColors.secondary})` }}
               >
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <p className="text-teal-100 text-xs font-semibold uppercase tracking-wider">Total Período</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.8)' }}>Total Período</p>
                     <p className="text-2xl font-bold text-white mt-1">{formatCurrency(totales.total)}</p>
                   </div>
                   <div className="p-2 bg-white/20 rounded-lg">
@@ -946,15 +1039,15 @@ export const GastosNoImpactadosPage = () => {
                 </div>
                 <div className="grid grid-cols-3 gap-2 pt-3 border-t border-white/20">
                   <div>
-                    <p className="text-teal-200 text-[10px] font-medium">Subtotal</p>
+                    <p className="text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>Subtotal</p>
                     <p className="text-white text-sm font-semibold">{formatCurrency(totales.subtotal)}</p>
                   </div>
                   <div>
-                    <p className="text-teal-200 text-[10px] font-medium">IVA</p>
+                    <p className="text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>IVA</p>
                     <p className="text-white text-sm font-semibold">{formatCurrency(totales.iva)}</p>
                   </div>
                   <div>
-                    <p className="text-teal-200 text-[10px] font-medium">Registros</p>
+                    <p className="text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>Registros</p>
                     <p className="text-white text-sm font-semibold">{totales.cantidad}</p>
                   </div>
                 </div>

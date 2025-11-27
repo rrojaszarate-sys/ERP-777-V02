@@ -1,17 +1,23 @@
 /**
- * MODAL: FORMULARIO DE GASTO NO IMPACTADO
- * Crear/Editar gastos con autocomplete de proveedor
+ * MODAL: FORMULARIO DE GASTO NO IMPACTADO (MEJORADO V2)
+ * - Layout 50% horizontal, 45% vertical
+ * - Selector de dos niveles: Cuenta → Subclave
+ * - Cálculo automático de IVA con toggle
+ * - Máscara de dinero en campos numéricos
+ * - Header con iconos de editar/guardar
+ * - Colores dinámicos de la paleta activa
+ * - Subida de PDF al bucket con estructura /gni/{año-mes}/
  */
 
-import { useState, useEffect, useRef } from 'react';
-import { X, Search, Plus, Upload, FileText } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { X, Search, Plus, Upload, FileText, Calculator, Loader2, Save, Pencil, DollarSign } from 'lucide-react';
 import { useAuth } from '../../../core/auth/AuthProvider';
+import { supabase } from '../../../core/config/supabase';
+import { useTheme } from '../../../shared/components/theme';
 import {
   createGasto,
   updateGasto,
-  searchProveedores,
-  createProveedor,
-  createEjecutivo
+  createProveedor
 } from '../services/gastosNoImpactadosService';
 import type {
   GastoNoImpactadoView,
@@ -22,6 +28,10 @@ import type {
   Ejecutivo
 } from '../types/gastosNoImpactados';
 import toast from 'react-hot-toast';
+
+// IVA desde variable de entorno (default 16%)
+const IVA_PORCENTAJE = parseFloat(import.meta.env.VITE_IVA_PORCENTAJE || '16');
+const IVA_RATE = IVA_PORCENTAJE / 100;
 
 interface Props {
   gasto: GastoNoImpactadoView | null;
@@ -34,12 +44,112 @@ interface Props {
   onSave: () => void;
 }
 
+// Componente de input de moneda con máscara
+interface CurrencyInputProps {
+  value: number;
+  onChange: (value: number) => void;
+  readOnly?: boolean;
+  className?: string;
+  placeholder?: string;
+  themeColors?: {
+    primary: string;
+    secondary: string;
+  };
+  style?: React.CSSProperties;
+}
+
+const CurrencyInput = ({ value, onChange, readOnly = false, className = '', placeholder = '', themeColors, style }: CurrencyInputProps) => {
+  const [displayValue, setDisplayValue] = useState('');
+
+  // Formatear número a string con formato de moneda
+  const formatCurrency = (num: number): string => {
+    if (num === 0 || isNaN(num)) return '';
+    return num.toLocaleString('es-MX', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  };
+
+  // Parsear string a número
+  const parseValue = (str: string): number => {
+    const cleaned = str.replace(/[^0-9.]/g, '');
+    const parsed = parseFloat(cleaned);
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
+  // Sincronizar con valor externo
+  useEffect(() => {
+    if (value === 0) {
+      setDisplayValue('');
+    } else {
+      setDisplayValue(formatCurrency(value));
+    }
+  }, [value]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target.value;
+
+    // Solo permitir números, puntos y comas
+    const cleaned = input.replace(/[^0-9.,]/g, '');
+
+    // Convertir comas a puntos
+    const normalized = cleaned.replace(/,/g, '.');
+
+    // Solo permitir un punto decimal
+    const parts = normalized.split('.');
+    let finalValue = parts[0];
+    if (parts.length > 1) {
+      finalValue += '.' + parts.slice(1).join('').substring(0, 2);
+    }
+
+    setDisplayValue(finalValue);
+  };
+
+  const handleBlur = () => {
+    const numValue = parseValue(displayValue);
+    onChange(numValue);
+    if (numValue > 0) {
+      setDisplayValue(formatCurrency(numValue));
+    } else {
+      setDisplayValue('');
+    }
+  };
+
+  const handleFocus = () => {
+    // Mostrar solo el número sin formato al enfocar
+    if (value > 0) {
+      setDisplayValue(value.toString());
+    }
+  };
+
+  return (
+    <div className="relative">
+      <DollarSign
+        className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+        style={themeColors ? { color: themeColors.secondary } : undefined}
+      />
+      <input
+        type="text"
+        inputMode="decimal"
+        value={displayValue}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        onFocus={handleFocus}
+        readOnly={readOnly}
+        placeholder={placeholder || '0.00'}
+        className={`w-full pl-9 pr-4 py-3 border-2 rounded-lg font-mono text-right ${className}`}
+        style={style}
+      />
+    </div>
+  );
+};
+
 export const GastoFormModal = ({
   gasto,
   claves,
   formasPago,
   proveedores: proveedoresInicial,
-  ejecutivos: ejecutivosInicial,
+  ejecutivos,
   periodo,
   onClose,
   onSave
@@ -47,16 +157,19 @@ export const GastoFormModal = ({
   const { user } = useAuth();
   const companyId = user?.company_id;
   const [saving, setSaving] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
 
-  // Lista de proveedores (puede crecer si se añaden nuevos)
+  // Hook de tema para colores dinámicos
+  const { paletteConfig, isDark } = useTheme();
+
+  // Lista de proveedores
   const [proveedores, setProveedores] = useState<Proveedor[]>(proveedoresInicial);
-  const [ejecutivos, setEjecutivos] = useState<Ejecutivo[]>(ejecutivosInicial);
 
   // Autocomplete proveedor
   const [proveedorSearch, setProveedorSearch] = useState('');
-  const [proveedoresFiltrados, setProveedoresFiltrados] = useState<Proveedor[]>([]);
   const [showProveedorDropdown, setShowProveedorDropdown] = useState(false);
   const proveedorInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Modal nuevo proveedor
   const [showNuevoProveedor, setShowNuevoProveedor] = useState(false);
@@ -64,6 +177,12 @@ export const GastoFormModal = ({
     razon_social: '',
     rfc: ''
   });
+
+  // Selector de dos niveles: Cuenta → Subclave
+  const [cuentaSeleccionada, setCuentaSeleccionada] = useState<string>('');
+
+  // Toggle IVA
+  const [calcularIVA, setCalcularIVA] = useState(true);
 
   // Form data
   const [formData, setFormData] = useState<GastoNoImpactadoFormData>({
@@ -84,13 +203,54 @@ export const GastoFormModal = ({
     notas: ''
   });
 
+  // Colores dinámicos basados en la paleta activa
+  const themeColors = useMemo(() => ({
+    primary: paletteConfig.primary,
+    secondary: paletteConfig.secondary,
+    accent: paletteConfig.accent,
+    primaryLight: paletteConfig.shades[100],
+    primaryDark: paletteConfig.shades[700],
+    bg: isDark ? '#1E293B' : '#FFFFFF',
+    text: isDark ? '#F8FAFC' : '#1E293B',
+    textSecondary: isDark ? '#CBD5E1' : '#64748B',
+    border: isDark ? '#334155' : '#E2E8F0'
+  }), [paletteConfig, isDark]);
+
+  // Agrupar claves por cuenta
+  const cuentasUnicas = useMemo(() => {
+    const cuentas = [...new Set(claves.map(c => c.cuenta))];
+    return cuentas.sort();
+  }, [claves]);
+
+  // Subclaves filtradas por cuenta seleccionada
+  const subclavesFiltradas = useMemo(() => {
+    if (!cuentaSeleccionada) return [];
+    return claves
+      .filter(c => c.cuenta === cuentaSeleccionada)
+      .sort((a, b) => a.subcuenta.localeCompare(b.subcuenta));
+  }, [claves, cuentaSeleccionada]);
+
+  // Proveedores filtrados
+  const proveedoresFiltrados = useMemo(() => {
+    if (proveedorSearch.length < 2) return [];
+    const searchLower = proveedorSearch.toLowerCase();
+    return proveedores
+      .filter(p =>
+        p.razon_social.toLowerCase().includes(searchLower) ||
+        (p.rfc && p.rfc.toLowerCase().includes(searchLower))
+      )
+      .slice(0, 10);
+  }, [proveedorSearch, proveedores]);
+
   // Inicializar con datos del gasto a editar
   useEffect(() => {
     if (gasto) {
+      const claveExistente = claves.find(c => c.clave === gasto.clave);
+
       setFormData({
         proveedor_id: gasto.proveedor_id,
         concepto: gasto.concepto || '',
-        clave_gasto_id: claves.find(c => c.clave === gasto.clave)?.id || null,
+        clave_gasto_id: claveExistente?.id || null,
         subtotal: gasto.subtotal || 0,
         iva: gasto.iva || 0,
         total: gasto.total || 0,
@@ -104,30 +264,53 @@ export const GastoFormModal = ({
         documento_url: gasto.documento_url,
         notas: ''
       });
+
       setProveedorSearch(gasto.proveedor || '');
-    }
-  }, [gasto]);
 
-  // Búsqueda de proveedores
-  useEffect(() => {
-    if (proveedorSearch.length >= 2) {
-      const filtered = proveedores.filter(p =>
-        p.razon_social.toLowerCase().includes(proveedorSearch.toLowerCase()) ||
-        (p.rfc && p.rfc.toLowerCase().includes(proveedorSearch.toLowerCase()))
-      );
-      setProveedoresFiltrados(filtered.slice(0, 10));
-      setShowProveedorDropdown(true);
-    } else {
-      setProveedoresFiltrados([]);
-      setShowProveedorDropdown(false);
-    }
-  }, [proveedorSearch, proveedores]);
+      // Establecer cuenta seleccionada
+      if (claveExistente) {
+        setCuentaSeleccionada(claveExistente.cuenta);
+      }
 
-  // Calcular total automáticamente
+      // Si ya tiene IVA diferente a 0, asumir que calcular IVA está activo
+      setCalcularIVA(gasto.iva > 0);
+    }
+  }, [gasto, claves, formasPago, ejecutivos, periodo]);
+
+  // Calcular IVA y total automáticamente
+  const handleSubtotalChange = useCallback((newSubtotal: number) => {
+    let nuevoIva = 0;
+    if (calcularIVA && newSubtotal > 0) {
+      nuevoIva = Math.round(newSubtotal * IVA_RATE * 100) / 100;
+    }
+    const nuevoTotal = Math.round((newSubtotal + nuevoIva) * 100) / 100;
+
+    setFormData(prev => ({
+      ...prev,
+      subtotal: newSubtotal,
+      iva: nuevoIva,
+      total: nuevoTotal
+    }));
+  }, [calcularIVA]);
+
+  // Recalcular cuando cambia el toggle de IVA
   useEffect(() => {
-    const total = formData.subtotal + formData.iva;
-    setFormData(prev => ({ ...prev, total }));
-  }, [formData.subtotal, formData.iva]);
+    if (formData.subtotal > 0) {
+      let nuevoIva = 0;
+      if (calcularIVA) {
+        nuevoIva = Math.round(formData.subtotal * IVA_RATE * 100) / 100;
+      }
+      const nuevoTotal = Math.round((formData.subtotal + nuevoIva) * 100) / 100;
+      setFormData(prev => ({ ...prev, iva: nuevoIva, total: nuevoTotal }));
+    }
+  }, [calcularIVA]);
+
+  // Cuando cambia la cuenta, limpiar subclave
+  useEffect(() => {
+    if (cuentaSeleccionada && !gasto) {
+      setFormData(prev => ({ ...prev, clave_gasto_id: null }));
+    }
+  }, [cuentaSeleccionada, gasto]);
 
   const handleSelectProveedor = (proveedor: Proveedor) => {
     setFormData(prev => ({ ...prev, proveedor_id: proveedor.id }));
@@ -136,7 +319,7 @@ export const GastoFormModal = ({
   };
 
   const handleCrearNuevoProveedor = async () => {
-    if (!company?.id || !nuevoProveedorData.razon_social) return;
+    if (!companyId || !nuevoProveedorData.razon_social) return;
 
     try {
       const nuevo = await createProveedor({
@@ -148,7 +331,7 @@ export const GastoFormModal = ({
         email: '',
         contacto_nombre: '',
         modulo_origen: 'contabilidad'
-      }, companyId!);
+      }, companyId);
 
       setProveedores([...proveedores, nuevo]);
       handleSelectProveedor(nuevo);
@@ -160,8 +343,68 @@ export const GastoFormModal = ({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Subir archivo al bucket
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !companyId) return;
+
+    // Solo PDFs e imágenes
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Solo se permiten archivos PDF o imágenes (JPG, PNG)');
+      return;
+    }
+
+    setUploadingFile(true);
+    try {
+      // Generar nombre de archivo: {fecha}_{tipo_gasto}_{consecutivo}.ext
+      const fechaArchivo = formData.fecha_gasto.replace(/-/g, '');
+      const tipoGasto = cuentaSeleccionada?.replace(/\s+/g, '_') || 'GENERAL';
+      const consecutivo = Date.now().toString().slice(-6);
+      const extension = file.name.split('.').pop()?.toLowerCase() || 'pdf';
+
+      // Carpeta por mes: /gni/{año-mes}/
+      const periodoFolder = formData.fecha_gasto.substring(0, 7); // 2025-01
+      const fileName = `${fechaArchivo}_${tipoGasto}_${consecutivo}.${extension}`;
+      const filePath = `gni/${periodoFolder}/${fileName}`;
+
+      // Subir al bucket 'documentos-gastos'
+      const { data, error } = await supabase.storage
+        .from('documentos-gastos')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) {
+        // Si el bucket no existe, mostrar error específico
+        if (error.message.includes('not found')) {
+          toast.error('Bucket "documentos-gastos" no configurado en Supabase');
+          return;
+        }
+        throw error;
+      }
+
+      // Obtener URL pública
+      const { data: urlData } = supabase.storage
+        .from('documentos-gastos')
+        .getPublicUrl(filePath);
+
+      setFormData(prev => ({ ...prev, documento_url: urlData.publicUrl }));
+      toast.success('Documento subido correctamente');
+    } catch (error: any) {
+      console.error('Error subiendo archivo:', error);
+      toast.error('Error al subir documento: ' + (error.message || 'Error desconocido'));
+    } finally {
+      setUploadingFile(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!companyId) return;
 
     // Validaciones
@@ -194,73 +437,139 @@ export const GastoFormModal = ({
     }
   };
 
-  // Agrupar claves por cuenta
-  const clavesAgrupadas = claves.reduce((acc, clave) => {
-    if (!acc[clave.cuenta]) acc[clave.cuenta] = [];
-    acc[clave.cuenta].push(clave);
-    return acc;
-  }, {} as Record<string, ClaveGasto[]>);
-
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 className="text-xl font-semibold text-gray-900">
-            {gasto ? 'Editar Gasto' : 'Nuevo Gasto'}
-          </h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
-            <X className="w-5 h-5" />
-          </button>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      {/* Modal con tamaño mejorado: 50% horizontal, 45% vertical mínimo */}
+      <div
+        className="rounded-xl shadow-2xl w-[50vw] min-w-[600px] max-w-[900px] min-h-[45vh] max-h-[85vh] overflow-hidden flex flex-col"
+        style={{ backgroundColor: themeColors.bg }}
+      >
+        {/* Header con colores dinámicos e iconos */}
+        <div
+          className="flex items-center justify-between px-6 py-4 border-b"
+          style={{
+            background: `linear-gradient(135deg, ${themeColors.primary} 0%, ${themeColors.secondary} 100%)`,
+            borderColor: themeColors.border
+          }}
+        >
+          <div className="flex items-center gap-3">
+            {gasto ? (
+              <Pencil className="w-6 h-6 text-white" />
+            ) : (
+              <Plus className="w-6 h-6 text-white" />
+            )}
+            <h2 className="text-xl font-semibold text-white">
+              {gasto ? 'Editar Gasto' : 'Nuevo Gasto'}
+            </h2>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Botón guardar en header */}
+            <button
+              onClick={() => handleSubmit()}
+              disabled={saving}
+              className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors text-white font-medium"
+              title="Guardar gasto"
+            >
+              {saving ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <Save className="w-5 h-5" />
+              )}
+              <span className="hidden sm:inline">Guardar</span>
+            </button>
+
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5 text-white" />
+            </button>
+          </div>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
-          <div className="grid grid-cols-2 gap-4">
-            {/* Proveedor con autocomplete */}
-            <div className="col-span-2 relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Proveedor *
-              </label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  ref={proveedorInputRef}
-                  type="text"
-                  value={proveedorSearch}
-                  onChange={(e) => {
-                    setProveedorSearch(e.target.value);
-                    setFormData(prev => ({ ...prev, proveedor_id: null }));
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
+          {/* Sección: Proveedor */}
+          <div className="mb-6">
+            <h3
+              className="text-sm font-semibold uppercase tracking-wide mb-3"
+              style={{ color: themeColors.secondary }}
+            >
+              Proveedor
+            </h3>
+            <div className="relative">
+              <Search
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
+                style={{ color: themeColors.secondary }}
+              />
+              <input
+                ref={proveedorInputRef}
+                type="text"
+                value={proveedorSearch}
+                onChange={(e) => {
+                  setProveedorSearch(e.target.value);
+                  setFormData(prev => ({ ...prev, proveedor_id: null }));
+                }}
+                onFocus={() => proveedorSearch.length >= 2 && setShowProveedorDropdown(true)}
+                placeholder="Buscar proveedor por nombre o RFC..."
+                className="w-full pl-10 pr-4 py-3 border-2 rounded-lg text-lg transition-all"
+                style={{
+                  borderColor: themeColors.border,
+                  backgroundColor: themeColors.bg,
+                  color: themeColors.text
+                }}
+                onFocusCapture={(e) => {
+                  e.currentTarget.style.borderColor = themeColors.primary;
+                  e.currentTarget.style.boxShadow = `0 0 0 3px ${themeColors.primaryLight}`;
+                }}
+                onBlurCapture={(e) => {
+                  e.currentTarget.style.borderColor = themeColors.border;
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              />
+              {formData.proveedor_id && (
+                <span
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium px-2 py-1 rounded"
+                  style={{
+                    backgroundColor: `${themeColors.primary}20`,
+                    color: themeColors.secondary
                   }}
-                  onFocus={() => proveedorSearch.length >= 2 && setShowProveedorDropdown(true)}
-                  placeholder="Buscar proveedor por nombre o RFC..."
-                  className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-                {formData.proveedor_id && (
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 text-sm">
-                    RFC: {proveedores.find(p => p.id === formData.proveedor_id)?.rfc || 'N/A'}
-                  </span>
-                )}
-              </div>
+                >
+                  RFC: {proveedores.find(p => p.id === formData.proveedor_id)?.rfc || 'N/A'}
+                </span>
+              )}
 
               {/* Dropdown de proveedores */}
               {showProveedorDropdown && (
-                <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                <div
+                  className="absolute z-20 w-full mt-1 border-2 rounded-lg shadow-xl max-h-48 overflow-y-auto"
+                  style={{
+                    backgroundColor: themeColors.bg,
+                    borderColor: themeColors.border
+                  }}
+                >
                   {proveedoresFiltrados.length > 0 ? (
                     proveedoresFiltrados.map(p => (
                       <button
                         key={p.id}
                         type="button"
                         onClick={() => handleSelectProveedor(p)}
-                        className="w-full px-4 py-2 text-left hover:bg-gray-50 flex justify-between items-center"
+                        className="w-full px-4 py-3 text-left flex justify-between items-center border-b last:border-0 transition-colors"
+                        style={{
+                          borderColor: themeColors.border,
+                          color: themeColors.text
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${themeColors.primary}15`}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                       >
-                        <span className="text-gray-900">{p.razon_social}</span>
-                        <span className="text-sm text-gray-500">{p.rfc || ''}</span>
+                        <span className="font-medium">{p.razon_social}</span>
+                        <span style={{ color: themeColors.textSecondary }}>{p.rfc || ''}</span>
                       </button>
                     ))
                   ) : (
-                    <div className="px-4 py-3 text-gray-500 text-center">
-                      <p className="mb-2">No se encontraron proveedores</p>
+                    <div className="px-4 py-4 text-center" style={{ color: themeColors.textSecondary }}>
+                      <p className="mb-3">No se encontraron proveedores</p>
                       <button
                         type="button"
                         onClick={() => {
@@ -268,7 +577,8 @@ export const GastoFormModal = ({
                           setNuevoProveedorData({ razon_social: proveedorSearch, rfc: '' });
                           setShowProveedorDropdown(false);
                         }}
-                        className="text-blue-600 hover:underline flex items-center justify-center gap-1"
+                        className="flex items-center justify-center gap-2 font-medium"
+                        style={{ color: themeColors.primary }}
                       >
                         <Plus className="w-4 h-4" />
                         Crear "{proveedorSearch}"
@@ -278,262 +588,495 @@ export const GastoFormModal = ({
                 </div>
               )}
             </div>
+          </div>
 
-            {/* Concepto */}
-            <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Concepto *
-              </label>
-              <input
-                type="text"
-                value={formData.concepto}
-                onChange={(e) => setFormData({ ...formData, concepto: e.target.value })}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                placeholder="Descripción del gasto"
-              />
-            </div>
-
-            {/* Clave de gasto */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Clave de Gasto
-              </label>
-              <select
-                value={formData.clave_gasto_id || ''}
-                onChange={(e) => setFormData({ ...formData, clave_gasto_id: e.target.value ? parseInt(e.target.value) : null })}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Seleccionar...</option>
-                {Object.entries(clavesAgrupadas).map(([cuenta, items]) => (
-                  <optgroup key={cuenta} label={cuenta}>
-                    {items.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.clave} - {c.subcuenta}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </div>
-
-            {/* Forma de pago */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Forma de Pago
-              </label>
-              <select
-                value={formData.forma_pago_id || ''}
-                onChange={(e) => setFormData({ ...formData, forma_pago_id: e.target.value ? parseInt(e.target.value) : null })}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Seleccionar...</option>
-                {formasPago.map(f => (
-                  <option key={f.id} value={f.id}>{f.nombre}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Subtotal */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Subtotal *
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.subtotal}
-                onChange={(e) => setFormData({ ...formData, subtotal: parseFloat(e.target.value) || 0 })}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            {/* IVA */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                IVA
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.iva}
-                onChange={(e) => setFormData({ ...formData, iva: parseFloat(e.target.value) || 0 })}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            {/* Total */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Total
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.total}
-                readOnly
-                className="w-full px-4 py-2 border rounded-lg bg-gray-50 font-semibold"
-              />
-            </div>
-
-            {/* Fecha */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Fecha *
-              </label>
-              <input
-                type="date"
-                value={formData.fecha_gasto}
-                onChange={(e) => setFormData({ ...formData, fecha_gasto: e.target.value })}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            {/* Ejecutivo */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Ejecutivo
-              </label>
-              <select
-                value={formData.ejecutivo_id || ''}
-                onChange={(e) => setFormData({ ...formData, ejecutivo_id: e.target.value ? parseInt(e.target.value) : null })}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Seleccionar...</option>
-                {ejecutivos.map(e => (
-                  <option key={e.id} value={e.id}>{e.nombre}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Validación */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Validación
-              </label>
-              <select
-                value={formData.validacion}
-                onChange={(e) => setFormData({ ...formData, validacion: e.target.value })}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="pendiente">Pendiente</option>
-                <option value="correcto">Correcto</option>
-                <option value="revisar">Revisar</option>
-              </select>
-            </div>
-
-            {/* Status */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Status de Pago
-              </label>
-              <select
-                value={formData.status_pago}
-                onChange={(e) => setFormData({ ...formData, status_pago: e.target.value })}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="pendiente">Pendiente</option>
-                <option value="pagado">Pagado</option>
-              </select>
-            </div>
-
-            {/* Folio factura */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Folio Factura
-              </label>
-              <input
-                type="text"
-                value={formData.folio_factura}
-                onChange={(e) => setFormData({ ...formData, folio_factura: e.target.value })}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                placeholder="FACT13287, N/A, etc."
-              />
-            </div>
-
-            {/* Documento PDF */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Comprobante PDF
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={formData.documento_url || ''}
-                  onChange={(e) => setFormData({ ...formData, documento_url: e.target.value })}
-                  className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="URL del documento"
-                />
-                <button
-                  type="button"
-                  className="px-3 py-2 border rounded-lg hover:bg-gray-50"
-                  title="Subir archivo"
+          {/* Sección: Clasificación - Dos columnas */}
+          <div className="mb-6">
+            <h3
+              className="text-sm font-semibold uppercase tracking-wide mb-3"
+              style={{ color: themeColors.secondary }}
+            >
+              Clasificación del Gasto
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
+              {/* Selector de Cuenta */}
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
+                  Cuenta (Tipo de Gasto)
+                </label>
+                <select
+                  value={cuentaSeleccionada}
+                  onChange={(e) => setCuentaSeleccionada(e.target.value)}
+                  className="w-full px-4 py-3 border-2 rounded-lg"
+                  style={{
+                    borderColor: themeColors.border,
+                    backgroundColor: themeColors.bg,
+                    color: themeColors.text
+                  }}
                 >
-                  <Upload className="w-4 h-4" />
-                </button>
+                  <option value="">Seleccionar cuenta...</option>
+                  {cuentasUnicas.map(cuenta => (
+                    <option key={cuenta} value={cuenta}>{cuenta}</option>
+                  ))}
+                </select>
               </div>
-            </div>
 
-            {/* Notas */}
-            <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Notas
-              </label>
-              <textarea
-                value={formData.notas}
-                onChange={(e) => setFormData({ ...formData, notas: e.target.value })}
-                rows={2}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                placeholder="Observaciones adicionales..."
-              />
+              {/* Selector de Subclave */}
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
+                  Subclave de Gasto
+                </label>
+                <select
+                  value={formData.clave_gasto_id || ''}
+                  onChange={(e) => setFormData({ ...formData, clave_gasto_id: e.target.value ? parseInt(e.target.value) : null })}
+                  disabled={!cuentaSeleccionada}
+                  className="w-full px-4 py-3 border-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{
+                    borderColor: themeColors.border,
+                    backgroundColor: cuentaSeleccionada ? themeColors.bg : `${themeColors.border}40`,
+                    color: themeColors.text
+                  }}
+                >
+                  <option value="">
+                    {cuentaSeleccionada ? 'Seleccionar subclave...' : 'Primero selecciona cuenta'}
+                  </option>
+                  {subclavesFiltradas.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.clave} - {c.subcuenta}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
-          {/* Footer */}
-          <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+          {/* Sección: Concepto */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
+              Concepto / Descripción *
+            </label>
+            <input
+              type="text"
+              value={formData.concepto}
+              onChange={(e) => setFormData({ ...formData, concepto: e.target.value })}
+              className="w-full px-4 py-3 border-2 rounded-lg"
+              placeholder="Descripción detallada del gasto"
+              style={{
+                borderColor: themeColors.border,
+                backgroundColor: themeColors.bg,
+                color: themeColors.text
+              }}
+            />
+          </div>
+
+          {/* Sección: Montos - Grid de 4 columnas con máscara de dinero */}
+          <div className="mb-6">
+            <h3
+              className="text-sm font-semibold uppercase tracking-wide mb-3"
+              style={{ color: themeColors.secondary }}
+            >
+              Montos
+            </h3>
+            <div className="grid grid-cols-4 gap-4">
+              {/* Subtotal con máscara */}
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
+                  Subtotal *
+                </label>
+                <CurrencyInput
+                  value={formData.subtotal}
+                  onChange={handleSubtotalChange}
+                  placeholder=""
+                  themeColors={themeColors}
+                  className="focus:ring-2"
+                  style={{
+                    borderColor: themeColors.border,
+                    backgroundColor: themeColors.bg,
+                    color: themeColors.text
+                  }}
+                />
+              </div>
+
+              {/* IVA con toggle */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-sm font-medium" style={{ color: themeColors.text }}>
+                    IVA ({IVA_PORCENTAJE}%)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setCalcularIVA(!calcularIVA)}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium transition-colors"
+                    style={{
+                      backgroundColor: calcularIVA ? `${themeColors.primary}30` : `${themeColors.border}`,
+                      color: calcularIVA ? themeColors.secondary : themeColors.textSecondary
+                    }}
+                    title={calcularIVA ? 'Click para desactivar IVA' : 'Click para activar IVA'}
+                  >
+                    <Calculator className="w-3 h-3" />
+                    {calcularIVA ? 'Auto' : 'Sin IVA'}
+                  </button>
+                </div>
+                <CurrencyInput
+                  value={formData.iva}
+                  onChange={(v) => !calcularIVA && setFormData({ ...formData, iva: v })}
+                  readOnly={calcularIVA}
+                  themeColors={themeColors}
+                  className={calcularIVA ? 'opacity-70' : ''}
+                  style={{
+                    borderColor: themeColors.border,
+                    backgroundColor: calcularIVA ? `${themeColors.primary}15` : themeColors.bg,
+                    color: calcularIVA ? themeColors.secondary : themeColors.text
+                  }}
+                />
+              </div>
+
+              {/* Total */}
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
+                  Total
+                </label>
+                <CurrencyInput
+                  value={formData.total}
+                  onChange={() => {}}
+                  readOnly
+                  themeColors={themeColors}
+                  className="font-bold"
+                  style={{
+                    borderColor: themeColors.primary,
+                    backgroundColor: `${themeColors.primary}20`,
+                    color: themeColors.secondary
+                  }}
+                />
+              </div>
+
+              {/* Fecha */}
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
+                  Fecha *
+                </label>
+                <input
+                  type="date"
+                  value={formData.fecha_gasto}
+                  onChange={(e) => setFormData({ ...formData, fecha_gasto: e.target.value })}
+                  className="w-full px-4 py-3 border-2 rounded-lg"
+                  style={{
+                    borderColor: themeColors.border,
+                    backgroundColor: themeColors.bg,
+                    color: themeColors.text
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Sección: Detalles - Grid de 4 columnas */}
+          <div className="mb-6">
+            <h3
+              className="text-sm font-semibold uppercase tracking-wide mb-3"
+              style={{ color: themeColors.secondary }}
+            >
+              Detalles
+            </h3>
+            <div className="grid grid-cols-4 gap-4">
+              {/* Forma de pago */}
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
+                  Forma de Pago
+                </label>
+                <select
+                  value={formData.forma_pago_id || ''}
+                  onChange={(e) => setFormData({ ...formData, forma_pago_id: e.target.value ? parseInt(e.target.value) : null })}
+                  className="w-full px-4 py-2.5 border-2 rounded-lg"
+                  style={{
+                    borderColor: themeColors.border,
+                    backgroundColor: themeColors.bg,
+                    color: themeColors.text
+                  }}
+                >
+                  <option value="">Seleccionar...</option>
+                  {formasPago.map(f => (
+                    <option key={f.id} value={f.id}>{f.nombre}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Ejecutivo */}
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
+                  Ejecutivo
+                </label>
+                <select
+                  value={formData.ejecutivo_id || ''}
+                  onChange={(e) => setFormData({ ...formData, ejecutivo_id: e.target.value ? parseInt(e.target.value) : null })}
+                  className="w-full px-4 py-2.5 border-2 rounded-lg"
+                  style={{
+                    borderColor: themeColors.border,
+                    backgroundColor: themeColors.bg,
+                    color: themeColors.text
+                  }}
+                >
+                  <option value="">Seleccionar...</option>
+                  {ejecutivos.map(e => (
+                    <option key={e.id} value={e.id}>{e.nombre}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Validación */}
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
+                  Validación
+                </label>
+                <select
+                  value={formData.validacion}
+                  onChange={(e) => setFormData({ ...formData, validacion: e.target.value })}
+                  className="w-full px-4 py-2.5 border-2 rounded-lg"
+                  style={{
+                    borderColor: themeColors.border,
+                    backgroundColor: themeColors.bg,
+                    color: themeColors.text
+                  }}
+                >
+                  <option value="pendiente">Pendiente</option>
+                  <option value="correcto">Correcto</option>
+                  <option value="revisar">Revisar</option>
+                </select>
+              </div>
+
+              {/* Status de pago */}
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
+                  Status de Pago
+                </label>
+                <select
+                  value={formData.status_pago}
+                  onChange={(e) => setFormData({ ...formData, status_pago: e.target.value })}
+                  className="w-full px-4 py-2.5 border-2 rounded-lg"
+                  style={{
+                    borderColor: themeColors.border,
+                    backgroundColor: themeColors.bg,
+                    color: themeColors.text
+                  }}
+                >
+                  <option value="pendiente">Pendiente</option>
+                  <option value="pagado">Pagado</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Sección: Documentación - 2 columnas */}
+          <div className="mb-6">
+            <h3
+              className="text-sm font-semibold uppercase tracking-wide mb-3"
+              style={{ color: themeColors.secondary }}
+            >
+              Documentación
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
+              {/* Folio factura */}
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
+                  Folio de Factura
+                </label>
+                <input
+                  type="text"
+                  value={formData.folio_factura}
+                  onChange={(e) => setFormData({ ...formData, folio_factura: e.target.value })}
+                  className="w-full px-4 py-2.5 border-2 rounded-lg"
+                  placeholder="FACT-12345, N/A, etc."
+                  style={{
+                    borderColor: themeColors.border,
+                    backgroundColor: themeColors.bg,
+                    color: themeColors.text
+                  }}
+                />
+              </div>
+
+              {/* Documento PDF */}
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
+                  Comprobante (PDF/Imagen)
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={formData.documento_url || ''}
+                    readOnly
+                    className="flex-1 px-4 py-2.5 border-2 rounded-lg truncate"
+                    placeholder="Sin documento"
+                    style={{
+                      borderColor: themeColors.border,
+                      backgroundColor: `${themeColors.border}30`,
+                      color: themeColors.textSecondary
+                    }}
+                  />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingFile}
+                    className="px-4 py-2.5 border-2 rounded-lg flex items-center gap-2 transition-colors"
+                    style={{
+                      borderColor: themeColors.primary,
+                      color: themeColors.primary,
+                      backgroundColor: 'transparent'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${themeColors.primary}15`}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    title="Subir archivo PDF o imagen"
+                  >
+                    {uploadingFile ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Upload className="w-4 h-4" />
+                    )}
+                  </button>
+                  {formData.documento_url && (
+                    <a
+                      href={formData.documento_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2.5 border-2 rounded-lg flex items-center transition-colors"
+                      style={{
+                        borderColor: '#22C55E',
+                        color: '#22C55E'
+                      }}
+                      title="Ver documento"
+                    >
+                      <FileText className="w-4 h-4" />
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Notas */}
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
+              Notas adicionales
+            </label>
+            <textarea
+              value={formData.notas}
+              onChange={(e) => setFormData({ ...formData, notas: e.target.value })}
+              rows={2}
+              className="w-full px-4 py-2.5 border-2 rounded-lg resize-none"
+              placeholder="Observaciones o comentarios..."
+              style={{
+                borderColor: themeColors.border,
+                backgroundColor: themeColors.bg,
+                color: themeColors.text
+              }}
+            />
+          </div>
+        </form>
+
+        {/* Footer */}
+        <div
+          className="flex justify-between items-center px-6 py-4 border-t"
+          style={{
+            backgroundColor: `${themeColors.border}30`,
+            borderColor: themeColors.border
+          }}
+        >
+          <div className="text-sm" style={{ color: themeColors.textSecondary }}>
+            IVA configurado: {IVA_PORCENTAJE}%
+          </div>
+          <div className="flex gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+              className="px-6 py-2.5 border-2 rounded-lg font-medium transition-colors"
+              style={{
+                borderColor: themeColors.border,
+                color: themeColors.text
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${themeColors.border}40`}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
             >
               Cancelar
             </button>
             <button
-              type="submit"
+              onClick={() => handleSubmit()}
               disabled={saving}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              className="px-8 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors text-white disabled:opacity-50"
+              style={{
+                backgroundColor: themeColors.primary,
+                color: isDark ? '#1E293B' : '#FFFFFF'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = themeColors.secondary}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = themeColors.primary}
             >
-              {saving ? 'Guardando...' : gasto ? 'Actualizar' : 'Crear Gasto'}
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Guardando...
+                </>
+              ) : gasto ? (
+                <>
+                  <Save className="w-4 h-4" />
+                  Actualizar
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  Crear Gasto
+                </>
+              )}
             </button>
           </div>
-        </form>
+        </div>
 
         {/* Modal nuevo proveedor */}
         {showNuevoProveedor && (
-          <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-            <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
-              <h3 className="text-lg font-semibold mb-4">Nuevo Proveedor</h3>
+          <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-30">
+            <div
+              className="rounded-xl p-6 w-[400px] shadow-2xl"
+              style={{ backgroundColor: themeColors.bg }}
+            >
+              <h3 className="text-lg font-semibold mb-4" style={{ color: themeColors.text }}>
+                Nuevo Proveedor
+              </h3>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
                     Razón Social *
                   </label>
                   <input
                     type="text"
                     value={nuevoProveedorData.razon_social}
                     onChange={(e) => setNuevoProveedorData({ ...nuevoProveedorData, razon_social: e.target.value })}
-                    className="w-full px-4 py-2 border rounded-lg"
+                    className="w-full px-4 py-2.5 border-2 rounded-lg"
+                    style={{
+                      borderColor: themeColors.border,
+                      backgroundColor: themeColors.bg,
+                      color: themeColors.text
+                    }}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
                     RFC
                   </label>
                   <input
                     type="text"
                     value={nuevoProveedorData.rfc}
                     onChange={(e) => setNuevoProveedorData({ ...nuevoProveedorData, rfc: e.target.value.toUpperCase() })}
-                    className="w-full px-4 py-2 border rounded-lg"
+                    className="w-full px-4 py-2.5 border-2 rounded-lg"
                     maxLength={13}
+                    style={{
+                      borderColor: themeColors.border,
+                      backgroundColor: themeColors.bg,
+                      color: themeColors.text
+                    }}
                   />
                 </div>
               </div>
@@ -541,16 +1084,24 @@ export const GastoFormModal = ({
                 <button
                   type="button"
                   onClick={() => setShowNuevoProveedor(false)}
-                  className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+                  className="px-4 py-2 border-2 rounded-lg transition-colors"
+                  style={{
+                    borderColor: themeColors.border,
+                    color: themeColors.text
+                  }}
                 >
                   Cancelar
                 </button>
                 <button
                   type="button"
                   onClick={handleCrearNuevoProveedor}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="px-4 py-2 rounded-lg text-white transition-colors"
+                  style={{
+                    backgroundColor: themeColors.primary,
+                    color: isDark ? '#1E293B' : '#FFFFFF'
+                  }}
                 >
-                  Crear
+                  Crear Proveedor
                 </button>
               </div>
             </div>
