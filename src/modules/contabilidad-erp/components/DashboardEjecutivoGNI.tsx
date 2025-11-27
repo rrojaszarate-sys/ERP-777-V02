@@ -292,7 +292,7 @@ export const DashboardEjecutivoGNI: React.FC<DashboardEjecutivoGNIProps> = ({
               <Filter className="w-4 h-4" style={{ color: themeColors.textSecondary }} />
               <span className="text-sm font-medium" style={{ color: themeColors.textSecondary }}>Período:</span>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setPeriodoFiltro('todos')}
                 className="px-3 py-1.5 text-sm rounded-lg transition-all"
@@ -304,20 +304,25 @@ export const DashboardEjecutivoGNI: React.FC<DashboardEjecutivoGNIProps> = ({
               >
                 Todos ({gastos.length})
               </button>
-              {periodosDisponibles.slice(0, 6).map(periodo => (
-                <button
-                  key={periodo}
-                  onClick={() => setPeriodoFiltro(periodo)}
-                  className="px-3 py-1.5 text-sm rounded-lg transition-all"
-                  style={{
-                    backgroundColor: periodoFiltro === periodo ? themeColors.primary : 'transparent',
-                    color: periodoFiltro === periodo ? '#fff' : themeColors.textSecondary,
-                    border: `1px solid ${periodoFiltro === periodo ? themeColors.primary : themeColors.border}`
-                  }}
-                >
-                  {periodo}
-                </button>
-              ))}
+              {/* Selector desplegable para todos los períodos disponibles */}
+              <select
+                value={periodoFiltro === 'todos' ? '' : periodoFiltro}
+                onChange={(e) => setPeriodoFiltro(e.target.value || 'todos')}
+                className="px-3 py-1.5 text-sm rounded-lg transition-all cursor-pointer"
+                style={{
+                  backgroundColor: periodoFiltro !== 'todos' ? themeColors.primary : themeColors.cardBg,
+                  color: periodoFiltro !== 'todos' ? '#fff' : themeColors.textSecondary,
+                  border: `1px solid ${themeColors.border}`,
+                  minWidth: '150px'
+                }}
+              >
+                <option value="">Seleccionar período...</option>
+                {periodosDisponibles.map(periodo => (
+                  <option key={periodo} value={periodo}>
+                    {periodo} ({gastos.filter(g => g.periodo === periodo).length})
+                  </option>
+                ))}
+              </select>
             </div>
             {periodoFiltro !== 'todos' && (
               <span className="ml-auto text-sm" style={{ color: themeColors.textSecondary }}>
@@ -543,37 +548,42 @@ export const DashboardEjecutivoGNI: React.FC<DashboardEjecutivoGNIProps> = ({
 
           {/* Gráficas Row 3 */}
           <div className="px-6 pb-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Forma de Pago (Pie) */}
+            {/* Forma de Pago (Barras Horizontales - mejor para muchas categorías) */}
             <div
-              className="rounded-xl p-4 border"
+              className="rounded-xl p-4 border lg:col-span-1"
               style={{ backgroundColor: themeColors.chartBg, borderColor: themeColors.border }}
             >
               <div className="flex items-center gap-2 mb-4">
                 <DollarSign className="w-5 h-5" style={{ color: themeColors.primary }} />
-                <h3 className="font-semibold" style={{ color: themeColors.textPrimary }}>Por Forma de Pago</h3>
+                <h3 className="font-semibold" style={{ color: themeColors.textPrimary }}>
+                  Por Forma de Pago ({datosPorFormaPago.length})
+                </h3>
               </div>
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie
-                    data={datosPorFormaPago}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    dataKey="value"
-                    label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
-                  >
-                    {datosPorFormaPago.map((_, idx) => (
-                      <Cell key={idx} fill={themeColors.chartColors[idx % themeColors.chartColors.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                  <Legend
-                    layout="horizontal"
-                    verticalAlign="bottom"
-                    formatter={(value) => <span style={{ color: themeColors.textSecondary, fontSize: 10 }}>{value}</span>}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              <div style={{ height: Math.max(220, datosPorFormaPago.length * 28 + 40), maxHeight: 400, overflowY: 'auto' }}>
+                <ResponsiveContainer width="100%" height={Math.max(200, datosPorFormaPago.length * 28)}>
+                  <BarChart data={datosPorFormaPago} layout="vertical" margin={{ left: 5, right: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={themeColors.gridColor} />
+                    <XAxis
+                      type="number"
+                      tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`}
+                      tick={{ fill: themeColors.textSecondary, fontSize: 9 }}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      width={100}
+                      tick={{ fill: themeColors.textSecondary, fontSize: 9 }}
+                      tickFormatter={(v) => v.length > 14 ? v.substring(0, 14) + '...' : v}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Bar dataKey="value" name="Total" radius={[0, 4, 4, 0]}>
+                      {datosPorFormaPago.map((_, idx) => (
+                        <Cell key={idx} fill={themeColors.chartColors[idx % themeColors.chartColors.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
 
             {/* Estado de Validación (Radial) */}

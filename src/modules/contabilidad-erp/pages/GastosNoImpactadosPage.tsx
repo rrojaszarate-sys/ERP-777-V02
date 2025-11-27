@@ -511,11 +511,11 @@ export const GastosNoImpactadosPage = () => {
     let displayValue = value;
     let suffix = '';
 
-    // Agrupar por miles o millones
-    if (numberGrouping === 'millions' && Math.abs(value) >= 1000000) {
+    // Agrupar por miles o millones - SIEMPRE aplica el formato seleccionado
+    if (numberGrouping === 'millions') {
       displayValue = value / 1000000;
       suffix = 'M';
-    } else if (numberGrouping === 'thousands' && Math.abs(value) >= 1000) {
+    } else if (numberGrouping === 'thousands') {
       displayValue = value / 1000;
       suffix = 'K';
     }
