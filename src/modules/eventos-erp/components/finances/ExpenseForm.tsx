@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingDown, FileText, Calculator, Loader2, AlertTriangle, Bot, Zap, Upload } from 'lucide-react';
+import { TrendingDown, FileText, Calculator, Loader2, AlertTriangle, Bot, Zap, Upload, CheckCircle, XCircle } from 'lucide-react';
 import { Button } from '../../../../shared/components/ui/Button';
 import { FileUpload } from '../../../../shared/components/ui/FileUpload';
 import { useFileUpload } from '../../hooks/useFileUpload';
@@ -12,6 +12,10 @@ import { MEXICAN_CONFIG } from '../../../../core/config/constants';
 import { Expense } from '../../types/Finance';
 import { useOCRIntegration } from '../../../ocr/hooks/useOCRIntegration';
 import toast from 'react-hot-toast';
+
+// IVA rate from env o default
+const IVA_RATE = (parseFloat(import.meta.env.VITE_IVA_RATE) || MEXICAN_CONFIG.ivaRate) / 100;
+const IVA_PORCENTAJE = IVA_RATE * 100;
 
 interface ExpenseFormProps {
   expense?: Expense | null;
@@ -32,7 +36,11 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     concepto: expense?.concepto || '',
     descripcion: expense?.descripcion || '',
     cantidad: expense?.cantidad || 1,
-    total_con_iva: expense?.total || 0,
+    // Campos fiscales separados (sin auto-cálculo)
+    subtotal: expense?.subtotal || 0,
+    iva: expense?.iva || 0,
+    total: expense?.total || 0,
+    retenciones: 0, // Campo de retenciones
     iva_porcentaje: expense?.iva_porcentaje || MEXICAN_CONFIG.ivaRate,
     proveedor: expense?.proveedor || '',
     rfc_proveedor: expense?.rfc_proveedor || '',
@@ -45,15 +53,50 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     archivo_nombre: expense?.archivo_nombre || '',
     archivo_tamaño: expense?.archivo_tamaño || 0,
     archivo_tipo: expense?.archivo_tipo || '',
-    // ✅ NUEVOS CAMPOS PARA CONTROL DE PAGOS Y CUENTAS
+    // Campos para control de pagos y cuentas (SIEMPRE PAGADO por defecto)
     cuenta_id: (expense as any)?.cuenta_id || '',
     comprobante_pago_url: (expense as any)?.comprobante_pago_url || '',
     comprobante_pago_nombre: (expense as any)?.comprobante_pago_nombre || '',
-    fecha_pago: (expense as any)?.fecha_pago || '',
+    fecha_pago: (expense as any)?.fecha_pago || new Date().toISOString().split('T')[0],
     responsable_pago_id: (expense as any)?.responsable_pago_id || '',
-    pagado: (expense as any)?.pagado || false,
-    comprobado: (expense as any)?.comprobado || false
+    pagado: true, // SIEMPRE pagado
+    comprobado: true // SIEMPRE comprobado
   });
+
+  // Estado de error de cuadre fiscal
+  const [errorCuadre, setErrorCuadre] = useState<string | null>(null);
+
+  // ========== VALIDACIÓN DE CUADRE FISCAL ==========
+  // Total = Subtotal + IVA - Retenciones
+  useEffect(() => {
+    const calculado = Math.round((formData.subtotal + formData.iva - formData.retenciones) * 100) / 100;
+    const diferencia = Math.abs(calculado - formData.total);
+
+    if (formData.total > 0 && diferencia > 0.01) {
+      setErrorCuadre(`No cuadra: Subtotal + IVA - Retenciones = ${calculado.toFixed(2)}, pero Total es ${formData.total.toFixed(2)}`);
+    } else {
+      setErrorCuadre(null);
+    }
+  }, [formData.subtotal, formData.iva, formData.total, formData.retenciones]);
+
+  // Función para calcular IVA desde subtotal (botón opcional)
+  const calcularIvaDesdeSubtotal = useCallback(() => {
+    if (formData.subtotal > 0) {
+      const nuevoIva = Math.round(formData.subtotal * IVA_RATE * 100) / 100;
+      const nuevoTotal = Math.round((formData.subtotal + nuevoIva - formData.retenciones) * 100) / 100;
+      setFormData(prev => ({ ...prev, iva: nuevoIva, total: nuevoTotal }));
+      toast.success(`IVA calculado: $${nuevoIva.toFixed(2)} (${IVA_PORCENTAJE}%)`);
+    } else {
+      toast.error('Ingrese primero el subtotal');
+    }
+  }, [formData.subtotal, formData.retenciones]);
+
+  // Función para calcular total desde componentes
+  const calcularTotalDesdeComponentes = useCallback(() => {
+    const nuevoTotal = Math.round((formData.subtotal + formData.iva - formData.retenciones) * 100) / 100;
+    setFormData(prev => ({ ...prev, total: nuevoTotal }));
+    toast.success(`Total calculado: $${nuevoTotal.toFixed(2)}`);
+  }, [formData.subtotal, formData.iva, formData.retenciones]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -62,12 +105,11 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   const { data: categories } = useExpenseCategories();
   const { processOCRFile, isProcessing, error: ocrError } = useOCRIntegration(eventId);
 
-  // Calculate totals (nueva lógica: del total hacia atrás)
-  const total = formData.total_con_iva * formData.cantidad;
-  const iva_factor = 1 + (formData.iva_porcentaje / 100);
-  const subtotal = total / iva_factor;
-  const iva = total - subtotal;
-  const precio_unitario = formData.total_con_iva; // Para compatibilidad con el backend
+  // Calcular totales multiplicados por cantidad (para resumen)
+  const totalConCantidad = formData.total * formData.cantidad;
+  const subtotalConCantidad = formData.subtotal * formData.cantidad;
+  const ivaConCantidad = formData.iva * formData.cantidad;
+  const precio_unitario = formData.total; // Para compatibilidad con el backend
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -76,8 +118,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       newErrors.concepto = 'El concepto es requerido';
     }
 
-    if (formData.total_con_iva <= 0) {
-      newErrors.total_con_iva = 'El total debe ser mayor a 0';
+    if (formData.total <= 0) {
+      newErrors.total = 'El total debe ser mayor a 0';
     }
 
     if (formData.cantidad <= 0) {
@@ -110,18 +152,27 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
+
+    // ========== VALIDACIÓN DE CUADRE FISCAL ==========
+    const totalCalculado = Math.round((formData.subtotal + formData.iva - formData.retenciones) * 100) / 100;
+    const diferencia = Math.abs(totalCalculado - formData.total);
+
+    if (diferencia > 0.01) {
+      toast.error(`❌ Los montos no cuadran. Diferencia: $${diferencia.toFixed(2)}`);
+      return; // No permitir guardar
+    }
 
     setIsSubmitting(true);
 
     try {
       const dataToSave = {
         ...formData,
-        precio_unitario, // Calculado automáticamente
-        subtotal,
-        iva,
-        total,
+        precio_unitario, // Para compatibilidad
+        subtotal: formData.subtotal,
+        iva: formData.iva,
+        total: formData.total,
         evento_id: eventId,
         categoria_id: formData.categoria_id || undefined,
         created_at: expense ? undefined : new Date().toISOString(),
@@ -181,7 +232,10 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         ...prev,
         concepto: ocrData.concepto || prev.concepto,
         descripcion: ocrData.descripcion || prev.descripcion,
-        total_con_iva: ocrData.total_con_iva > 0 ? ocrData.total_con_iva : prev.total_con_iva,
+        // Usar campos fiscales separados
+        subtotal: ocrData.subtotal > 0 ? ocrData.subtotal : prev.subtotal,
+        iva: ocrData.iva > 0 ? ocrData.iva : prev.iva,
+        total: ocrData.total_con_iva > 0 ? ocrData.total_con_iva : prev.total,
         proveedor: ocrData.proveedor || prev.proveedor,
         fecha_gasto: ocrData.fecha_gasto || prev.fecha_gasto,
         forma_pago: ocrData.forma_pago || prev.forma_pago,
@@ -410,64 +464,156 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
             )}
           </div>
           
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Total (con IVA incluido) *
-            </label>
-            <input
-              type="number"
-              value={formData.total_con_iva}
-              onChange={(e) => handleInputChange('total_con_iva', parseFloat(e.target.value) || 0)}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-                errors.total_con_iva ? 'border-red-500' : 'border-gray-300'
+        </div>
+
+        {/* ========== SECCIÓN DE MONTOS FISCALES ========== */}
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+            <Calculator className="w-4 h-4 mr-2" />
+            Montos Fiscales
+            <span className="text-xs text-gray-500 ml-2">(Total = Subtotal + IVA - Retenciones)</span>
+          </h4>
+
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {/* Subtotal */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Subtotal *
+              </label>
+              <input
+                type="number"
+                value={formData.subtotal}
+                onChange={(e) => handleInputChange('subtotal', parseFloat(e.target.value) || 0)}
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                disabled={isSubmitting}
+              />
+            </div>
+
+            {/* IVA con botón de cálculo */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                IVA
+              </label>
+              <div className="flex gap-1">
+                <input
+                  type="number"
+                  value={formData.iva}
+                  onChange={(e) => handleInputChange('iva', parseFloat(e.target.value) || 0)}
+                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-l focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  disabled={isSubmitting}
+                />
+                <button
+                  type="button"
+                  onClick={calcularIvaDesdeSubtotal}
+                  className="px-2 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded-r"
+                  title={`Calcular IVA (${IVA_PORCENTAJE}%)`}
+                  disabled={isSubmitting}
+                >
+                  %
+                </button>
+              </div>
+            </div>
+
+            {/* Retenciones */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Retenciones
+              </label>
+              <input
+                type="number"
+                value={formData.retenciones}
+                onChange={(e) => handleInputChange('retenciones', parseFloat(e.target.value) || 0)}
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                disabled={isSubmitting}
+              />
+            </div>
+
+            {/* Total con botón de cálculo y validación visual */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Total *
+              </label>
+              <div className="flex gap-1">
+                <input
+                  type="number"
+                  value={formData.total}
+                  onChange={(e) => handleInputChange('total', parseFloat(e.target.value) || 0)}
+                  className={`w-full px-2 py-1.5 text-sm border rounded-l focus:ring-2 focus:ring-red-500 focus:border-transparent ${
+                    errors.total ? 'border-red-500' : errorCuadre ? 'border-red-400' : !errorCuadre && formData.total > 0 ? 'border-green-500' : 'border-gray-300'
+                  }`}
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  disabled={isSubmitting}
+                />
+                <button
+                  type="button"
+                  onClick={calcularTotalDesdeComponentes}
+                  className="px-2 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs rounded-r"
+                  title="Calcular Total"
+                  disabled={isSubmitting}
+                >
+                  =
+                </button>
+              </div>
+              {errors.total && (
+                <p className="text-red-600 text-xs mt-1">{errors.total}</p>
+              )}
+            </div>
+
+            {/* Fecha */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Fecha *
+              </label>
+              <input
+                type="date"
+                value={formData.fecha_gasto}
+                onChange={(e) => handleInputChange('fecha_gasto', e.target.value)}
+                className={`w-full px-2 py-1.5 text-sm border rounded focus:ring-2 focus:ring-red-500 focus:border-transparent ${
+                  errors.fecha_gasto ? 'border-red-500' : 'border-gray-300'
+                }`}
+                disabled={isSubmitting}
+              />
+            </div>
+          </div>
+
+          {/* Indicador de cuadre fiscal */}
+          {formData.total > 0 && (
+            <div
+              className={`mt-3 p-2 rounded-lg flex items-center gap-2 text-sm ${
+                errorCuadre
+                  ? 'bg-red-100 text-red-700 border border-red-200'
+                  : 'bg-green-100 text-green-700 border border-green-200'
               }`}
-              min="0"
-              step="0.01"
-              placeholder="0.00"
-              disabled={isSubmitting}
-            />
-            {errors.total_con_iva && (
-              <p className="text-red-600 text-sm mt-1">{errors.total_con_iva}</p>
-            )}
-            <p className="text-xs text-gray-500 mt-1">
-              Ingrese el monto total que aparece en su comprobante (ya incluye IVA)
-            </p>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              IVA (%)
-            </label>
-            <input
-              type="number"
-              value={formData.iva_porcentaje}
-              onChange={(e) => handleInputChange('iva_porcentaje', parseFloat(e.target.value) || MEXICAN_CONFIG.ivaRate)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-              min="0"
-              max="100"
-              step="0.01"
-              disabled={isSubmitting}
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Fecha del Gasto *
-            </label>
-            <input
-              type="date"
-              value={formData.fecha_gasto}
-              onChange={(e) => handleInputChange('fecha_gasto', e.target.value)}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-                errors.fecha_gasto ? 'border-red-500' : 'border-gray-300'
-              }`}
-              disabled={isSubmitting}
-            />
-            {errors.fecha_gasto && (
-              <p className="text-red-600 text-sm mt-1">{errors.fecha_gasto}</p>
-            )}
-          </div>
-          
+            >
+              {errorCuadre ? (
+                <>
+                  <XCircle className="w-4 h-4" />
+                  <span className="font-medium">No cuadra:</span>
+                  <span className="text-xs">{errorCuadre}</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4" />
+                  <span className="font-medium">Cuadre validado</span>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Forma de Pago y Referencia */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Forma de Pago
@@ -484,7 +630,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               <option value="tarjeta">Tarjeta</option>
             </select>
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Referencia
@@ -514,27 +660,29 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           />
         </div>
 
-        {/* Calculation Summary */}
-        <div className="bg-white rounded-lg border p-4">
-          <h4 className="font-medium text-gray-900 mb-3 flex items-center">
-            <Calculator className="w-4 h-4 mr-2" />
-            Resumen de Cálculo
-          </h4>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span>Subtotal:</span>
-              <span className="font-medium">{formatCurrency(subtotal)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>IVA ({formData.iva_porcentaje}%):</span>
-              <span className="font-medium">{formatCurrency(iva)}</span>
-            </div>
-            <div className="flex justify-between font-bold text-lg border-t pt-2">
-              <span>Total:</span>
-              <span className="text-red-600">{formatCurrency(total)}</span>
+        {/* Resumen con cantidad */}
+        {formData.cantidad > 1 && (
+          <div className="bg-white rounded-lg border p-4">
+            <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+              <Calculator className="w-4 h-4 mr-2" />
+              Resumen (x{formData.cantidad} unidades)
+            </h4>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span>Subtotal ({formData.cantidad}x):</span>
+                <span className="font-medium">{formatCurrency(subtotalConCantidad)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>IVA ({formData.cantidad}x):</span>
+                <span className="font-medium">{formatCurrency(ivaConCantidad)}</span>
+              </div>
+              <div className="flex justify-between font-bold text-lg border-t pt-2">
+                <span>Total Final:</span>
+                <span className="text-red-600">{formatCurrency(totalConCantidad)}</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Approval Status */}
         <div>

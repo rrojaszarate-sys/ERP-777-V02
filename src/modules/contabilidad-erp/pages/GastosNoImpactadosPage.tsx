@@ -223,7 +223,7 @@ export const GastosNoImpactadosPage = () => {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   }, []);
   const [filtros, setFiltros] = useState<GNIFiltros>({ periodo: periodoActual });
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true); // Visible por defecto
 
   // Tipo de gráfica: 'bar' (horizontal), 'vbar' (vertical), 'pie', o 'line'
   const [chartType, setChartType] = useState<'bar' | 'vbar' | 'pie' | 'line'>('bar');
@@ -732,11 +732,16 @@ export const GastosNoImpactadosPage = () => {
   // Contar columnas visibles
   const visibleColumnCount = Object.values(visibleColumns).filter(Boolean).length;
 
-  // Componente para header de columna ordenable
+  // Componente para header de columna ordenable - Colores dinámicos
   const SortableHeader = ({ field, label, className = '' }: { field: SortField; label: string; className?: string }) => (
     <th
-      className={`px-3 py-3 text-xs font-semibold text-teal-800 uppercase cursor-pointer hover:bg-teal-100 transition-colors select-none ${className}`}
+      className={`px-3 py-3 text-xs font-semibold uppercase cursor-pointer transition-colors select-none ${className}`}
+      style={{
+        color: themeColors.secondary,
+      }}
       onClick={() => handleSort(field)}
+      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${themeColors.primary}20`}
+      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
     >
       <div className="flex items-center gap-1">
         {label}
@@ -754,13 +759,16 @@ export const GastosNoImpactadosPage = () => {
   );
 
   return (
-    <div className="p-6 bg-gradient-to-br from-teal-50/30 to-white min-h-screen">
+    <div
+      className="p-6 min-h-screen"
+      style={{ background: `linear-gradient(to bottom right, ${themeColors.primary}10, white)` }}
+    >
       {/* Header */}
       <div className="flex justify-between items-start mb-6">
         <div className="flex items-start gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <Receipt className="w-7 h-7 text-teal-600" />
+              <Receipt className="w-7 h-7" style={{ color: themeColors.secondary }} />
               Gastos No Impactados
             </h1>
             <p className="text-gray-500 mt-1">
@@ -770,30 +778,40 @@ export const GastosNoImpactadosPage = () => {
           {/* Botón de Ayuda */}
           <button
             onClick={() => setShowHelp(true)}
-            className="p-2 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-full transition-colors"
+            className="p-2 text-gray-400 rounded-full transition-colors"
+            style={{
+              '--hover-bg': `${themeColors.primary}15`,
+              '--hover-color': themeColors.secondary
+            } as React.CSSProperties}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${themeColors.primary}15`; e.currentTarget.style.color = themeColors.secondary; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af'; }}
             title="Guía de uso"
           >
             <HelpCircle className="w-5 h-5" />
           </button>
         </div>
         <div className="flex gap-2">
-          {/* Toggle Dashboard */}
+          {/* Toggle Dashboard - Colores dinámicos */}
           <button
             onClick={() => setShowDashboard(!showDashboard)}
-            className={`px-3 py-2 rounded-lg flex items-center gap-2 transition-all ${
-              showDashboard
-                ? 'bg-teal-100 text-teal-700 border border-teal-300'
-                : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50'
-            }`}
+            className="px-3 py-2 rounded-lg flex items-center gap-2 transition-all border"
+            style={{
+              backgroundColor: showDashboard ? `${themeColors.primary}20` : 'white',
+              color: showDashboard ? themeColors.secondary : '#6b7280',
+              borderColor: showDashboard ? `${themeColors.primary}50` : '#d1d5db'
+            }}
           >
             <BarChart3 className="w-4 h-4" />
             Dashboard
           </button>
 
-          {/* Dashboard Ejecutivo */}
+          {/* Dashboard Ejecutivo - Color accent de paleta dinámica */}
           <button
             onClick={() => setShowDashboardEjecutivo(true)}
-            className="px-3 py-2 rounded-lg flex items-center gap-2 transition-all bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:from-violet-600 hover:to-purple-700 shadow-md"
+            className="px-3 py-2 rounded-lg flex items-center gap-2 transition-all text-white shadow-md hover:opacity-90"
+            style={{
+              background: `linear-gradient(135deg, ${themeColors.accent}, ${themeColors.secondary})`
+            }}
             title="Dashboard Ejecutivo con Gráficas Avanzadas"
           >
             <Presentation className="w-4 h-4" />
@@ -942,70 +960,13 @@ export const GastosNoImpactadosPage = () => {
             <Table2 className="w-4 h-4" />
             Reporte
           </button>
-          {/* Configuración de Columnas */}
-          <div className="relative">
-            <button
-              onClick={() => setShowColumnConfig(!showColumnConfig)}
-              className={`px-3 py-2 rounded-lg flex items-center gap-2 transition-all ${
-                showColumnConfig
-                  ? 'bg-violet-100 text-violet-700 border border-violet-300'
-                  : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50'
-              }`}
-              title="Configurar columnas visibles"
-            >
-              <Columns className="w-4 h-4" />
-            </button>
-            {showColumnConfig && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="absolute right-0 mt-1 w-64 bg-white border rounded-lg shadow-lg z-50 p-3"
-              >
-                <div className="flex items-center justify-between mb-3 pb-2 border-b">
-                  <span className="text-sm font-semibold text-gray-700">Columnas visibles</span>
-                  <span className="text-xs text-gray-500">{visibleColumnCount} de {columnDefinitions.length}</span>
-                </div>
-                <div className="space-y-1 max-h-64 overflow-y-auto">
-                  {columnDefinitions.map(col => (
-                    <label
-                      key={col.key}
-                      className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={visibleColumns[col.key]}
-                        onChange={() => toggleColumn(col.key)}
-                        className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
-                      />
-                      <span className="text-sm text-gray-700">{col.label}</span>
-                      {visibleColumns[col.key] ? (
-                        <Eye className="w-3 h-3 text-teal-500 ml-auto" />
-                      ) : (
-                        <EyeOff className="w-3 h-3 text-gray-300 ml-auto" />
-                      )}
-                    </label>
-                  ))}
-                </div>
-                <div className="mt-3 pt-2 border-t flex gap-2">
-                  <button
-                    onClick={() => setVisibleColumns(Object.fromEntries(columnDefinitions.map(c => [c.key, true])))}
-                    className="text-xs text-teal-600 hover:text-teal-700"
-                  >
-                    Mostrar todas
-                  </button>
-                  <button
-                    onClick={() => setVisibleColumns(Object.fromEntries(columnDefinitions.map(c => [c.key, ['fecha_gasto', 'proveedor', 'concepto', 'total', 'validacion'].includes(c.key)])))}
-                    className="text-xs text-gray-500 hover:text-gray-700"
-                  >
-                    Mínimas
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </div>
           <button
             onClick={() => setShowGastoModal(true)}
-            className="px-4 py-2 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-lg hover:from-teal-600 hover:to-teal-700 flex items-center gap-2 shadow-lg shadow-teal-200"
+            className="px-4 py-2 text-white rounded-lg flex items-center gap-2 shadow-lg hover:opacity-90 transition-opacity"
+            style={{
+              background: `linear-gradient(135deg, ${themeColors.primary}, ${themeColors.secondary})`,
+              boxShadow: `0 4px 14px ${themeColors.primary}40`
+            }}
           >
             <Plus className="w-4 h-4" />
             Nuevo Gasto
@@ -2030,7 +1991,7 @@ export const GastosNoImpactadosPage = () => {
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gradient-to-r from-teal-50 to-teal-100/50">
+            <thead style={{ background: `linear-gradient(90deg, ${themeColors.primary}15, ${themeColors.primary}25)` }}>
               {/* Fila de headers */}
               <tr className="border-b">
                 {visibleColumns.fecha_gasto && <SortableHeader field="fecha_gasto" label="Fecha" className="text-left" />}
@@ -2047,6 +2008,71 @@ export const GastosNoImpactadosPage = () => {
                 {visibleColumns.status_pago && <SortableHeader field="status_pago" label="Pago" className="text-center" />}
                 {visibleColumns.ejecutivo && <SortableHeader field="ejecutivo" label="Ejecutivo" className="text-left" />}
                 {visibleColumns.folio_factura && <SortableHeader field="folio_factura" label="Folio" className="text-left" />}
+                {/* Columna de configuración */}
+                <th className="px-2 py-3 w-10 text-center relative">
+                  <button
+                    onClick={() => setShowColumnConfig(!showColumnConfig)}
+                    className="p-2 rounded-lg transition-all hover:scale-110"
+                    style={{
+                      backgroundColor: showColumnConfig ? `${themeColors.primary}30` : 'transparent',
+                      color: showColumnConfig ? themeColors.secondary : '#6b7280'
+                    }}
+                    title="Configurar columnas visibles"
+                  >
+                    <Settings className="w-5 h-5" />
+                  </button>
+                  {/* Dropdown de columnas */}
+                  {showColumnConfig && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="absolute right-0 top-full mt-1 w-64 bg-white border rounded-lg shadow-xl z-50 p-3"
+                      style={{ borderColor: `${themeColors.primary}30` }}
+                    >
+                      <div className="flex items-center justify-between mb-3 pb-2 border-b">
+                        <span className="text-sm font-semibold text-gray-700">Columnas visibles</span>
+                        <span className="text-xs text-gray-500">{visibleColumnCount} de {columnDefinitions.length}</span>
+                      </div>
+                      <div className="space-y-1 max-h-64 overflow-y-auto">
+                        {columnDefinitions.map(col => (
+                          <label
+                            key={col.key}
+                            className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={visibleColumns[col.key]}
+                              onChange={() => toggleColumn(col.key)}
+                              className="w-4 h-4 rounded"
+                              style={{ accentColor: themeColors.primary }}
+                            />
+                            <span className="text-sm text-gray-700">{col.label}</span>
+                            {visibleColumns[col.key] ? (
+                              <Eye className="w-3 h-3 ml-auto" style={{ color: themeColors.primary }} />
+                            ) : (
+                              <EyeOff className="w-3 h-3 text-gray-300 ml-auto" />
+                            )}
+                          </label>
+                        ))}
+                      </div>
+                      <div className="mt-3 pt-2 border-t flex gap-2">
+                        <button
+                          onClick={() => setVisibleColumns(Object.fromEntries(columnDefinitions.map(c => [c.key, true])))}
+                          className="text-xs hover:opacity-80"
+                          style={{ color: themeColors.secondary }}
+                        >
+                          Mostrar todas
+                        </button>
+                        <button
+                          onClick={() => setVisibleColumns(Object.fromEntries(columnDefinitions.map(c => [c.key, ['fecha_gasto', 'proveedor', 'concepto', 'total', 'validacion'].includes(c.key)])))}
+                          className="text-xs text-gray-500 hover:text-gray-700"
+                        >
+                          Mínimas
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </th>
               </tr>
               {/* Fila de filtros por columna */}
               <tr className="border-b bg-gray-50/50">
@@ -2175,28 +2201,32 @@ export const GastosNoImpactadosPage = () => {
                       placeholder="Filtrar..."
                       value={columnFilters.folio_factura || ''}
                       onChange={(e) => setColumnFilters({...columnFilters, folio_factura: e.target.value})}
-                      className="w-full px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
+                      className="w-full px-2 py-1 text-xs border rounded"
+                      style={{ '--tw-ring-color': themeColors.primary } as React.CSSProperties}
                     />
                   </th>
                 )}
+                {/* Celda vacía para columna de config */}
+                <th className="px-2 py-1.5 w-10"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={visibleColumnCount} className="px-4 py-12 text-center">
-                    <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-3 text-teal-500" />
+                  <td colSpan={visibleColumnCount + 1} className="px-4 py-12 text-center">
+                    <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-3" style={{ color: themeColors.primary }} />
                     <p className="text-gray-500">Cargando gastos...</p>
                   </td>
                 </tr>
               ) : gastosPaginados.length === 0 ? (
                 <tr>
-                  <td colSpan={visibleColumnCount} className="px-4 py-12 text-center">
+                  <td colSpan={visibleColumnCount + 1} className="px-4 py-12 text-center">
                     <FileSpreadsheet className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                     <p className="text-gray-500">No hay gastos para mostrar</p>
                     <button
                       onClick={() => setShowGastoModal(true)}
-                      className="mt-3 text-teal-600 hover:text-teal-700 text-sm font-medium"
+                      className="mt-3 text-sm font-medium hover:opacity-80"
+                      style={{ color: themeColors.secondary }}
                     >
                       + Agregar primer gasto
                     </button>
@@ -2209,7 +2239,10 @@ export const GastosNoImpactadosPage = () => {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: index * 0.02 }}
-                    className="hover:bg-teal-50/50 cursor-pointer transition-colors"
+                    className="cursor-pointer transition-colors"
+                    style={{ '--hover-bg': `${themeColors.primary}10` } as React.CSSProperties}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${themeColors.primary}10`}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                     onClick={() => handleEditGasto(gasto)}
                   >
                     {visibleColumns.fecha_gasto && (
@@ -2230,7 +2263,13 @@ export const GastosNoImpactadosPage = () => {
                     {visibleColumns.clave && (
                       <td className="px-3 py-2.5">
                         {gasto.clave && (
-                          <span className="px-1.5 py-0.5 bg-teal-100 text-teal-700 text-[11px] font-mono rounded">
+                          <span
+                            className="px-1.5 py-0.5 text-[11px] font-mono rounded"
+                            style={{
+                              backgroundColor: `${themeColors.primary}20`,
+                              color: themeColors.secondary
+                            }}
+                          >
                             {gasto.clave}
                           </span>
                         )}
@@ -2316,35 +2355,44 @@ export const GastosNoImpactadosPage = () => {
                         {gasto.folio_factura || '-'}
                       </td>
                     )}
+                    {/* Celda vacía para columna de config */}
+                    <td className="px-2 py-2.5 w-10"></td>
                   </motion.tr>
                 ))
               )}
             </tbody>
             {gastosFiltrados.length > 0 && (
-              <tfoot className="bg-gradient-to-r from-teal-50 to-teal-100/50 border-t-2 border-teal-200">
+              <tfoot
+                className="border-t-2"
+                style={{
+                  background: `linear-gradient(90deg, ${themeColors.primary}15, ${themeColors.primary}25)`,
+                  borderColor: `${themeColors.primary}40`
+                }}
+              >
                 <tr>
                   <td
                     colSpan={[visibleColumns.fecha_gasto, visibleColumns.proveedor, visibleColumns.concepto, visibleColumns.clave, visibleColumns.cuenta, visibleColumns.subcuenta, visibleColumns.forma_pago].filter(Boolean).length}
-                    className="px-4 py-3 text-sm font-semibold text-teal-800"
+                    className="px-4 py-3 text-sm font-semibold"
+                    style={{ color: themeColors.secondary }}
                   >
                     Total ({totales.cantidad} registros)
                   </td>
                   {visibleColumns.subtotal && (
-                    <td className="px-4 py-3 text-sm text-right font-bold text-teal-900 font-mono">
+                    <td className="px-4 py-3 text-sm text-right font-bold font-mono" style={{ color: themeColors.secondary }}>
                       {formatCurrency(totales.subtotal)}
                     </td>
                   )}
                   {visibleColumns.iva && (
-                    <td className="px-4 py-3 text-sm text-right font-semibold text-teal-700 font-mono">
+                    <td className="px-4 py-3 text-sm text-right font-semibold font-mono" style={{ color: themeColors.primary }}>
                       {formatCurrency(totales.iva)}
                     </td>
                   )}
                   {visibleColumns.total && (
-                    <td className="px-4 py-3 text-sm text-right font-bold text-teal-900 font-mono text-lg">
+                    <td className="px-4 py-3 text-sm text-right font-bold font-mono text-lg" style={{ color: themeColors.secondary }}>
                       {formatCurrency(totales.total)}
                     </td>
                   )}
-                  <td colSpan={[visibleColumns.validacion, visibleColumns.status_pago, visibleColumns.ejecutivo, visibleColumns.folio_factura].filter(Boolean).length}></td>
+                  <td colSpan={[visibleColumns.validacion, visibleColumns.status_pago, visibleColumns.ejecutivo, visibleColumns.folio_factura].filter(Boolean).length + 1}></td>
                 </tr>
               </tfoot>
             )}

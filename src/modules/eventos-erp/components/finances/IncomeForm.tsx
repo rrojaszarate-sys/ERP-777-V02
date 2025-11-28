@@ -38,7 +38,7 @@ export const IncomeForm: React.FC<IncomeFormProps> = ({
     fecha_ingreso: income?.fecha_ingreso || new Date().toISOString().split('T')[0],
     referencia: income?.referencia || '',
     metodo_cobro: income?.metodo_cobro || 'transferencia',
-    facturado: income?.facturado !== undefined ? income.facturado : true, // ✅ SIEMPRE empieza facturado
+    facturado: income?.facturado || false,
     cobrado: income?.cobrado || false,
     dias_credito: income?.dias_credito || 30, // ✅ NUEVO: Días de crédito para calcular vencimiento
     fecha_compromiso_pago: income?.fecha_compromiso_pago || '',
@@ -56,7 +56,7 @@ export const IncomeForm: React.FC<IncomeFormProps> = ({
     documento_pago_url: income?.documento_pago_url || '', // ✅ NUEVO: Comprobante de pago
     documento_pago_nombre: income?.documento_pago_nombre || '',
     // ✅ NUEVOS CAMPOS PARA CONTROL DE FACTURACIÓN
-    estado_id: (income as any)?.estado_id || 1, // Default: PLANEADO
+    estado_id: (income as any)?.estado_id || 1, // Default: PLANEADO (se calcula según documentos)
     dias_facturacion: (income as any)?.dias_facturacion || 5, // Default: 5 días
     fecha_limite_facturacion: (income as any)?.fecha_limite_facturacion || '',
     orden_compra_url: (income as any)?.orden_compra_url || '',
@@ -94,37 +94,36 @@ export const IncomeForm: React.FC<IncomeFormProps> = ({
   const [comprobantePagoFile, setComprobantePagoFile] = useState<File | null>(null); // ✅ Comprobante de pago
   const [uploadingDocument, setUploadingDocument] = useState(false); // Estado de carga para documentos adicionales
 
-  // 🎯 CALCULAR ESTADO AUTOMÁTICAMENTE BASADO EN DOCUMENTOS
+  // 🎯 CALCULAR ESTADO AUTOMÁTICAMENTE según documentos adjuntos
   const calcularEstado = (): number => {
-    // Estado 4: PAGADO - Requiere XML + PDF + Comprobante de Pago
-    if (formData.archivo_adjunto && formData.documento_pago_url) {
-      return 4; // PAGADO
+    // Si tiene comprobante de pago + factura → PAGADO (4)
+    if (formData.documento_pago_url && formData.archivo_adjunto) {
+      return 4;
     }
-    // Estado 3: FACTURADO - Requiere XML + PDF
+    // Si tiene factura (XML+PDF) → FACTURADO (3)
     if (formData.archivo_adjunto) {
-      return 3; // FACTURADO
+      return 3;
     }
-    // Estado 2: ORDEN_COMPRA - Opcional, si hay orden de compra
+    // Si tiene orden de compra → ORDEN DE COMPRA (2)
     if (formData.orden_compra_url) {
-      return 2; // ORDEN_COMPRA
+      return 2;
     }
-    // Estado 1: PLANEADO - Default
-    return 1; // PLANEADO
+    // Sin documentos → PLANEADO (1)
+    return 1;
   };
 
-  // ✅ Actualizar estado automáticamente cuando cambien los documentos
+  // ✅ Actualizar estado automáticamente cuando cambian los documentos
   React.useEffect(() => {
     const nuevoEstado = calcularEstado();
     if (formData.estado_id !== nuevoEstado) {
       setFormData(prev => ({
         ...prev,
         estado_id: nuevoEstado,
-        // Actualizar checkboxes basados en el estado
         facturado: nuevoEstado >= 3,
         cobrado: nuevoEstado >= 4
       }));
     }
-  }, [formData.archivo_adjunto, formData.documento_pago_url, formData.orden_compra_url]);
+  }, [formData.archivo_adjunto, formData.orden_compra_url, formData.documento_pago_url]);
 
   // ✅ Calculate totals FROM total (not from cantidad × precio_unitario)
   const total = formData.total;

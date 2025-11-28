@@ -210,6 +210,12 @@ export const GastoFormModal = ({
     notas: ''
   });
 
+  // Estado para retenciones (no está en el form data original pero lo calculamos)
+  const [retenciones, setRetenciones] = useState(0);
+
+  // Estado de error de cuadre fiscal
+  const [errorCuadre, setErrorCuadre] = useState<string | null>(null);
+
   // Colores dinámicos basados en la paleta activa
   const themeColors = useMemo(() => ({
     primary: paletteConfig.primary,
@@ -284,56 +290,97 @@ export const GastoFormModal = ({
     }
   }, [gasto, claves, formasPago, ejecutivos, periodo]);
 
-  // Calcular IVA y total automáticamente desde subtotal
-  const handleSubtotalChange = useCallback((newSubtotal: number) => {
-    let nuevoIva = 0;
-    if (calcularIVA && newSubtotal > 0) {
-      nuevoIva = Math.round(newSubtotal * IVA_RATE * 100) / 100;
-    }
-    const nuevoTotal = Math.round((newSubtotal + nuevoIva) * 100) / 100;
+  // =============================================
+  // VALIDACIÓN DE CUADRE FISCAL
+  // Fórmula: Total = Subtotal + IVA + Retenciones
+  // =============================================
 
+  // Validar cuadre cada vez que cambien los montos
+  useEffect(() => {
+    const calculado = Math.round((formData.subtotal + formData.iva + retenciones) * 100) / 100;
+    const diferencia = Math.abs(calculado - formData.total);
+
+    if (formData.total > 0 && diferencia > 0.01) {
+      setErrorCuadre(`No cuadra: Subtotal ($${formData.subtotal.toFixed(2)}) + IVA ($${formData.iva.toFixed(2)}) + Retenciones ($${retenciones.toFixed(2)}) = $${calculado.toFixed(2)}, pero el Total es $${formData.total.toFixed(2)}`);
+    } else {
+      setErrorCuadre(null);
+    }
+  }, [formData.subtotal, formData.iva, formData.total, retenciones]);
+
+  // Cambiar subtotal (NO calcula IVA automáticamente)
+  const handleSubtotalChange = useCallback((newSubtotal: number) => {
     setFormData(prev => ({
       ...prev,
-      subtotal: newSubtotal,
-      iva: nuevoIva,
+      subtotal: newSubtotal
+    }));
+  }, []);
+
+  // Cambiar IVA manualmente
+  const handleIvaChange = useCallback((newIva: number) => {
+    setFormData(prev => ({
+      ...prev,
+      iva: newIva
+    }));
+  }, []);
+
+  // Cambiar Total
+  const handleTotalChange = useCallback((newTotal: number) => {
+    setFormData(prev => ({
+      ...prev,
+      total: newTotal
+    }));
+  }, []);
+
+  // Cambiar Retenciones
+  const handleRetencionesChange = useCallback((newRetenciones: number) => {
+    setRetenciones(newRetenciones);
+  }, []);
+
+  // BOTÓN: Calcular IVA desde el subtotal
+  const calcularIvaDesdeSubtotal = useCallback(() => {
+    if (formData.subtotal > 0) {
+      const nuevoIva = Math.round(formData.subtotal * IVA_RATE * 100) / 100;
+      const nuevoTotal = Math.round((formData.subtotal + nuevoIva + retenciones) * 100) / 100;
+      setFormData(prev => ({
+        ...prev,
+        iva: nuevoIva,
+        total: nuevoTotal
+      }));
+      toast.success(`IVA calculado: $${nuevoIva.toFixed(2)} (${IVA_PORCENTAJE}%)`);
+    } else {
+      toast.error('Ingresa primero el subtotal');
+    }
+  }, [formData.subtotal, retenciones]);
+
+  // BOTÓN: Calcular Total desde los componentes (SOLO cuando retenciones es 0)
+  const calcularTotalDesdeComponentes = useCallback(() => {
+    // Solo calcular cuando retenciones es cero
+    if (retenciones !== 0) {
+      toast.error('Solo se puede calcular cuando Retenciones es 0');
+      return;
+    }
+    const nuevoTotal = Math.round((formData.subtotal + formData.iva + retenciones) * 100) / 100;
+    setFormData(prev => ({
+      ...prev,
       total: nuevoTotal
     }));
-  }, [calcularIVA]);
+    toast.success(`Total calculado: $${nuevoTotal.toFixed(2)}`);
+  }, [formData.subtotal, formData.iva, retenciones]);
 
-  // NUEVO: Calcular Subtotal e IVA desde el Total (cálculo inverso)
-  const handleTotalChange = useCallback((newTotal: number) => {
-    if (calcularIVA && newTotal > 0) {
-      // Total = Subtotal * (1 + IVA_RATE) => Subtotal = Total / (1 + IVA_RATE)
-      const nuevoSubtotal = Math.round((newTotal / (1 + IVA_RATE)) * 100) / 100;
-      const nuevoIva = Math.round((newTotal - nuevoSubtotal) * 100) / 100;
+  // BOTÓN: Calcular Subtotal desde Total (inverso) - asume IVA = 0 o el actual
+  const calcularSubtotalDesdeTotal = useCallback(() => {
+    if (formData.total > 0) {
+      // Subtotal = Total - IVA - Retenciones
+      const nuevoSubtotal = Math.round((formData.total - formData.iva - retenciones) * 100) / 100;
       setFormData(prev => ({
         ...prev,
-        subtotal: nuevoSubtotal,
-        iva: nuevoIva,
-        total: newTotal
+        subtotal: nuevoSubtotal
       }));
+      toast.success(`Subtotal calculado: $${nuevoSubtotal.toFixed(2)}`);
     } else {
-      // Sin IVA: subtotal = total
-      setFormData(prev => ({
-        ...prev,
-        subtotal: newTotal,
-        iva: 0,
-        total: newTotal
-      }));
+      toast.error('Ingresa primero el total');
     }
-  }, [calcularIVA]);
-
-  // Recalcular cuando cambia el toggle de IVA
-  useEffect(() => {
-    if (formData.subtotal > 0) {
-      let nuevoIva = 0;
-      if (calcularIVA) {
-        nuevoIva = Math.round(formData.subtotal * IVA_RATE * 100) / 100;
-      }
-      const nuevoTotal = Math.round((formData.subtotal + nuevoIva) * 100) / 100;
-      setFormData(prev => ({ ...prev, iva: nuevoIva, total: nuevoTotal }));
-    }
-  }, [calcularIVA]);
+  }, [formData.total, formData.iva, retenciones]);
 
   // Cuando cambia la cuenta, limpiar subclave
   useEffect(() => {
@@ -629,6 +676,14 @@ export const GastoFormModal = ({
       return;
     }
 
+    // ✅ VALIDACIÓN DE CUADRE FISCAL - NO PERMITE GUARDAR SI NO CUADRA
+    const totalCalculado = Math.round((formData.subtotal + formData.iva + retenciones) * 100) / 100;
+    const diferencia = Math.abs(totalCalculado - formData.total);
+    if (diferencia > 0.01) {
+      toast.error(`❌ Los montos no cuadran. Subtotal + IVA + Retenciones debe ser igual al Total. Diferencia: $${diferencia.toFixed(2)}`);
+      return;
+    }
+
     setSaving(true);
     try {
       if (gasto?.id) {
@@ -698,7 +753,7 @@ export const GastoFormModal = ({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4">
-          {/* Sección: Comprobante + OCR (como en Eventos) */}
+          {/* Sección: Comprobante + OCR - Un solo renglón */}
           <div className="mb-4 p-3 rounded-xl border-2" style={{ borderColor: themeColors.primary + '40', backgroundColor: themeColors.primaryLight + '10' }}>
             <h3
               className="text-sm font-semibold uppercase tracking-wide mb-3 flex items-center gap-2"
@@ -719,7 +774,7 @@ export const GastoFormModal = ({
 
             {/* Preview del archivo si existe */}
             {formData.documento_url ? (
-              <div className="flex items-center justify-between p-3 rounded-lg mb-2" style={{ backgroundColor: `${themeColors.primary}15` }}>
+              <div className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: `${themeColors.primary}15` }}>
                 <div className="flex items-center gap-2">
                   <FileText className="w-5 h-5" style={{ color: themeColors.primary }} />
                   <span className="text-sm truncate max-w-[200px]" style={{ color: themeColors.text }}>
@@ -747,71 +802,70 @@ export const GastoFormModal = ({
                 </div>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  setShouldProcessOCR(false); // Solo subir, sin OCR
-                  ocrFileInputRef.current?.click();
-                }}
-                disabled={uploadingFile}
-                className="w-full py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-all text-sm border-2 border-dashed mb-2"
-                style={{
-                  borderColor: themeColors.border,
-                  color: themeColors.textSecondary,
-                  backgroundColor: 'transparent'
-                }}
-              >
-                {uploadingFile ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Subiendo archivo...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-4 h-4" />
-                    Click para subir comprobante (PDF o imagen)
-                  </>
-                )}
-              </button>
+              /* Dos botones en un solo renglón */
+              <div className="flex gap-3">
+                {/* Botón Subir (sin OCR) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShouldProcessOCR(false);
+                    ocrFileInputRef.current?.click();
+                  }}
+                  disabled={uploadingFile || isProcessingOCR}
+                  className="flex-1 py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-all text-sm border-2"
+                  style={{
+                    borderColor: themeColors.border,
+                    color: themeColors.text,
+                    backgroundColor: themeColors.bg
+                  }}
+                >
+                  {uploadingFile ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Subiendo...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4" />
+                      Subir PDF
+                    </>
+                  )}
+                </button>
+
+                {/* Botón Procesar OCR - con animación */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShouldProcessOCR(true);
+                    ocrFileInputRef.current?.click();
+                  }}
+                  disabled={isProcessingOCR || uploadingFile}
+                  className={`flex-1 py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-all font-medium text-sm ${isProcessingOCR ? 'animate-pulse' : ''}`}
+                  style={{
+                    background: isProcessingOCR
+                      ? `linear-gradient(135deg, ${themeColors.primary}, ${themeColors.secondary})`
+                      : `linear-gradient(135deg, ${themeColors.accent}, ${themeColors.primary})`,
+                    color: '#fff',
+                    boxShadow: isProcessingOCR ? `0 0 20px ${themeColors.primary}80` : 'none'
+                  }}
+                >
+                  {isProcessingOCR ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span className="animate-pulse">{ocrProgress || 'Procesando OCR...'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Bot className="w-5 h-5" />
+                      <Zap className="w-4 h-4" />
+                      Procesar OCR
+                    </>
+                  )}
+                </button>
+              </div>
             )}
-
-            {/* Separador */}
-            <div className="flex items-center gap-2 my-2">
-              <div className="flex-1 border-t" style={{ borderColor: themeColors.border }}></div>
-              <span className="text-xs" style={{ color: themeColors.textSecondary }}>o procesar con OCR</span>
-              <div className="flex-1 border-t" style={{ borderColor: themeColors.border }}></div>
-            </div>
-
-            {/* Botón OCR */}
-            <button
-              type="button"
-              onClick={() => {
-                setShouldProcessOCR(true); // Procesar con OCR
-                ocrFileInputRef.current?.click();
-              }}
-              disabled={isProcessingOCR}
-              className="w-full py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-all font-medium text-sm"
-              style={{
-                backgroundColor: isProcessingOCR ? themeColors.primary : `${themeColors.primary}15`,
-                color: isProcessingOCR ? '#fff' : themeColors.primary,
-                border: `2px solid ${themeColors.primary}`
-              }}
-            >
-              {isProcessingOCR ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  {ocrProgress || 'Procesando con OCR...'}
-                </>
-              ) : (
-                <>
-                  <Bot className="w-4 h-4" />
-                  <Zap className="w-3 h-3" />
-                  Subir y extraer datos automáticamente (OCR)
-                </>
-              )}
-            </button>
-            <p className="text-xs mt-1 text-center" style={{ color: themeColors.textSecondary }}>
-              Sube un PDF o imagen y el sistema llenará automáticamente los campos
+            <p className="text-xs mt-2 text-center" style={{ color: themeColors.textSecondary }}>
+              Sube un comprobante o usa OCR para extraer datos automáticamente
             </p>
           </div>
 
@@ -994,16 +1048,46 @@ export const GastoFormModal = ({
             />
           </div>
 
-          {/* Sección: Montos - Grid de 4 columnas con máscara de dinero */}
+          {/* Sección: Montos - Grid de 5 columnas con máscara de dinero */}
           <div className="mb-6">
-            <h3
-              className="text-sm font-semibold uppercase tracking-wide mb-3"
-              style={{ color: themeColors.secondary }}
-            >
-              Montos
-            </h3>
-            <div className="grid grid-cols-4 gap-4">
-              {/* Subtotal con máscara */}
+            <div className="flex items-center justify-between mb-3">
+              <h3
+                className="text-sm font-semibold uppercase tracking-wide"
+                style={{ color: themeColors.secondary }}
+              >
+                Montos
+              </h3>
+              {/* Indicador de cuadre */}
+              {formData.total > 0 && (
+                <div
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium"
+                  style={{
+                    backgroundColor: errorCuadre ? '#FEE2E2' : '#D1FAE5',
+                    color: errorCuadre ? '#DC2626' : '#059669'
+                  }}
+                >
+                  {errorCuadre ? (
+                    <>
+                      <span className="text-lg">❌</span>
+                      <span>No cuadra</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-lg">✅</span>
+                      <span>Cuadre validado</span>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Fórmula visual */}
+            <div className="mb-3 p-2 rounded-lg text-xs text-center" style={{ backgroundColor: `${themeColors.primary}10`, color: themeColors.textSecondary }}>
+              <strong>Fórmula:</strong> Total = Subtotal + IVA + Retenciones
+            </div>
+
+            <div className="grid grid-cols-5 gap-3">
+              {/* Subtotal */}
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
                   Subtotal *
@@ -1022,54 +1106,86 @@ export const GastoFormModal = ({
                 />
               </div>
 
-              {/* IVA con toggle */}
+              {/* IVA con botón de calcular */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-sm font-medium" style={{ color: themeColors.text }}>
-                    IVA ({IVA_PORCENTAJE}%)
+                    IVA
                   </label>
                   <button
                     type="button"
-                    onClick={() => setCalcularIVA(!calcularIVA)}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium transition-colors"
+                    onClick={calcularIvaDesdeSubtotal}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium transition-colors hover:opacity-80"
                     style={{
-                      backgroundColor: calcularIVA ? `${themeColors.primary}30` : `${themeColors.border}`,
-                      color: calcularIVA ? themeColors.secondary : themeColors.textSecondary
+                      backgroundColor: `${themeColors.primary}30`,
+                      color: themeColors.secondary
                     }}
-                    title={calcularIVA ? 'Click para desactivar IVA' : 'Click para activar IVA'}
+                    title={`Calcular IVA al ${IVA_PORCENTAJE}%`}
                   >
                     <Calculator className="w-3 h-3" />
-                    {calcularIVA ? 'Auto' : 'Sin IVA'}
+                    {IVA_PORCENTAJE}%
                   </button>
                 </div>
                 <CurrencyInput
                   value={formData.iva}
-                  onChange={(v) => !calcularIVA && setFormData({ ...formData, iva: v })}
-                  readOnly={calcularIVA}
+                  onChange={handleIvaChange}
                   themeColors={themeColors}
-                  className={calcularIVA ? 'opacity-70' : ''}
                   style={{
                     borderColor: themeColors.border,
-                    backgroundColor: calcularIVA ? `${themeColors.primary}15` : themeColors.bg,
-                    color: calcularIVA ? themeColors.secondary : themeColors.text
+                    backgroundColor: themeColors.bg,
+                    color: themeColors.text
                   }}
                 />
               </div>
 
-              {/* Total - EDITABLE (calcula subtotal e IVA automáticamente) */}
+              {/* Retenciones */}
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
-                  Total *
+                  Retenciones
                 </label>
+                <CurrencyInput
+                  value={retenciones}
+                  onChange={handleRetencionesChange}
+                  placeholder="0.00"
+                  themeColors={themeColors}
+                  style={{
+                    borderColor: themeColors.border,
+                    backgroundColor: themeColors.bg,
+                    color: themeColors.text
+                  }}
+                />
+              </div>
+
+              {/* Total */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-sm font-medium" style={{ color: themeColors.text }}>
+                    Total *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={calcularTotalDesdeComponentes}
+                    disabled={retenciones !== 0}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium transition-colors hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{
+                      backgroundColor: retenciones === 0 ? `${themeColors.primary}30` : '#94a3b8',
+                      color: retenciones === 0 ? themeColors.secondary : '#64748b'
+                    }}
+                    title={retenciones === 0 ? "Calcular Total = Subtotal + IVA + Retenciones" : "Solo se activa cuando Retenciones es 0"}
+                  >
+                    <Calculator className="w-3 h-3" />
+                    Calc
+                  </button>
+                </div>
                 <CurrencyInput
                   value={formData.total}
                   onChange={handleTotalChange}
                   themeColors={themeColors}
                   className="font-bold focus:ring-2"
                   style={{
-                    borderColor: themeColors.primary,
-                    backgroundColor: themeColors.bg,
-                    color: themeColors.secondary
+                    borderColor: errorCuadre ? '#DC2626' : '#059669',
+                    backgroundColor: errorCuadre ? '#FEF2F2' : '#F0FDF4',
+                    color: errorCuadre ? '#DC2626' : '#059669'
                   }}
                 />
               </div>
@@ -1092,6 +1208,13 @@ export const GastoFormModal = ({
                 />
               </div>
             </div>
+
+            {/* Mensaje de error de cuadre */}
+            {errorCuadre && (
+              <div className="mt-2 p-2 rounded-lg text-sm" style={{ backgroundColor: '#FEE2E2', color: '#DC2626' }}>
+                ⚠️ {errorCuadre}
+              </div>
+            )}
           </div>
 
           {/* Sección: Detalles - Grid de 4 columnas */}
@@ -1102,7 +1225,7 @@ export const GastoFormModal = ({
             >
               Detalles
             </h3>
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               {/* Forma de pago */}
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
@@ -1168,25 +1291,7 @@ export const GastoFormModal = ({
                 </select>
               </div>
 
-              {/* Status de pago */}
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
-                  Status de Pago
-                </label>
-                <select
-                  value={formData.status_pago}
-                  onChange={(e) => setFormData({ ...formData, status_pago: e.target.value })}
-                  className="w-full px-4 py-2.5 border-2 rounded-lg"
-                  style={{
-                    borderColor: themeColors.border,
-                    backgroundColor: themeColors.bg,
-                    color: themeColors.text
-                  }}
-                >
-                  <option value="pendiente">Pendiente</option>
-                  <option value="pagado">Pagado</option>
-                </select>
-              </div>
+              {/* Status de pago - SIEMPRE PAGADO (oculto - no se muestra al usuario) */}
             </div>
           </div>
 

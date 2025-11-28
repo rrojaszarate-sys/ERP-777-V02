@@ -297,20 +297,59 @@ export class TextDataExtractor {
 
   private static normalizarFecha(fechaStr: string): string | null {
     try {
+      // Mapeo de meses en español
+      const mesesMap: Record<string, string> = {
+        'enero': '01', 'ene': '01', 'jan': '01',
+        'febrero': '02', 'feb': '02',
+        'marzo': '03', 'mar': '03',
+        'abril': '04', 'abr': '04', 'apr': '04',
+        'mayo': '05', 'may': '05',
+        'junio': '06', 'jun': '06',
+        'julio': '07', 'jul': '07',
+        'agosto': '08', 'ago': '08', 'aug': '08',
+        'septiembre': '09', 'sep': '09', 'sept': '09',
+        'octubre': '10', 'oct': '10',
+        'noviembre': '11', 'nov': '11',
+        'diciembre': '12', 'dic': '12', 'dec': '12'
+      };
+
+      // Limpiar la fecha de horas al final
+      const fechaLimpia = fechaStr.replace(/\s+\d{1,2}:\d{2}(:\d{2})?.*$/, '').trim();
+
       // Si ya está en formato ISO
-      if (/^\d{4}-\d{2}-\d{2}$/.test(fechaStr)) {
-        return fechaStr;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(fechaLimpia)) {
+        return fechaLimpia;
+      }
+
+      // Formato: "22 de Noviembre del 2021" o "22 de Noviembre de 2021"
+      const matchTexto = fechaLimpia.match(/^(\d{1,2})\s*(?:de\s+)?([a-záéíóú]+)\s*(?:del?\s+)?(\d{4})$/i);
+      if (matchTexto) {
+        const [, dia, mesTexto, año] = matchTexto;
+        const mesNum = mesesMap[mesTexto.toLowerCase()];
+        if (mesNum) {
+          return `${año}-${mesNum}-${dia.padStart(2, '0')}`;
+        }
+      }
+
+      // Formato: "04/Jun/2025" o "04-Jun-2025"
+      const matchMesCorto = fechaLimpia.match(/^(\d{1,2})[-\/]([a-záéíóú]{3,10})[-\/](\d{4})$/i);
+      if (matchMesCorto) {
+        const [, dia, mesTexto, año] = matchMesCorto;
+        const mesNum = mesesMap[mesTexto.toLowerCase()];
+        if (mesNum) {
+          return `${año}-${mesNum}-${dia.padStart(2, '0')}`;
+        }
       }
 
       // Formato dd/mm/yyyy o dd-mm-yyyy
-      const matchDMY = fechaStr.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+      const matchDMY = fechaLimpia.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
       if (matchDMY) {
         const [, dia, mes, año] = matchDMY;
         return `${año}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
       }
 
       // Formato dd/mm/yy o dd-mm-yy
-      const matchDMY2 = fechaStr.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2})$/);
+      const matchDMY2 = fechaLimpia.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2})$/);
       if (matchDMY2) {
         const [, dia, mes, año] = matchDMY2;
         const añoCompleto = parseInt(año) > 50 ? '19' + año : '20' + año;
@@ -318,13 +357,13 @@ export class TextDataExtractor {
       }
 
       // Formato yyyy/mm/dd
-      const matchYMD = fechaStr.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/);
+      const matchYMD = fechaLimpia.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/);
       if (matchYMD) {
         const [, año, mes, dia] = matchYMD;
         return `${año}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
       }
 
-      return fechaStr;
+      return fechaLimpia;
     } catch {
       return null;
     }
@@ -598,35 +637,103 @@ export class TextDataExtractor {
     let emisor: string | null = null;
     let receptor: string | null = null;
 
-    // Buscar nombre del emisor
-    const emisorPatterns = [
-      /(?:raz[oó]n\s*social|nombre\s*(?:del\s*)?emisor|proveedor)[:\s]*([A-ZÁÉÍÓÚÑÜ][A-Za-záéíóúñü\s&\.,\-]{5,80})/i,
-      /emisor[^\n]*nombre[:\s]*([A-ZÁÉÍÓÚÑÜ][A-Za-záéíóúñü\s&\.,\-]{5,80})/i
-    ];
+    const lineas = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
-    for (const pattern of emisorPatterns) {
-      const match = texto.match(pattern);
-      if (match) {
-        emisor = match[1].trim();
+    // ===== ESTRATEGIA 1: Buscar nombre DESPUÉS de marcador "Emisor" o "DATOS EMISOR" =====
+    for (let i = 0; i < lineas.length; i++) {
+      const lineaLower = lineas[i].toLowerCase();
+
+      // Detectar línea de encabezado de emisor
+      if (lineaLower.match(/^(?:datos?\s*)?emisor$|^emisor\s*$/i)) {
+        // Tomar la siguiente línea como nombre del emisor
+        for (let j = i + 1; j < Math.min(i + 4, lineas.length); j++) {
+          const candidato = lineas[j];
+          // Debe ser texto largo (nombre empresa), no RFC ni fecha
+          if (candidato.length > 10 &&
+              !candidato.match(/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/i) && // No es RFC
+              !candidato.match(/^\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}$/) && // No es fecha
+              !candidato.match(/^(?:rfc|régimen|regimen|domicilio|tel)/i)) { // No es otro campo
+            emisor = candidato;
+            console.log('👤 Emisor encontrado después de encabezado:', emisor);
+            break;
+          }
+        }
         break;
       }
     }
 
-    // Buscar nombre del receptor
-    const receptorPatterns = [
-      /(?:receptor|cliente|comprador)[:\s]*([A-ZÁÉÍÓÚÑÜ][A-Za-záéíóúñü\s&\.,\-]{5,80})/i,
-      /nombre\s*(?:del\s*)?receptor[:\s]*([A-ZÁÉÍÓÚÑÜ][A-Za-záéíóúñü\s&\.,\-]{5,80})/i
-    ];
+    // ===== ESTRATEGIA 2: Buscar "Razón Social:" o "Nombre:" =====
+    if (!emisor) {
+      const emisorPatterns = [
+        /(?:raz[oó]n\s*social|nombre\s*(?:del\s*)?emisor)[:\s]+([A-ZÁÉÍÓÚÑÜ][A-Za-záéíóúñü\s&\.,\-()]{5,100}?)(?:\s*(?:rfc|r\.f\.c|régimen|$))/i,
+        /(?:raz[oó]n\s*social|proveedor)[:\s]+([^\n]{10,100})/i
+      ];
 
-    for (const pattern of receptorPatterns) {
-      const match = texto.match(pattern);
-      if (match) {
-        receptor = match[1].trim();
+      for (const pattern of emisorPatterns) {
+        const match = texto.match(pattern);
+        if (match && match[1]) {
+          emisor = match[1].trim().replace(/\s+/g, ' ');
+          // Limpiar basura al final
+          emisor = emisor.replace(/\s*(rfc|r\.f\.c|régimen).*$/i, '').trim();
+          if (emisor.length > 5) {
+            console.log('👤 Emisor por patrón razón social:', emisor);
+            break;
+          }
+        }
+      }
+    }
+
+    // ===== ESTRATEGIA 3: Buscar nombre del RECEPTOR =====
+    for (let i = 0; i < lineas.length; i++) {
+      const lineaLower = lineas[i].toLowerCase();
+
+      // Detectar línea "Receptor" o "Cliente"
+      if (lineaLower.match(/^(?:datos?\s*)?receptor$|^cliente$/i)) {
+        // Buscar en las siguientes líneas el nombre
+        for (let j = i + 1; j < Math.min(i + 5, lineas.length); j++) {
+          const candidato = lineas[j];
+          // Buscar línea que tenga "Cliente:" o "Nombre:" o sea un nombre largo
+          const matchNombre = candidato.match(/(?:cliente|nombre)[:\s]+([A-ZÁÉÍÓÚÑÜ][A-Za-záéíóúñü\s]{5,60})/i);
+          if (matchNombre) {
+            receptor = matchNombre[1].trim();
+            console.log('👤 Receptor encontrado:', receptor);
+            break;
+          }
+          // Si es un nombre en mayúsculas largo
+          if (candidato.length > 10 && candidato.length < 80 &&
+              candidato.match(/^[A-ZÁÉÍÓÚÑÜ][A-Za-záéíóúñü\s]+$/) &&
+              !candidato.match(/^(?:rfc|uso|cfdi|régimen)/i)) {
+            receptor = candidato;
+            console.log('👤 Receptor por línea después de encabezado:', receptor);
+            break;
+          }
+        }
         break;
       }
     }
 
-    console.log('👤 Nombres - Emisor:', emisor, '| Receptor:', receptor);
+    // ===== ESTRATEGIA 4: Buscar "NOMBRE O RAZON SOCIAL:" para receptor =====
+    if (!receptor) {
+      const receptorPatterns = [
+        /nombre\s*(?:o\s*)?raz[oó]n\s*social[:\s]+([A-ZÁÉÍÓÚÑÜ][A-Za-záéíóúñü\s]{5,60})/i,
+        /cliente[:\s]+([A-ZÁÉÍÓÚÑÜ][A-Za-záéíóúñü\s]{5,60})/i
+      ];
+
+      for (const pattern of receptorPatterns) {
+        const match = texto.match(pattern);
+        if (match && match[1]) {
+          receptor = match[1].trim();
+          // Limpiar basura
+          receptor = receptor.replace(/\s*(r\.?f\.?c|uso|cfdi).*$/i, '').trim();
+          if (receptor.length > 5) {
+            console.log('👤 Receptor por patrón:', receptor);
+            break;
+          }
+        }
+      }
+    }
+
+    console.log('👤 Nombres finales - Emisor:', emisor, '| Receptor:', receptor);
     return { emisor, receptor };
   }
 
@@ -663,16 +770,53 @@ export class TextDataExtractor {
   }
 
   private static extractFechaEmision(texto: string): string | null {
+    // Patrones para fechas con etiqueta "Fecha" o "Fecha de emisión"
     const patterns = [
-      /fecha\s*(?:de\s*)?emisi[oó]n[:\s]*(\d{4}-\d{2}-\d{2}|\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})/i,
-      /fecha\s*(?:de\s*)?expedici[oó]n[:\s]*(\d{4}-\d{2}-\d{2}|\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})/i,
-      /emisi[oó]n[:\s]*(\d{4}-\d{2}-\d{2})/i
+      // Formato: Fecha: 04/Jun/2025 10:22:23
+      /fecha[:\s]+(\d{1,2}[-\/][a-záéíóú]{3,10}[-\/]\d{4})\s*\d{1,2}:\d{2}/i,
+      // Formato: Fecha: 04/Jun/2025
+      /fecha[:\s]+(\d{1,2}[-\/][a-záéíóú]{3,10}[-\/]\d{4})/i,
+      // Formato: FECHA\n22 de Noviembre\ndel 2021 09:30:00
+      /fecha[\n\s]+(\d{1,2}\s+(?:de\s+)?[a-záéíóú]+)[\n\s]+(?:del?\s+)?(\d{4})/i,
+      // Formato: Fecha de emisión: 2024-12-25
+      /fecha\s*(?:de\s*)?emisi[oó]n[:\s]*(\d{4}-\d{2}-\d{2})/i,
+      // Formato: Fecha: 25/12/2024
+      /fecha[:\s]+(\d{1,2}[-\/]\d{1,2}[-\/]\d{4})/i,
+      // Formato: Fecha expedición: dd/mm/yyyy
+      /fecha\s*(?:de\s*)?expedici[oó]n[:\s]*(\d{1,2}[-\/]\d{1,2}[-\/]\d{4})/i
     ];
 
     for (const pattern of patterns) {
       const match = texto.match(pattern);
       if (match) {
+        // Si el patrón capturó mes/año por separado (grupo 1 = "22 de Noviembre", grupo 2 = "2021")
+        if (match[2]) {
+          const fechaCombinada = `${match[1]} ${match[2]}`;
+          return this.normalizarFecha(fechaCombinada);
+        }
         return this.normalizarFecha(match[1]);
+      }
+    }
+
+    // Buscar línea de fecha en formato especial de facturas mexicanas
+    const lineas = texto.split('\n');
+    for (let i = 0; i < lineas.length; i++) {
+      if (lineas[i].toLowerCase().includes('fecha')) {
+        // Buscar fecha en las siguientes 2 líneas
+        for (let j = i; j <= Math.min(i + 2, lineas.length - 1); j++) {
+          const linea = lineas[j];
+          // Buscar "22 de Noviembre" seguido en la siguiente línea de "del 2021"
+          const matchTexto = linea.match(/(\d{1,2})\s+(?:de\s+)?([a-záéíóú]+)/i);
+          if (matchTexto) {
+            // Buscar año en siguiente línea
+            const siguienteLinea = lineas[j + 1] || '';
+            const matchAnio = siguienteLinea.match(/(?:del?\s+)?(\d{4})/);
+            if (matchAnio) {
+              const fechaCompleta = `${matchTexto[1]} de ${matchTexto[2]} del ${matchAnio[1]}`;
+              return this.normalizarFecha(fechaCompleta);
+            }
+          }
+        }
       }
     }
 
@@ -742,29 +886,49 @@ export class TextDataExtractor {
   }
 
   private static extractIVAFactura(texto: string, total: number | null, subtotal: number | null): number | null {
-    // Patrones SIN flag global para capturar grupos
+    // PRIMERO: Si tenemos subtotal, calcular IVA (más confiable que extraer)
+    if (total && subtotal && total > subtotal) {
+      const ivaCalculado = Math.round((total - subtotal) * 100) / 100;
+      // Validar que sea aproximadamente 16% del subtotal
+      const porcentajeCalculado = (ivaCalculado / subtotal) * 100;
+      if (porcentajeCalculado >= 14 && porcentajeCalculado <= 18) {
+        console.log('📈 IVA calculado desde subtotal:', ivaCalculado, `(${porcentajeCalculado.toFixed(1)}%)`);
+        return ivaCalculado;
+      }
+    }
+
+    // Patrones ESPECÍFICOS para IVA con monto en pesos (debe tener decimales .XX)
+    // Priorizamos patrones con $ o montos grandes para evitar confundir con porcentaje
     const patterns = [
-      /(?:iva|i\.v\.a\.?)\s*(?:trasladado)?(?:\s*16\s*%)?[:\s$]*\$?\s*([0-9]{1,3}(?:[,\s]?[0-9]{3})*(?:\.[0-9]{2})?)/i,
-      /impuesto\s*trasladado[:\s$]*\$?\s*([0-9]{1,3}(?:[,\s]?[0-9]{3})*(?:\.[0-9]{2})?)/i
+      // IVA Trasladado $1,234.56 o IVA: $1234.56
+      /(?:iva|i\.v\.a\.?)\s*(?:trasladado|16%?)?[:\s]*\$\s*([0-9]{1,3}(?:,?[0-9]{3})*\.[0-9]{2})/i,
+      // Impuesto Trasladado: $1,234.56
+      /impuesto\s*(?:trasladado)?[:\s]*\$\s*([0-9]{1,3}(?:,?[0-9]{3})*\.[0-9]{2})/i,
+      // IVA    1,234.56 (con espacio, sin $, pero con decimales obligatorios)
+      /(?:iva|i\.v\.a\.?)\s*(?:trasladado|16%)?[:\s]+([0-9]{1,3}(?:,?[0-9]{3})*\.[0-9]{2})\b/i,
+      // Traslados IVA 16%: $1,234.56 (formato SAT común)
+      /traslados?\s*(?:iva|i\.v\.a\.?)\s*(?:16%?)?[:\s]*\$?\s*([0-9]{1,3}(?:,?[0-9]{3})*\.[0-9]{2})/i
     ];
 
     for (const pattern of patterns) {
       const match = texto.match(pattern);
       if (match && match[1]) {
-        const numStr = match[1].replace(/,/g, '').replace(/\s/g, '');
+        const numStr = match[1].replace(/,/g, '');
         const num = parseFloat(numStr);
-        if (!isNaN(num) && num > 0) {
-          console.log('📈 IVA factura:', num);
+        // El IVA debe ser > 1 peso (no confundir con porcentaje como 16 o 0.16)
+        // y menor que el total
+        if (!isNaN(num) && num > 1 && (!total || num < total)) {
+          console.log('📈 IVA factura extraído:', num);
           return num;
         }
       }
     }
 
-    // Si tenemos total y subtotal, calcular
-    if (total && subtotal && total > subtotal) {
-      const iva = Math.round((total - subtotal) * 100) / 100;
-      console.log('📈 IVA calculado:', iva);
-      return iva;
+    // FALLBACK: Si tenemos total pero no subtotal, calcular IVA al 16%
+    if (total && total > 0 && !subtotal) {
+      const ivaEstimado = Math.round((total / 1.16) * 0.16 * 100) / 100;
+      console.log('📈 IVA estimado al 16%:', ivaEstimado);
+      return ivaEstimado;
     }
 
     return null;

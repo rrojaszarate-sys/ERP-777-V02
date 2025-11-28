@@ -937,8 +937,9 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
                 </div>
               )}
               <div className="text-xs text-gray-500 border-t pt-2 space-y-1">
-                <div className="text-blue-600">Cobr: {formatCurrency(evento.ingresos_cobrados || 0)}</div>
-                <div className="text-slate-600">Pend: {formatCurrency(evento.ingresos_pendientes || 0)}</div>
+                <div className="text-blue-600 flex items-center gap-1">
+                  <span className="text-green-500">✓</span> Facturado: {formatCurrency(ingresosTotales)}
+                </div>
                 <div className="text-gray-400">Ppto: {formatCurrency(ingresoEstimado)}</div>
               </div>
             </div>
@@ -1048,8 +1049,6 @@ const IngresosTab: React.FC<{
   const totalCobrados = evento.ingresos_cobrados || 0;
   const totalPendientes = evento.ingresos_pendientes || 0;
   const porcentajeCobrado = totalIngresos > 0 ? (totalCobrados / totalIngresos) * 100 : 0;
-
-  // Contar facturas de los arrays locales
   const numFacturasCobradas = ingresos.filter(i => i.cobrado).length;
   const numFacturasPendientes = ingresos.filter(i => !i.cobrado).length;
 
@@ -1060,37 +1059,42 @@ const IngresosTab: React.FC<{
       exit={{ opacity: 0, y: -20 }}
       className="p-6"
     >
-      {/* RESUMEN DE INGRESOS - 3 FICHAS + BOTÓN AGREGAR */}
+      {/* RESUMEN DE INGRESOS - CON ESTADOS COBRADOS/PENDIENTES */}
       <div className="grid grid-cols-4 gap-3 mb-6">
+        {/* FICHA 1: Total Ingresos */}
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">
           <div className="flex items-start justify-between gap-2 mb-0.5">
             <div className="text-[10px] text-blue-700 font-semibold uppercase tracking-wide">Total Ingresos</div>
-            <div className="text-[10px] text-blue-600 font-semibold">{porcentajeCobrado.toFixed(0)}%</div>
+            <div className="text-[10px] text-blue-600 font-semibold">{ingresos.length} facturas</div>
           </div>
           <div className="text-xl font-bold text-blue-900">{formatCurrency(totalIngresos)}</div>
         </div>
 
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">
+        {/* FICHA 2: Cobrados */}
+        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-3 border border-green-200">
           <div className="flex items-start justify-between gap-2 mb-0.5">
-            <div className="text-[10px] text-blue-700 font-semibold uppercase tracking-wide">Cobrados</div>
-            <div className="text-[10px] text-blue-600 font-semibold">{numFacturasCobradas} fact</div>
+            <div className="text-[10px] text-green-700 font-semibold uppercase tracking-wide">Cobrados</div>
+            <div className="text-[10px] text-green-600 font-semibold">{porcentajeCobrado.toFixed(0)}%</div>
           </div>
-          <div className="text-xl font-bold text-blue-900">{formatCurrency(totalCobrados)}</div>
+          <div className="text-xl font-bold text-green-800">{formatCurrency(totalCobrados)}</div>
+          <div className="text-[10px] text-green-600 mt-1">{numFacturasCobradas} facturas cobradas</div>
         </div>
 
-        <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg p-3 border border-slate-200">
+        {/* FICHA 3: Pendientes */}
+        <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg p-3 border border-amber-200">
           <div className="flex items-start justify-between gap-2 mb-0.5">
-            <div className="text-[10px] text-slate-700 font-semibold uppercase tracking-wide">Pendientes</div>
-            <div className="text-[10px] text-slate-600 font-semibold">{numFacturasPendientes} fact</div>
+            <div className="text-[10px] text-amber-700 font-semibold uppercase tracking-wide">Pendientes</div>
+            <div className="text-[10px] text-amber-600 font-semibold">{(100 - porcentajeCobrado).toFixed(0)}%</div>
           </div>
-          <div className="text-xl font-bold text-slate-900">{formatCurrency(totalPendientes)}</div>
+          <div className="text-xl font-bold text-amber-800">{formatCurrency(totalPendientes)}</div>
+          <div className="text-[10px] text-amber-600 mt-1">{numFacturasPendientes} facturas pendientes</div>
         </div>
 
         {/* BOTÓN AGREGAR INGRESO */}
         {canCreate('ingresos') && (
           <button
             onClick={onCreateIngreso}
-            className="bg-gradient-to-br from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 border border-slate-400 rounded-lg p-3 transition-all flex flex-col items-center justify-center gap-1.5 group shadow-sm"
+            className="bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 border border-green-400 rounded-lg p-3 transition-all flex flex-col items-center justify-center gap-1.5 group shadow-sm"
           >
             <Plus className="w-6 h-6 text-white" />
             <span className="text-[10px] font-semibold text-white uppercase tracking-wide text-center">Agregar<br/>Ingreso</span>
@@ -1186,9 +1190,9 @@ const GastosTab: React.FC<{
   };
 
   // Calcular totales desde la vista (siempre usar vw_eventos_analisis_financiero)
-  const totalGastado = evento.gastos_pagados_total || 0;
-  const totalPendiente = evento.gastos_pendientes_total || 0;
+  // NOTA: Todos los gastos ahora nacen como "pagados"
   const totalGastos = evento.gastos_totales || 0; // Desde la vista
+  const numGastos = gastos.length;
 
   // Provisiones
   const totalProvisionado = (evento.provision_combustible_peaje || 0) +
@@ -1258,73 +1262,31 @@ const GastosTab: React.FC<{
           )}
         </button>
 
-        {/* FICHA 2: Gastado + Pagados + Por Pagar - Todo junto con líneas verticales */}
+        {/* FICHA 2: Gastado - SIMPLIFICADO (todos pagados) */}
         <button
           onClick={() => setIsDesgloseExpanded(!isDesgloseExpanded)}
-          className="col-span-2 bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg p-3 border border-slate-200 hover:shadow-md transition-all text-left flex"
+          className="col-span-2 bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg p-3 border border-slate-200 hover:shadow-md transition-all text-left"
         >
-          {/* Gastado - Lado izquierdo */}
-          <div className="flex-1 pr-3">
-            <div className="flex items-start justify-between gap-1 mb-0.5">
-              <div className="text-[10px] text-slate-700 font-semibold uppercase tracking-wide">Gastado</div>
-              <div className="text-[10px] text-slate-600 font-semibold">
-                {totalProvisionado > 0 ? ((totalGastos / totalProvisionado) * 100).toFixed(0) : 0}%
-              </div>
+          <div className="flex items-start justify-between gap-1 mb-0.5">
+            <div className="text-[10px] text-slate-700 font-semibold uppercase tracking-wide">Total Gastado</div>
+            <div className="text-[10px] text-green-600 font-semibold flex items-center gap-1">
+              <span>✓</span> {numGastos} gastos
             </div>
+          </div>
+          <div className="flex items-baseline gap-3">
             <div className="text-xl font-bold text-slate-900">{formatCurrency(totalGastos)}</div>
-            {isDesgloseExpanded && (
-              <div className="text-[9px] text-slate-600 mt-1 space-y-0.5">
-                <div>⛽ {formatCurrency(gastosCombustible)}</div>
-                <div>🛠️ {formatCurrency(gastosMateriales)}</div>
-                <div>👥 {formatCurrency(gastosRH)}</div>
-                <div>💳 {formatCurrency(gastosSPS)}</div>
-              </div>
-            )}
-          </div>
-
-          {/* Divisor vertical */}
-          <div className="w-px bg-slate-300 my-1"></div>
-
-          {/* Pagados - Centro */}
-          <div className="flex-1 px-3">
-            <div className="flex items-start justify-between gap-1 mb-0.5">
-              <div className="text-[10px] text-blue-700 font-semibold uppercase tracking-wide">Pagados</div>
-              <div className="text-[10px] text-blue-600 font-semibold">
-                {totalGastos > 0 ? ((totalGastado / totalGastos) * 100).toFixed(0) : 0}%
-              </div>
+            <div className="text-[10px] text-slate-500">
+              ({totalProvisionado > 0 ? ((totalGastos / totalProvisionado) * 100).toFixed(0) : 0}% del presupuesto)
             </div>
-            <div className="text-lg font-bold text-blue-900">{formatCurrency(totalGastado)}</div>
-            {isDesgloseExpanded && (
-              <div className="text-[9px] text-blue-600 mt-1 space-y-0.5">
-                <div>⛽ {formatCurrency(evento.gastos_combustible_pagados || 0)}</div>
-                <div>🛠️ {formatCurrency(evento.gastos_materiales_pagados || 0)}</div>
-                <div>👥 {formatCurrency(evento.gastos_rh_pagados || 0)}</div>
-                <div>💳 {formatCurrency(evento.gastos_sps_pagados || 0)}</div>
-              </div>
-            )}
           </div>
-
-          {/* Divisor vertical */}
-          <div className="w-px bg-slate-300 my-1"></div>
-
-          {/* Por Pagar - Lado derecho */}
-          <div className="flex-1 pl-3">
-            <div className="flex items-start justify-between gap-1 mb-0.5">
-              <div className="text-[10px] text-orange-700 font-semibold uppercase tracking-wide">Por Pagar</div>
-              <div className="text-[10px] text-orange-600 font-semibold">
-                {totalGastos > 0 ? ((totalPendiente / totalGastos) * 100).toFixed(0) : 0}%
-              </div>
+          {isDesgloseExpanded && (
+            <div className="text-[9px] text-slate-600 mt-2 grid grid-cols-4 gap-2">
+              <div>⛽ {formatCurrency(gastosCombustible)}</div>
+              <div>🛠️ {formatCurrency(gastosMateriales)}</div>
+              <div>👥 {formatCurrency(gastosRH)}</div>
+              <div>💳 {formatCurrency(gastosSPS)}</div>
             </div>
-            <div className="text-lg font-bold text-orange-900">{formatCurrency(totalPendiente)}</div>
-            {isDesgloseExpanded && (
-              <div className="text-[9px] text-orange-600 mt-1 space-y-0.5">
-                <div>⛽ {formatCurrency(evento.gastos_combustible_pendientes || 0)}</div>
-                <div>🛠️ {formatCurrency(evento.gastos_materiales_pendientes || 0)}</div>
-                <div>👥 {formatCurrency(evento.gastos_rh_pendientes || 0)}</div>
-                <div>💳 {formatCurrency(evento.gastos_sps_pendientes || 0)}</div>
-              </div>
-            )}
-          </div>
+          )}
         </button>
 
         {/* FICHA 4: Provisión (antes Por Ejercer) - Clickeable completa */}
