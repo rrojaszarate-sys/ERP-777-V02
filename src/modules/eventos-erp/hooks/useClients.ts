@@ -60,13 +60,13 @@ export const useClients = () => {
 
       try {
         // Test connectivity first
-        const { error: connectError } = await supabase.from('evt_clientes').select('id').limit(1);
+        const { error: connectError } = await supabase.from('evt_clientes_erp').select('id').limit(1);
         if (connectError) {
           throw new Error(`Connectivity issue: ${connectError.message}`);
         }
 
         const { data, error } = await supabase
-          .from('evt_clientes')
+          .from('evt_clientes_erp')
           .select('*')
           .eq('activo', true)
           .order('razon_social');
@@ -97,7 +97,7 @@ export const useClients = () => {
         } else {
           try {
             const { data: userData } = await supabase
-              .from('users_erp')
+              .from('core_users')
               .select('company_id')
               .eq('id', user.id)
               .single();
@@ -112,7 +112,7 @@ export const useClients = () => {
       }
 
       const { data, error } = await supabase
-        .from('evt_clientes')
+        .from('evt_clientes_erp')
         .insert([{
           ...clientData,
           company_id,
@@ -135,7 +135,7 @@ export const useClients = () => {
   const updateClientMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Cliente> }): Promise<Cliente> => {
       const { data: updatedData, error } = await supabase
-        .from('evt_clientes')
+        .from('evt_clientes_erp')
         .update({
           ...data,
           updated_at: new Date().toISOString()
@@ -157,7 +157,7 @@ export const useClients = () => {
     mutationFn: async (id: string): Promise<void> => {
       // Soft delete - mark as inactive
       const { error } = await supabase
-        .from('evt_clientes')
+        .from('evt_clientes_erp')
         .update({ 
           activo: false,
           updated_at: new Date().toISOString()
@@ -175,7 +175,7 @@ export const useClients = () => {
   const getClientById = async (id: string): Promise<Cliente | null> => {
     try {
       const { data, error } = await supabase
-        .from('evt_clientes')
+        .from('evt_clientes_erp')
         .select('*')
         .eq('id', id)
         .eq('activo', true)
@@ -249,7 +249,7 @@ export const useClientEvents = (clientId: string) => {
     queryFn: async () => {
       try {
         const { data, error } = await supabase
-          .from('evt_eventos')
+          .from('evt_eventos_erp')
           .select(`
             id,
             clave_evento,
@@ -281,14 +281,14 @@ export const useClientStats = () => {
     queryFn: async () => {
       try {
         const { data: clients, error: clientsError } = await supabase
-          .from('evt_clientes')
+          .from('evt_clientes_erp')
           .select('id, email, telefono')
           .eq('activo', true);
 
         if (clientsError) throw clientsError;
 
         const { count: totalEvents, error: eventsError } = await supabase
-          .from('evt_eventos')
+          .from('evt_eventos_erp')
           .select('*', { count: 'exact', head: true })
           .eq('activo', true);
 

@@ -79,7 +79,7 @@ export class FileUploadService {
 
     // Obtener la clave_evento para usarla en la ruta
     const { data: eventData, error: eventError } = await supabase
-      .from('evt_eventos')
+      .from('evt_eventos_erp')
       .select('clave_evento')
       .eq('id', eventId)
       .single();
@@ -155,7 +155,7 @@ export class FileUploadService {
 
     // Obtener la clave_evento para usarla en la ruta
     const { data: eventData, error: eventError } = await supabase
-      .from('evt_eventos')
+      .from('evt_eventos_erp')
       .select('clave_evento')
       .eq('id', eventId)
       .single();

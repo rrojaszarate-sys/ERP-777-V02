@@ -4,7 +4,7 @@ import { Database } from '../core/types/database';
 import { dbLogger } from '../core/utils/logger';
 
 type Db = Database['public']['Tables'];
-type Evento = Db['evt_eventos']['Row'] & { evt_estados: Db['evt_estados']['Row'] | null };
+type Evento = Db['evt_eventos']['Row'] & { evt_estados_erp: Db['evt_estados_erp']['Row'] | null };
 
 export interface AccountingStateResult {
   eventId: string;
@@ -60,7 +60,7 @@ export class AccountingStateService {
 
       // Get the updated event state
       const { data: eventData, error: eventError } = await supabase
-        .from('evt_eventos')
+        .from('evt_eventos_erp')
         .select(`
           id,
           estado_id,
@@ -215,7 +215,7 @@ export class AccountingStateService {
   }> {
     try {
       const { data: incomes, error } = await supabase
-        .from('evt_ingresos')
+        .from('evt_ingresos_erp')
         .select('facturado, pagado, fecha_compromiso_pago')
         .eq('evento_id', eventId);
 
@@ -244,11 +244,11 @@ export class AccountingStateService {
   async getEventsNeedingReview(): Promise<any[]> {
     try {
       const { data, error } = await supabase
-        .from('evt_eventos')
+        .from('evt_eventos_erp')
         .select(`
           id,
           estado_id,
-          evt_estados!inner ( nombre ),
+          evt_estados_erp!inner ( nombre ),
           evt_ingresos (
             id,
             facturado,
@@ -257,7 +257,7 @@ export class AccountingStateService {
             total
           )
         `)
-        .eq('evt_estados.nombre', 'Cerrado')
+        .eq('evt_estados_erp.nombre', 'Cerrado')
         .eq('activo', true);
 
       if (error) throw error;
@@ -279,7 +279,7 @@ export class AccountingStateService {
     try {
       // ✅ CORREGIDO: Usar tabla evt_ingresos directamente en lugar de vista inexistente
       const { data, error } = await supabase
-        .from('evt_ingresos')
+        .from('evt_ingresos_erp')
         .select(`
           id,
           concepto,
@@ -291,7 +291,7 @@ export class AccountingStateService {
             clave_evento,
             nombre_proyecto,
             cliente_id,
-            evt_clientes ( razon_social, nombre_comercial )
+            evt_clientes_erp ( razon_social, nombre_comercial )
           )
         `)
         .eq('facturado', true)
@@ -305,8 +305,8 @@ export class AccountingStateService {
       return (data || []).map((income: any) => ({
         ...income,
         dias_vencido: this.calculateDaysOverdue(income.fecha_compromiso_pago),
-        cliente_nombre: income.evt_eventos?.evt_clientes?.nombre_comercial || 
-                       income.evt_eventos?.evt_clientes?.razon_social || 'Sin cliente'
+        cliente_nombre: income.evt_eventos?.evt_clientes_erp?.nombre_comercial || 
+                       income.evt_eventos?.evt_clientes_erp?.razon_social || 'Sin cliente'
       }));
     } catch (error) {
       console.error('Error getting overdue payments report:', error);
@@ -331,7 +331,7 @@ export class AccountingStateService {
   ): Promise<void> {
     try {
       const { data: income, error: fetchError } = await supabase
-        .from('evt_ingresos')
+        .from('evt_ingresos_erp')
         .select('evento_id, concepto, total')
         .eq('id', incomeId)
         .single();
@@ -340,7 +340,7 @@ export class AccountingStateService {
       if (!income) throw new Error('Income not found');
 
       const { error: updateError } = await supabase
-        .from('evt_ingresos')
+        .from('evt_ingresos_erp')
         .update({
           ...updates,
           updated_at: new Date().toISOString()
@@ -407,20 +407,20 @@ export class AccountingStateService {
     try {
       // Get states statistics
       const { data: stateStats, error: stateError } = await supabase
-        .from('evt_eventos')
+        .from('evt_eventos_erp')
         .select(`
           id,
           estado_id,
           total,
-          evt_estados!inner ( nombre )
+          evt_estados_erp!inner ( nombre )
         `)
         .eq('activo', true)
-        .in('evt_estados.nombre', ['Cerrado', 'Pagos Pendiente', 'Pagados', 'Pagos Vencidos']);
+        .in('evt_estados_erp.nombre', ['Cerrado', 'Pagos Pendiente', 'Pagados', 'Pagos Vencidos']);
 
       if (stateError) throw stateError;
 
       const stats = (stateStats || []).reduce((acc: Record<string, number>, event: any) => {
-        const stateName = event.evt_estados?.nombre;
+        const stateName = event.evt_estados_erp?.nombre;
         if (stateName) {
           acc[stateName] = (acc[stateName] || 0) + 1;
         }
@@ -429,7 +429,7 @@ export class AccountingStateService {
 
       // Get overdue amounts
       const { data: overdueData, error: overdueError } = await supabase
-        .from('evt_ingresos')
+        .from('evt_ingresos_erp')
         .select('total')
         .eq('facturado', true)
         .eq('cobrado', false) // Corregido: usar 'cobrado' en vez de 'pagado'
@@ -442,7 +442,7 @@ export class AccountingStateService {
 
       // Get pending amounts
       const { data: pendingData, error: pendingError } = await supabase
-        .from('evt_ingresos')
+        .from('evt_ingresos_erp')
         .select('total')
         .eq('facturado', true)
         .eq('cobrado', false); // Corregido: usar 'cobrado' en vez de 'pagado'
@@ -453,7 +453,7 @@ export class AccountingStateService {
 
       // Calculate collection rate
       const { data: paidData, error: paidError } = await supabase
-        .from('evt_ingresos')
+        .from('evt_ingresos_erp')
         .select('total')
         .eq('facturado', true)
         .eq('cobrado', true); // Corregido: usar 'cobrado' en vez de 'pagado'
@@ -497,7 +497,7 @@ export class AccountingStateService {
   ): Promise<void> {
     try {
       const { error } = await supabase
-        .from('evt_ingresos')
+        .from('evt_ingresos_erp')
         .update({
           fecha_compromiso_pago: commitmentDate,
           updated_at: new Date().toISOString()
@@ -536,7 +536,7 @@ export class AccountingStateService {
   ): Promise<void> {
     try {
       const { error } = await supabase
-        .from('evt_ingresos')
+        .from('evt_ingresos_erp')
         .update({
           cobrado: true, // Corregido: usar 'cobrado' en vez de 'pagado'
           fecha_cobro: paymentData.fecha_cobro,
@@ -570,7 +570,7 @@ export class AccountingStateService {
   async getEventsByAccountingState(stateName: string): Promise<any[]> {
     try {
       const { data, error } = await supabase
-        .from('evt_eventos')
+        .from('evt_eventos_erp')
         .select(`
           id,
           clave_evento,
@@ -653,7 +653,7 @@ export class AccountingStateService {
         { 
           event: '*', 
           schema: 'public', 
-          table: 'evt_ingresos',
+          table: 'evt_ingresos_erp',
           filter: 'facturado=eq.true'
         }, 
         (payload) => {

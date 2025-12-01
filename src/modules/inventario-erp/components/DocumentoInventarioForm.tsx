@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '../../../core/auth/AuthProvider';
 import { useTheme } from '../../../shared/components/theme';
 import { supabase } from '../../../core/config/supabase';
@@ -20,6 +20,14 @@ import type {
   Producto,
 } from '../types';
 
+// Utilidad para timeout en promesas
+const withTimeout = <T,>(promise: Promise<T>, ms: number, errorMsg: string): Promise<T> => {
+  const timeout = new Promise<never>((_, reject) => 
+    setTimeout(() => reject(new Error(`Timeout: ${errorMsg}`)), ms)
+  );
+  return Promise.race([promise, timeout]);
+};
+
 interface DocumentoInventarioFormProps {
   tipo: TipoDocumentoInventario;
   documentoId?: number | null;
@@ -35,7 +43,8 @@ export const DocumentoInventarioForm: React.FC<DocumentoInventarioFormProps> = (
   onClose,
   onSave,
 }) => {
-  const { companyId, user } = useAuth();
+  const { user } = useAuth();
+  const companyId = user?.company_id;
   const { paletteConfig, isDark } = useTheme();
 
   // Estado del formulario
@@ -60,11 +69,18 @@ export const DocumentoInventarioForm: React.FC<DocumentoInventarioFormProps> = (
 
   // UI State
   const [loading, setLoading] = useState(true);
+  const [loadingStep, setLoadingStep] = useState<string>('Iniciando...');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showScanner, setShowScanner] = useState(false);
   const [searchProduct, setSearchProduct] = useState('');
   const [showProductSelector, setShowProductSelector] = useState(false);
+  
+  // Lector USB/Inalámbrico
+  const [scannerInput, setScannerInput] = useState('');
+  const [scannerStatus, setScannerStatus] = useState<'idle' | 'scanning' | 'success' | 'error'>('idle');
+  const [scannerMessage, setScannerMessage] = useState('');
+  const scannerInputRef = useRef<HTMLInputElement>(null);
 
   const themeColors = useMemo(() => ({
     primary: paletteConfig.primary,
@@ -80,31 +96,79 @@ export const DocumentoInventarioForm: React.FC<DocumentoInventarioFormProps> = (
   const isEditing = !!documentoId && !readOnly;
   const isViewing = readOnly;
 
-  // Cargar datos iniciales
+  // Cargar datos iniciales con mejor manejo de errores
   useEffect(() => {
+    const controller = new AbortController();
+    let isMounted = true;
+
     const loadInitialData = async () => {
-      if (!companyId) return;
+      if (!companyId) {
+        setError('No se encontró el ID de la empresa');
+        setLoading(false);
+        return;
+      }
 
       setLoading(true);
+      setError(null);
+      
       try {
-        const [almacenesData, productosData, eventosData] = await Promise.all([
+        // Cargar almacenes (con timeout de 10s)
+        setLoadingStep('Cargando almacenes...');
+        console.log('[DocumentoForm] Cargando almacenes...');
+        const almacenesData = await withTimeout(
           fetchAlmacenes(companyId),
-          fetchProductos(companyId),
-          supabase
-            .from('evt_eventos_erp')
-            .select('id, nombre')
-            .eq('company_id', companyId)
-            .order('fecha_evento', { ascending: false })
-            .limit(100),
-        ]);
-
+          10000,
+          'La carga de almacenes tardó demasiado'
+        );
+        if (!isMounted) return;
         setAlmacenes(almacenesData || []);
+        console.log('[DocumentoForm] Almacenes cargados:', almacenesData?.length || 0);
+        
+        // Cargar productos (con timeout de 15s)
+        setLoadingStep('Cargando productos...');
+        console.log('[DocumentoForm] Cargando productos...');
+        const productosData = await withTimeout(
+          fetchProductos(companyId, { limit: 100 }),
+          15000,
+          'La carga de productos tardó demasiado'
+        );
+        if (!isMounted) return;
         setProductos(productosData || []);
-        setEventos(eventosData.data || []);
+        console.log('[DocumentoForm] Productos cargados:', productosData?.length || 0);
+        
+        // Cargar eventos (opcional, con timeout corto)
+        setLoadingStep('Cargando eventos...');
+        try {
+          const { data: eventosData, error: evtError } = await withTimeout(
+            supabase
+              .from('evt_eventos_erp')
+              .select('id, nombre')
+              .eq('company_id', companyId)
+              .order('created_at', { ascending: false })
+              .limit(50),
+            5000,
+            'Carga de eventos'
+          );
+          if (!isMounted) return;
+          if (evtError) {
+            console.warn('[DocumentoForm] Error cargando eventos:', evtError.message);
+          }
+          setEventos(eventosData || []);
+        } catch (evtError: any) {
+          console.warn('[DocumentoForm] No se pudieron cargar eventos:', evtError.message);
+          setEventos([]);
+        }
 
         // Si hay documento existente, cargarlo
         if (documentoId) {
-          const doc = await fetchDocumentoById(documentoId);
+          setLoadingStep('Cargando documento...');
+          console.log('[DocumentoForm] Cargando documento:', documentoId);
+          const doc = await withTimeout(
+            fetchDocumentoById(documentoId),
+            10000,
+            'La carga del documento tardó demasiado'
+          );
+          if (!isMounted) return;
           if (doc) {
             setDocumento(doc);
             setFormData({
@@ -124,17 +188,29 @@ export const DocumentoInventarioForm: React.FC<DocumentoInventarioFormProps> = (
                 observaciones: d.observaciones || '',
               })) || [],
             });
+            console.log('[DocumentoForm] Documento cargado');
           }
         }
+        
+        setLoadingStep('Listo');
       } catch (err: any) {
-        console.error('Error cargando datos:', err);
-        setError(err.message || 'Error al cargar los datos');
+        console.error('[DocumentoForm] Error cargando datos:', err);
+        if (isMounted) {
+          setError(`Error: ${err.message || 'Error desconocido al cargar datos'}`);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     loadInitialData();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
   }, [companyId, documentoId]);
 
   // Manejar escaneo QR
@@ -195,6 +271,64 @@ export const DocumentoInventarioForm: React.FC<DocumentoInventarioFormProps> = (
     setSearchProduct('');
   }, [formData.detalles]);
 
+  // Procesar código del lector USB/Inalámbrico
+  const handleScannerInput = useCallback(async (code: string) => {
+    if (!code.trim()) return;
+    
+    setScannerStatus('scanning');
+    setScannerMessage('Buscando producto...');
+    
+    try {
+      // Buscar por código QR, clave, o código de barras
+      const producto = productos.find(p => 
+        p.codigo_qr === code || 
+        p.clave === code ||
+        p.codigo_qr?.toLowerCase() === code.toLowerCase() ||
+        p.clave?.toLowerCase() === code.toLowerCase()
+      );
+      
+      if (producto) {
+        handleAddProduct(producto);
+        setScannerStatus('success');
+        setScannerMessage(`✓ ${producto.nombre}`);
+        // Vibración de éxito si está disponible
+        if (navigator.vibrate) navigator.vibrate(100);
+      } else {
+        // Buscar en la base de datos si no está en la lista local
+        const result = await buscarProductoPorQR(code, companyId || '');
+        if (result) {
+          handleAddProduct(result);
+          setScannerStatus('success');
+          setScannerMessage(`✓ ${result.nombre}`);
+          if (navigator.vibrate) navigator.vibrate(100);
+        } else {
+          setScannerStatus('error');
+          setScannerMessage(`✗ Producto no encontrado: ${code}`);
+          if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+        }
+      }
+    } catch (err: any) {
+      setScannerStatus('error');
+      setScannerMessage(`Error: ${err.message}`);
+    }
+    
+    // Limpiar input y resetear estado después de 2 segundos
+    setScannerInput('');
+    setTimeout(() => {
+      setScannerStatus('idle');
+      setScannerMessage('');
+      scannerInputRef.current?.focus();
+    }, 2000);
+  }, [productos, companyId, handleAddProduct]);
+
+  // Manejar Enter en el campo del lector
+  const handleScannerKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleScannerInput(scannerInput);
+    }
+  }, [scannerInput, handleScannerInput]);
+
   // Actualizar cantidad
   const handleUpdateCantidad = useCallback((index: number, cantidad: number) => {
     if (cantidad < 1) return;
@@ -247,8 +381,7 @@ export const DocumentoInventarioForm: React.FC<DocumentoInventarioFormProps> = (
     const term = searchProduct.toLowerCase();
     return productos.filter(p =>
       p.nombre.toLowerCase().includes(term) ||
-      p.codigo?.toLowerCase().includes(term) ||
-      p.sku?.toLowerCase().includes(term) ||
+      p.clave?.toLowerCase().includes(term) ||
       p.codigo_qr?.toLowerCase().includes(term)
     ).slice(0, 20);
   }, [productos, searchProduct]);
@@ -256,14 +389,54 @@ export const DocumentoInventarioForm: React.FC<DocumentoInventarioFormProps> = (
   // Total de productos
   const totalProductos = formData.detalles.reduce((sum, d) => sum + d.cantidad, 0);
 
+  // Pantalla de carga con información de progreso
   if (loading) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-        <div className="bg-white p-8 rounded-xl">
-          <svg className="w-8 h-8 animate-spin mx-auto" fill="none" viewBox="0 0 24 24">
+        <div className="bg-white p-8 rounded-xl shadow-xl text-center max-w-md">
+          <svg className="w-12 h-12 animate-spin mx-auto text-blue-600 mb-4" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
           </svg>
+          <p className="text-gray-700 font-medium">{loadingStep}</p>
+          <p className="text-gray-400 text-sm mt-2">Preparando formulario...</p>
+          <button
+            onClick={onClose}
+            className="mt-4 px-4 py-2 text-sm text-gray-500 hover:text-gray-700"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Pantalla de error
+  if (error && !almacenes.length) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <div className="bg-white p-8 rounded-xl shadow-xl text-center max-w-md">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
+            <svg className="w-8 h-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Error al cargar</h3>
+          <p className="text-red-600 mb-4">{error}</p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+            >
+              Cerrar
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Reintentar
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -429,6 +602,60 @@ export const DocumentoInventarioForm: React.FC<DocumentoInventarioFormProps> = (
                 </div>
               )}
             </div>
+
+            {/* Campo de entrada para lector USB/Inalámbrico */}
+            {!isViewing && (
+              <div className="mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 relative">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                      <svg className="w-5 h-5" style={{ color: scannerStatus === 'success' ? '#10b981' : scannerStatus === 'error' ? '#ef4444' : themeColors.textMuted }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                      </svg>
+                    </div>
+                    <input
+                      ref={scannerInputRef}
+                      type="text"
+                      value={scannerInput}
+                      onChange={(e) => setScannerInput(e.target.value)}
+                      onKeyDown={handleScannerKeyDown}
+                      placeholder="📟 Escanea con lector USB o escribe código..."
+                      autoComplete="off"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-lg border-2 focus:ring-2 transition-all text-sm"
+                      style={{
+                        backgroundColor: themeColors.background,
+                        borderColor: scannerStatus === 'success' ? '#10b981' : scannerStatus === 'error' ? '#ef4444' : scannerStatus === 'scanning' ? themeColors.primary : themeColors.border,
+                        color: themeColors.text,
+                      }}
+                    />
+                    {scannerStatus === 'scanning' && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <svg className="w-5 h-5 animate-spin" style={{ color: themeColors.primary }} fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleScannerInput(scannerInput)}
+                    disabled={!scannerInput.trim() || scannerStatus === 'scanning'}
+                    className="px-4 py-2.5 rounded-lg text-white font-medium text-sm disabled:opacity-50 transition-all"
+                    style={{ backgroundColor: themeColors.primary }}
+                  >
+                    Buscar
+                  </button>
+                </div>
+                {scannerMessage && (
+                  <p className={`mt-1 text-sm font-medium ${scannerStatus === 'success' ? 'text-green-600' : scannerStatus === 'error' ? 'text-red-500' : ''}`}>
+                    {scannerMessage}
+                  </p>
+                )}
+                <p className="mt-1 text-xs" style={{ color: themeColors.textMuted }}>
+                  💡 Conecta tu lector USB/Bluetooth y escanea. El código se agregará automáticamente.
+                </p>
+              </div>
+            )}
 
             {formData.detalles.length === 0 ? (
               <div className="py-8 text-center" style={{ color: themeColors.textMuted }}>

@@ -16,7 +16,7 @@ const EventFormPage: React.FC = () => {
     queryFn: async () => {
       if (!id) return null;
       const { data, error } = await supabase
-        .from('evt_eventos')
+        .from('evt_eventos_erp')
         .select('*')
         .eq('id', id)
         .single();
@@ -31,7 +31,7 @@ const EventFormPage: React.FC = () => {
       if (id) {
         // 🔄 Actualizar evento
         const { error } = await supabase
-          .from('evt_eventos')
+          .from('evt_eventos_erp')
           .update({
             ...formData,
             estado_id: formData.estado_id || 1,
@@ -43,7 +43,7 @@ const EventFormPage: React.FC = () => {
       } else {
         // 🆕 Crear evento nuevo
         const { error } = await supabase
-          .from('evt_eventos')
+          .from('evt_eventos_erp')
           .insert([{
             ...formData,
             estado_id: formData.estado_id || 1,

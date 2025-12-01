@@ -59,7 +59,7 @@ export class WorkflowService {
 
     // Verificar si el usuario existe en users_erp
     const { data: userExists } = await supabase
-      .from('users_erp')
+      .from('core_users')
       .select('id')
       .eq('id', userId)
       .single();

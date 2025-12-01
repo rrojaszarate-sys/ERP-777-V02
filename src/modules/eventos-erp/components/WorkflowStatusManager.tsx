@@ -36,7 +36,7 @@ export const WorkflowStatusManager: React.FC<WorkflowStatusManagerProps> = ({
       await workflowService.changeEventState(evento.id, newStateId, user.id, validationData);
 
       const { data: estadoNuevo } = await supabase
-        .from('evt_estados')
+        .from('evt_estados_erp')
         .select('nombre')
         .eq('id', newStateId)
         .single();

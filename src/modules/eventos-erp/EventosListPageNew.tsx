@@ -320,7 +320,10 @@ export const EventosListPage: React.FC = () => {
               e.stopPropagation();
               toggleRowExpansion(row.id);
             }}
-            className="text-gray-500 hover:text-blue-600 transition-colors p-1 hover:bg-blue-50 rounded"
+            className="transition-colors p-1 rounded"
+            style={{ color: themeColors.textSecondary }}
+            onMouseEnter={(e) => e.currentTarget.style.color = themeColors.primary}
+            onMouseLeave={(e) => e.currentTarget.style.color = themeColors.textSecondary}
             title={isExpanded ? 'Ocultar detalles' : 'Mostrar detalles'}
           >
             {isExpanded ? '▼' : '▶'}
@@ -334,7 +337,7 @@ export const EventosListPage: React.FC = () => {
       filterType: 'text' as const,
       width: '100px',
       render: (value: string) => (
-        <div className="font-mono text-sm font-semibold text-gray-900">
+        <div className="font-mono text-sm font-semibold" style={{ color: themeColors.textPrimary }}>
           {value}
         </div>
       )
@@ -345,8 +348,8 @@ export const EventosListPage: React.FC = () => {
       filterType: 'text' as const,
       render: (value: string, row: any) => (
         <div>
-          <div className="font-medium text-gray-900">{value}</div>
-          <div className="text-xs text-gray-500">
+          <div className="font-medium" style={{ color: themeColors.textPrimary }}>{value}</div>
+          <div className="text-xs" style={{ color: themeColors.textSecondary }}>
             {formatDate(row.fecha_evento)}
           </div>
         </div>
@@ -357,7 +360,7 @@ export const EventosListPage: React.FC = () => {
       label: 'Cliente',
       filterType: 'text' as const,
       render: (value: string) => (
-        <div className="text-sm text-gray-900">{value}</div>
+        <div className="text-sm" style={{ color: themeColors.textPrimary }}>{value}</div>
       )
     },
     {
@@ -379,22 +382,22 @@ export const EventosListPage: React.FC = () => {
         const isExpanded = hoveredRow === row.id || expandedRows.has(row.id);
         return (
           <div className="text-right">
-            <div className="font-bold text-blue-900 text-base">
+            <div className="font-bold text-base" style={{ color: themeColors.primary }}>
               ${formatMoney(row.ingresos_totales || 0)}
             </div>
             {isExpanded && (
-              <div className="text-xs text-gray-500 mt-1 space-y-0.5 border-t pt-1">
+              <div className="text-xs mt-1 space-y-0.5 border-t pt-1" style={{ color: themeColors.textSecondary }}>
                 <div className="flex justify-between gap-2">
                   <span>Cobrados:</span>
-                  <span className="text-green-600 font-medium">${formatMoney(row.ingresos_cobrados || 0)}</span>
+                  <span className="font-medium" style={{ color: themeColors.shades[700] }}>${formatMoney(row.ingresos_cobrados || 0)}</span>
                 </div>
                 <div className="flex justify-between gap-2">
                   <span>Pendientes:</span>
-                  <span className="text-yellow-600 font-medium">${formatMoney(row.ingresos_pendientes || 0)}</span>
+                  <span className="font-medium" style={{ color: themeColors.secondary }}>${formatMoney(row.ingresos_pendientes || 0)}</span>
                 </div>
                 <div className="flex justify-between gap-2">
                   <span>Estimados:</span>
-                  <span className="text-gray-400">${formatMoney(row.ingreso_estimado || 0)}</span>
+                  <span style={{ color: themeColors.textSecondary }}>${formatMoney(row.ingreso_estimado || 0)}</span>
                 </div>
               </div>
             )}
@@ -421,11 +424,11 @@ export const EventosListPage: React.FC = () => {
 
         return (
           <div className="text-right">
-            <div className="font-bold text-red-900 text-base">
+            <div className="font-bold text-base" style={{ color: themeColors.accent }}>
               ${formatMoney(gastosTotal)}
             </div>
             {isExpanded && (
-              <div className="text-xs text-gray-500 mt-1 space-y-0.5 border-t pt-1">
+              <div className="text-xs mt-1 space-y-0.5 border-t pt-1" style={{ color: themeColors.textSecondary }}>
                 <div className="flex justify-between gap-2">
                   <span>Combustible:</span>
                   <span className="font-medium">${formatMoney(combustible)}</span>
@@ -470,28 +473,28 @@ export const EventosListPage: React.FC = () => {
         const disponibleRH = (row.provision_recursos_humanos || 0) - ((row.gastos_rh_pagados || 0) + (row.gastos_rh_pendientes || 0));
         const disponibleSPs = (row.provision_solicitudes_pago || 0) - ((row.gastos_sps_pagados || 0) + (row.gastos_sps_pendientes || 0));
 
-        const colorClass = disponible > 0 ? 'text-green-700' : disponible < 0 ? 'text-red-700' : 'text-gray-700';
+        const getColor = (val: number) => val > 0 ? themeColors.shades[700] : val < 0 ? themeColors.accent : themeColors.textSecondary;
 
         return (
           <div className="text-right">
-            <div className={`font-bold text-base ${colorClass}`}>
+            <div className="font-bold text-base" style={{ color: getColor(disponible) }}>
               ${formatMoney(Math.max(0, disponible))}
             </div>
             {isExpanded && (
-              <div className="text-xs text-gray-500 mt-1 space-y-0.5 border-t pt-1">
-                <div className={`flex justify-between gap-2 ${disponibleCombustible < 0 ? 'text-red-500' : ''}`}>
+              <div className="text-xs mt-1 space-y-0.5 border-t pt-1" style={{ color: themeColors.textSecondary }}>
+                <div className="flex justify-between gap-2" style={{ color: disponibleCombustible < 0 ? themeColors.accent : 'inherit' }}>
                   <span>Combustible:</span>
                   <span className="font-medium">${formatMoney(Math.max(0, disponibleCombustible))}</span>
                 </div>
-                <div className={`flex justify-between gap-2 ${disponibleMateriales < 0 ? 'text-red-500' : ''}`}>
+                <div className="flex justify-between gap-2" style={{ color: disponibleMateriales < 0 ? themeColors.accent : 'inherit' }}>
                   <span>Materiales:</span>
                   <span className="font-medium">${formatMoney(Math.max(0, disponibleMateriales))}</span>
                 </div>
-                <div className={`flex justify-between gap-2 ${disponibleRH < 0 ? 'text-red-500' : ''}`}>
+                <div className="flex justify-between gap-2" style={{ color: disponibleRH < 0 ? themeColors.accent : 'inherit' }}>
                   <span>RH:</span>
                   <span className="font-medium">${formatMoney(Math.max(0, disponibleRH))}</span>
                 </div>
-                <div className={`flex justify-between gap-2 ${disponibleSPs < 0 ? 'text-red-500' : ''}`}>
+                <div className="flex justify-between gap-2" style={{ color: disponibleSPs < 0 ? themeColors.accent : 'inherit' }}>
                   <span>Solicitudes:</span>
                   <span className="font-medium">${formatMoney(Math.max(0, disponibleSPs))}</span>
                 </div>
@@ -522,10 +525,10 @@ export const EventosListPage: React.FC = () => {
         const margenReal = ingresosTotales > 0 ? (utilidadReal / ingresosTotales) * 100 : 0;
 
         const getColorInfo = (margen: number) => {
-          if (margen >= 35) return { color: 'text-green-600', label: 'Excelente' };
-          if (margen >= 25) return { color: 'text-yellow-600', label: 'Regular' };
-          if (margen >= 1) return { color: 'text-red-600', label: 'Bajo' };
-          return { color: 'text-gray-600', label: 'Ninguno' };
+          if (margen >= 35) return { color: themeColors.shades[700], label: 'Excelente' };
+          if (margen >= 25) return { color: themeColors.secondary, label: 'Regular' };
+          if (margen >= 1) return { color: themeColors.accent, label: 'Bajo' };
+          return { color: themeColors.textSecondary, label: 'Ninguno' };
         };
         const colorInfo = getColorInfo(margenReal);
 
@@ -535,7 +538,7 @@ export const EventosListPage: React.FC = () => {
         return (
           <div className="text-center" title={tooltip}>
             {/* Monto - SIEMPRE VISIBLE */}
-            <div className={`font-bold text-base ${colorInfo.color}`}>
+            <div className="font-bold text-base" style={{ color: colorInfo.color }}>
               ${formatMoney(utilidadReal)}
             </div>
             {/* Gauge - SOLO AL EXPANDIR */}
@@ -644,7 +647,8 @@ export const EventosListPage: React.FC = () => {
                 setEditingEvento(null);
                 setShowModal(true);
               }}
-              className="bg-mint-500 hover:bg-mint-600"
+              style={{ backgroundColor: themeColors.primary }}
+              className="hover:opacity-90 text-white"
             >
               <Plus className="w-4 h-4 mr-2" />
               Nuevo Evento
@@ -665,13 +669,14 @@ export const EventosListPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
             {/* Filtro de Año */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium mb-2" style={{ color: themeColors.textPrimary }}>
                 Año
               </label>
               <select
                 value={filters.año || ''}
                 onChange={(e) => setFilters({ ...filters, año: e.target.value ? parseInt(e.target.value) : undefined })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-mint-500 focus:border-transparent"
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent"
+                style={{ borderColor: themeColors.border, backgroundColor: themeColors.cardBg, color: themeColors.textPrimary }}
               >
                 <option value="">Todos los años</option>
                 {yearOptions.map(year => (
@@ -682,13 +687,14 @@ export const EventosListPage: React.FC = () => {
 
             {/* Filtro de Mes */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium mb-2" style={{ color: themeColors.textPrimary }}>
                 Mes
               </label>
               <select
                 value={filters.mes || ''}
                 onChange={(e) => setFilters({ ...filters, mes: e.target.value ? parseInt(e.target.value) : undefined })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-mint-500 focus:border-transparent"
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent"
+                style={{ borderColor: themeColors.border, backgroundColor: themeColors.cardBg, color: themeColors.textPrimary }}
                 disabled={!filters.año}
               >
                 <option value="">Todos los meses</option>
@@ -702,13 +708,14 @@ export const EventosListPage: React.FC = () => {
 
             {/* Filtro de Cliente */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium mb-2" style={{ color: themeColors.textPrimary }}>
                 Cliente
               </label>
               <select
                 value={filters.cliente_id || ''}
                 onChange={(e) => setFilters({ ...filters, cliente_id: e.target.value || undefined })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-mint-500 focus:border-transparent"
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent"
+                style={{ borderColor: themeColors.border, backgroundColor: themeColors.cardBg, color: themeColors.textPrimary }}
               >
                 <option value="">Todos los clientes</option>
                 {clientes?.map((cliente: any) => (
@@ -721,13 +728,14 @@ export const EventosListPage: React.FC = () => {
 
             {/* Filtro de Provisiones */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium mb-2" style={{ color: themeColors.textPrimary }}>
                 Provisiones
               </label>
               <select
                 value={filters.disponible_positivo ? 'disponible' : ''}
                 onChange={(e) => setFilters({ ...filters, disponible_positivo: e.target.value === 'disponible' ? true : undefined })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-mint-500 focus:border-transparent"
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent"
+                style={{ borderColor: themeColors.border, backgroundColor: themeColors.cardBg, color: themeColors.textPrimary }}
               >
                 <option value="">Todos</option>
                 <option value="disponible">Con disponible &gt; 0</option>
@@ -738,13 +746,14 @@ export const EventosListPage: React.FC = () => {
 
             {/* Filtro de Color KPI */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium mb-2" style={{ color: themeColors.textPrimary }}>
                 Color KPI
               </label>
               <select
                 value={kpiColorFilter}
                 onChange={(e) => setKpiColorFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-mint-500 focus:border-transparent"
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent"
+                style={{ borderColor: themeColors.border, backgroundColor: themeColors.cardBg, color: themeColors.textPrimary }}
               >
                 <option value="">Todos</option>
                 <option value="verde">🟢 Verde (≥35%)</option>
@@ -756,17 +765,18 @@ export const EventosListPage: React.FC = () => {
 
             {/* Búsqueda */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium mb-2" style={{ color: themeColors.textPrimary }}>
                 Buscar
               </label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4" style={{ color: themeColors.textSecondary }} />
                 <input
                   type="text"
                   value={filters.search || ''}
                   onChange={(e) => setFilters({ ...filters, search: e.target.value || undefined })}
                   placeholder="Clave, proyecto, cliente..."
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-mint-500 focus:border-transparent"
+                  className="w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent"
+                  style={{ borderColor: themeColors.border, backgroundColor: themeColors.cardBg, color: themeColors.textPrimary }}
                 />
               </div>
             </div>
@@ -805,10 +815,10 @@ export const EventosListPage: React.FC = () => {
             <div className="flex-1 p-4">
               <div className="flex flex-col">
                 <div className="flex items-center gap-2 mb-2">
-                  <Calendar className="w-4 h-4 text-blue-600" />
-                  <p className="text-sm font-medium text-gray-600">Eventos</p>
+                  <Calendar className="w-4 h-4" style={{ color: themeColors.primary }} />
+                  <p className="text-sm font-medium" style={{ color: themeColors.textSecondary }}>Eventos</p>
                 </div>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-2xl font-bold" style={{ color: themeColors.textPrimary }}>
                   {dashboard.total_eventos}
                 </p>
               </div>
@@ -818,17 +828,17 @@ export const EventosListPage: React.FC = () => {
             <div className="flex-1 p-4">
               <div className="flex flex-col">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-gray-600">Ingresos</p>
-                  <span className="text-xs text-blue-600">{showAllCardDetails ? '▲' : '▼'}</span>
+                  <p className="text-sm font-medium" style={{ color: themeColors.textSecondary }}>Ingresos</p>
+                  <span className="text-xs" style={{ color: themeColors.primary }}>{showAllCardDetails ? '▲' : '▼'}</span>
                 </div>
-                <p className="text-xl font-bold text-blue-600">
+                <p className="text-xl font-bold" style={{ color: themeColors.primary }}>
                   ${formatMoney(dashboard.total_ingresos_reales)}
                 </p>
                 {showAllCardDetails && (
-                  <div className="text-xs text-gray-500 mt-2 pt-2 border-t space-y-1">
-                    <div className="flex justify-between"><span>Cobrados:</span><span className="text-green-600">${formatMoney(dashboard.total_ingresos_cobrados)}</span></div>
-                    <div className="flex justify-between"><span>Pendientes:</span><span className="text-yellow-600">${formatMoney(dashboard.total_ingresos_pendientes)}</span></div>
-                    <div className="flex justify-between"><span>Estimados:</span><span className="text-gray-400">${formatMoney(dashboard.total_ingresos_estimados)}</span></div>
+                  <div className="text-xs mt-2 pt-2 border-t space-y-1" style={{ color: themeColors.textSecondary }}>
+                    <div className="flex justify-between"><span>Cobrados:</span><span style={{ color: themeColors.shades[700] }}>${formatMoney(dashboard.total_ingresos_cobrados)}</span></div>
+                    <div className="flex justify-between"><span>Pendientes:</span><span style={{ color: themeColors.secondary }}>${formatMoney(dashboard.total_ingresos_pendientes)}</span></div>
+                    <div className="flex justify-between"><span>Estimados:</span><span style={{ color: themeColors.textSecondary }}>${formatMoney(dashboard.total_ingresos_estimados)}</span></div>
                   </div>
                 )}
               </div>
@@ -838,14 +848,14 @@ export const EventosListPage: React.FC = () => {
             <div className="flex-1 p-4">
               <div className="flex flex-col">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-gray-600">Gastos</p>
-                  <span className="text-xs text-blue-600">{showAllCardDetails ? '▲' : '▼'}</span>
+                  <p className="text-sm font-medium" style={{ color: themeColors.textSecondary }}>Gastos</p>
+                  <span className="text-xs" style={{ color: themeColors.primary }}>{showAllCardDetails ? '▲' : '▼'}</span>
                 </div>
-                <p className="text-xl font-bold text-red-600">
+                <p className="text-xl font-bold" style={{ color: themeColors.accent }}>
                   ${formatMoney(dashboard.total_gastos_totales)}
                 </p>
                 {showAllCardDetails && (
-                  <div className="text-xs text-gray-500 mt-2 pt-2 border-t space-y-1">
+                  <div className="text-xs mt-2 pt-2 border-t space-y-1" style={{ color: themeColors.textSecondary }}>
                     <div className="flex justify-between"><span>🚗⛽ Combustible:</span><span>${formatMoney(dashboard.total_gastos_combustible_pagados + dashboard.total_gastos_combustible_pendientes)}</span></div>
                     <div className="flex justify-between"><span>🛠️ Materiales:</span><span>${formatMoney(dashboard.total_gastos_materiales_pagados + dashboard.total_gastos_materiales_pendientes)}</span></div>
                     <div className="flex justify-between"><span>👥 RH:</span><span>${formatMoney(dashboard.total_gastos_rh_pagados + dashboard.total_gastos_rh_pendientes)}</span></div>
@@ -859,8 +869,8 @@ export const EventosListPage: React.FC = () => {
             <div className="flex-1 p-4">
               <div className="flex flex-col">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-gray-600">Provisiones</p>
-                  <span className="text-xs text-blue-600">{showAllCardDetails ? '▲' : '▼'}</span>
+                  <p className="text-sm font-medium" style={{ color: themeColors.textSecondary }}>Provisiones</p>
+                  <span className="text-xs" style={{ color: themeColors.primary }}>{showAllCardDetails ? '▲' : '▼'}</span>
                 </div>
                 {(() => {
                   const disponible = dashboard.total_provisiones - dashboard.total_gastos_totales;
@@ -875,21 +885,21 @@ export const EventosListPage: React.FC = () => {
 
                   return (
                     <>
-                      <p className={`text-xl font-bold ${disponible >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      <p className="text-xl font-bold" style={{ color: disponible >= 0 ? themeColors.shades[700] : themeColors.accent }}>
                         ${formatMoney(Math.max(0, disponible))}
                       </p>
                       {showAllCardDetails && (
-                        <div className="text-xs text-gray-500 mt-2 pt-2 border-t space-y-1">
-                          <div className={`flex justify-between ${disponibleCombustible >= 0 ? '' : 'text-red-500'}`}>
+                        <div className="text-xs mt-2 pt-2 border-t space-y-1" style={{ color: themeColors.textSecondary }}>
+                          <div className="flex justify-between" style={{ color: disponibleCombustible >= 0 ? 'inherit' : themeColors.accent }}>
                             <span>🚗⛽ Combustible:</span><span>${formatMoney(Math.max(0, disponibleCombustible))}</span>
                           </div>
-                          <div className={`flex justify-between ${disponibleMateriales >= 0 ? '' : 'text-red-500'}`}>
+                          <div className="flex justify-between" style={{ color: disponibleMateriales >= 0 ? 'inherit' : themeColors.accent }}>
                             <span>🛠️ Materiales:</span><span>${formatMoney(Math.max(0, disponibleMateriales))}</span>
                           </div>
-                          <div className={`flex justify-between ${disponibleRH >= 0 ? '' : 'text-red-500'}`}>
+                          <div className="flex justify-between" style={{ color: disponibleRH >= 0 ? 'inherit' : themeColors.accent }}>
                             <span>👥 RH:</span><span>${formatMoney(Math.max(0, disponibleRH))}</span>
                           </div>
-                          <div className={`flex justify-between ${disponibleSPs >= 0 ? '' : 'text-red-500'}`}>
+                          <div className="flex justify-between" style={{ color: disponibleSPs >= 0 ? 'inherit' : themeColors.accent }}>
                             <span>💳 Solicitudes:</span><span>${formatMoney(Math.max(0, disponibleSPs))}</span>
                           </div>
                         </div>
@@ -910,17 +920,16 @@ export const EventosListPage: React.FC = () => {
                   const margenUtilidad = dashboard.total_ingresos_reales > 0
                     ? (utilidad / dashboard.total_ingresos_reales) * 100
                     : 0;
-                  const colorClass = utilidad >= 0 ? 'text-green-600' : 'text-red-600';
 
                   return (
                     <>
                       {/* Etiqueta y flecha - SIEMPRE VISIBLE */}
                       <div className="flex items-center justify-between mb-2">
-                        <p className="text-sm font-medium text-gray-600">UTILIDAD</p>
-                        <span className="text-xs text-blue-600">{showAllCardDetails ? '▲' : '▼'}</span>
+                        <p className="text-sm font-medium" style={{ color: themeColors.textSecondary }}>UTILIDAD</p>
+                        <span className="text-xs" style={{ color: themeColors.primary }}>{showAllCardDetails ? '▲' : '▼'}</span>
                       </div>
                       {/* Monto - SIEMPRE VISIBLE */}
-                      <p className={`text-xl font-bold ${colorClass}`}>
+                      <p className="text-xl font-bold" style={{ color: utilidad >= 0 ? themeColors.shades[700] : themeColors.accent }}>
                         ${formatMoney(utilidad)}
                       </p>
                       {/* Gauge - SOLO CUANDO EXPANDIDO */}
@@ -943,7 +952,7 @@ export const EventosListPage: React.FC = () => {
       )}
 
       {/* Información de eventos filtrados */}
-      <div className="flex items-center justify-between text-sm text-gray-600 bg-gray-50 px-4 py-2 rounded-lg">
+      <div className="flex items-center justify-between text-sm px-4 py-2 rounded-lg" style={{ color: themeColors.textSecondary, backgroundColor: themeColors.headerBg }}>
         <span>
           Mostrando <strong>{eventosFiltrados.length}</strong> eventos
           {filters.año && ` del año ${filters.año}`}
@@ -962,37 +971,39 @@ export const EventosListPage: React.FC = () => {
                 {columns.map((column) => (
                   <th
                     key={column.key}
-                    className={`px-3 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${
+                    className={`px-3 py-3 text-xs font-medium uppercase tracking-wider ${
                       column.align === 'right' ? 'text-right' :
                       column.align === 'center' ? 'text-center' : 'text-center'
                     }`}
-                    style={{ width: column.width }}
+                    style={{ width: column.width, color: themeColors.textSecondary }}
                   >
                     {column.label}
                   </th>
                 ))}
-                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                <th className="px-3 py-3 text-center text-xs font-medium uppercase tracking-wider w-24" style={{ color: themeColors.textSecondary }}>
                   Acciones
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody style={{ backgroundColor: themeColors.cardBg }}>
               {eventosFiltrados.map((evento) => {
                 return (
                   <tr
                     key={evento.id}
-                    className="hover:bg-blue-50 transition-colors cursor-pointer"
-                    onMouseEnter={() => setHoveredRow(evento.id)}
-                    onMouseLeave={() => setHoveredRow(null)}
+                    className="transition-colors cursor-pointer border-b"
+                    style={{ borderColor: themeColors.border }}
+                    onMouseEnter={(e) => { setHoveredRow(evento.id); e.currentTarget.style.backgroundColor = themeColors.hoverBg; }}
+                    onMouseLeave={(e) => { setHoveredRow(null); e.currentTarget.style.backgroundColor = 'transparent'; }}
                     onClick={() => toggleRowExpansion(evento.id)}
                   >
                     {columns.map((column) => (
                       <td
                         key={column.key}
-                        className={`px-3 py-4 text-sm text-gray-900 ${
+                        className={`px-3 py-4 text-sm ${
                           column.align === 'right' ? 'text-right' :
                           column.align === 'center' ? 'text-center' : 'text-center'
                         }`}
+                        style={{ color: themeColors.textPrimary }}
                         onClick={(e) => {
                           // Si es la columna de expand, dejar que el botón maneje el click
                           if (column.key === 'expand') {
@@ -1011,6 +1022,7 @@ export const EventosListPage: React.FC = () => {
                           const show = typeof action.show === 'function' ? action.show() : true;
                           if (!show) return null;
                           const Icon = action.icon;
+                          const isDelete = action.label === 'Eliminar';
                           return (
                             <button
                               key={idx}
@@ -1018,7 +1030,10 @@ export const EventosListPage: React.FC = () => {
                                 e.stopPropagation();
                                 action.onClick(evento);
                               }}
-                              className={`p-1.5 rounded hover:bg-gray-100 transition-colors ${action.className || 'text-gray-600 hover:text-gray-800'}`}
+                              className="p-1.5 rounded transition-colors"
+                              style={{ color: isDelete ? themeColors.accent : themeColors.textSecondary }}
+                              onMouseEnter={(e) => e.currentTarget.style.color = isDelete ? themeColors.accent : themeColors.primary}
+                              onMouseLeave={(e) => e.currentTarget.style.color = isDelete ? themeColors.accent : themeColors.textSecondary}
                               title={action.tooltip}
                             >
                               <Icon className="w-4 h-4" />

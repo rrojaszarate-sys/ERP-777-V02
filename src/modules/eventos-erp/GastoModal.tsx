@@ -70,7 +70,7 @@ export const GastoModal: React.FC<GastoModalProps> = ({
       if (gasto?.id) {
         // Actualizar gasto existente
         const { error } = await supabase
-          .from('evt_gastos')
+          .from('evt_gastos_erp')
           .update({
             ...formData,
             updated_at: new Date().toISOString(),
@@ -81,7 +81,7 @@ export const GastoModal: React.FC<GastoModalProps> = ({
       } else {
         // Crear nuevo gasto
         const { error } = await supabase
-          .from('evt_gastos')
+          .from('evt_gastos_erp')
           .insert([{
             ...formData,
             evento_id: eventoId,

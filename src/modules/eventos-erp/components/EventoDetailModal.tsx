@@ -13,11 +13,10 @@ import { useEventStates } from '../hooks/useEventStates';
 import { workflowService } from '../services/workflowService';
 import { useAuth } from '../../../core/auth/AuthProvider';
 import toast from 'react-hot-toast';
-import { DualOCRExpenseForm } from './finances/DualOCRExpenseForm';
+import { SimpleExpenseForm } from './finances/SimpleExpenseForm';
 import { IncomeForm } from './finances/IncomeForm';
 import { GaugeChart } from './GaugeChart';
 import { useTheme } from '../../../shared/components/theme';
-import { ProvisionFormModal } from './ProvisionFormModal';
 
 interface EventoDetailModalProps {
   eventoId: number;
@@ -102,7 +101,7 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
 
       // Cargar lista de usuarios activos para asignar si no hay responsable/solicitante
       const { data: usersActivos } = await supabase
-        .from('users_erp')
+        .from('core_users')
         .select('id, nombre, apellidos, email')
         .eq('activo', true)
         .limit(10);
@@ -110,7 +109,7 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
       if (eventoBase.responsable_id) {
         console.log('🔍 Buscando responsable con ID:', eventoBase.responsable_id);
         const { data, error } = await supabase
-          .from('users_erp')
+          .from('core_users')
           .select('id, nombre, apellidos, email')
           .eq('id', eventoBase.responsable_id)
           .single();
@@ -131,7 +130,7 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
       if (eventoBase.solicitante_id) {
         console.log('🔍 Buscando solicitante con ID:', eventoBase.solicitante_id);
         const { data, error } = await supabase
-          .from('users_erp')
+          .from('core_users')
           .select('id, nombre, apellidos, email')
           .eq('id', eventoBase.solicitante_id)
           .single();
@@ -196,7 +195,7 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
         .from('evt_ingresos_erp')
         .select('*')
         .eq('evento_id', evento.id)
-        .order('created_at', { ascending: false });
+        .order('fecha_creacion', { ascending: false });
 
       if (ingresosError) throw ingresosError;
       setIngresos(ingresosData || []);
@@ -209,7 +208,7 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
         `)
         .eq('evento_id', evento.id)
         .is('deleted_at', null)
-        .order('created_at', { ascending: false });
+        .order('fecha_creacion', { ascending: false });
 
       if (gastosError) throw gastosError;
       setGastos(gastosData || []);
@@ -572,6 +571,10 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
                 gastos={gastos}
                 evento={evento}
                 onRefresh={loadFinancialData}
+                onCreateGasto={() => {
+                  setEditingGasto(null);
+                  setShowGastoModal(true);
+                }}
                 onEditGasto={(gasto) => {
                   setEditingGasto(gasto);
                   setShowGastoModal(true);
@@ -603,69 +606,22 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
       </div>
     </Modal>
     
-    {/* Modal de Gasto con OCR */}
+    {/* Modal de Gasto - Formulario Simplificado */}
     {showGastoModal && (
-      <Modal
-        isOpen={showGastoModal}
-        size="xxl"
-        closeOnBackdrop={false}
+      <SimpleExpenseForm
+        mode="gasto"
+        eventoId={eventoId}
+        item={editingGasto}
+        onSave={() => {
+          loadFinancialData();
+          setShowGastoModal(false);
+          setEditingGasto(null);
+        }}
         onClose={() => {
           setShowGastoModal(false);
           setEditingGasto(null);
-          setDefaultGastoCategory(undefined);
         }}
-      >
-        <div className="p-6">
-          <DualOCRExpenseForm
-            expense={editingGasto}
-            eventId={eventoId.toString()}
-            defaultCategoryName={defaultGastoCategory}
-            onSave={async (data) => {
-              try {
-                console.log('💾 [EventoDetailModal] Guardando gasto con datos:', data);
-
-                // Preparar datos para guardar
-                const gastoData = {
-                  ...data,
-                  evento_id: eventoId,
-                };
-
-                if (editingGasto) {
-                  // Actualizar gasto existente
-                  console.log('📝 Actualizando gasto ID:', editingGasto.id);
-                  const { error } = await supabase
-                    .from('evt_gastos_erp')
-                    .update(gastoData)
-                    .eq('id', editingGasto.id);
-
-                  if (error) throw error;
-                  toast.success('Gasto actualizado correctamente');
-                } else {
-                  // Crear nuevo gasto
-                  console.log('➕ Creando nuevo gasto');
-                  const { error } = await supabase
-                    .from('evt_gastos_erp')
-                    .insert(gastoData);
-
-                  if (error) throw error;
-                  toast.success('Gasto creado correctamente');
-                }
-
-                await loadFinancialData();
-                setShowGastoModal(false);
-                setEditingGasto(null);
-              } catch (error) {
-                console.error('❌ Error guardando gasto:', error);
-                toast.error(`Error al guardar: ${error instanceof Error ? error.message : 'Error desconocido'}`);
-              }
-            }}
-            onCancel={() => {
-              setShowGastoModal(false);
-              setEditingGasto(null);
-            }}
-          />
-        </div>
-      </Modal>
+      />
     )}
     
     {/* Modal de Ingreso */}
@@ -732,17 +688,18 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
       </Modal>
     )}
 
-    {/* Modal de Provisión */}
+    {/* Modal de Provisión - Formulario Simplificado (mismo que gastos) */}
     {showProvisionModal && (
-      <ProvisionFormModal
-        provision={editingProvision}
+      <SimpleExpenseForm
+        mode="provision"
         eventoId={eventoId}
-        onClose={() => {
+        item={editingProvision}
+        onSave={() => {
+          loadFinancialData();
           setShowProvisionModal(false);
           setEditingProvision(null);
         }}
-        onSave={() => {
-          loadFinancialData();
+        onClose={() => {
           setShowProvisionModal(false);
           setEditingProvision(null);
         }}
@@ -753,6 +710,15 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
 };
 
 const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, showIVA = false }) => {
+  const { paletteConfig } = useTheme();
+
+  // Colores dinámicos de la paleta
+  const colors = {
+    primary: paletteConfig.primary,
+    primaryLight: paletteConfig.shades[100],
+    primaryDark: paletteConfig.shades[700],
+    secondary: paletteConfig.secondary,
+  };
   // ============================================================================
   // CÁLCULOS FINANCIEROS - FÓRMULA DEL CLIENTE
   // ============================================================================
@@ -810,10 +776,10 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
             {/* Ingresos Bar */}
             <div>
               <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-medium text-green-700">💰 INGRESOS</span>
+                <span className="text-xs font-medium" style={{ color: colors.primaryDark }}>💰 INGRESOS</span>
                 <div className="flex gap-4 text-xs">
                   <span className="text-gray-500">Presupuesto: {formatCurrency(ingresoEstimado)}</span>
-                  <span className="text-green-700 font-bold">Facturado: {formatCurrency(ingresosTotales)}</span>
+                  <span className="font-bold" style={{ color: colors.primary }}>Facturado: {formatCurrency(ingresosTotales)}</span>
                 </div>
               </div>
               <div className="relative h-10 bg-gray-100 rounded-lg overflow-hidden">
@@ -823,10 +789,13 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
                     Ppto: {formatCurrency(ingresoEstimado)}
                   </span>
                 </div>
-                {/* Barra: Facturado - SIEMPRE AZUL */}
+                {/* Barra: Facturado - COLOR PRIMARIO */}
                 <div
-                  className="absolute h-full bg-blue-600 transition-all duration-500 flex items-center"
-                  style={{ width: `${Math.min((ingresosTotales / Math.max(ingresoEstimado, ingresosTotales, 1)) * 100, 100)}%` }}
+                  className="absolute h-full transition-all duration-500 flex items-center"
+                  style={{
+                    width: `${Math.min((ingresosTotales / Math.max(ingresoEstimado, ingresosTotales, 1)) * 100, 100)}%`,
+                    backgroundColor: colors.primary
+                  }}
                 >
                   <span className="text-xs font-bold text-white px-3 whitespace-nowrap">
                     Facturado: {formatCurrency(ingresosTotales)}
@@ -844,10 +813,10 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
             {/* Gastos Bar */}
             <div>
               <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-medium text-red-700">📉 GASTOS</span>
+                <span className="text-xs font-medium" style={{ color: colors.secondary }}>📉 GASTOS</span>
                 <div className="flex gap-4 text-xs">
                   <span className="text-gray-500">Provisionado: {formatCurrency(provisionesTotal)}</span>
-                  <span className="text-red-700 font-bold">Ejercido: {formatCurrency(gastosTotales)}</span>
+                  <span className="font-bold" style={{ color: colors.secondary }}>Ejercido: {formatCurrency(gastosTotales)}</span>
                 </div>
               </div>
               <div className="relative h-10 bg-gray-100 rounded-lg overflow-hidden">
@@ -857,10 +826,13 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
                     Prov: {formatCurrency(provisionesTotal)}
                   </span>
                 </div>
-                {/* Barra: Ejercido - SIEMPRE AZUL */}
+                {/* Barra: Ejercido - COLOR SECUNDARIO */}
                 <div
-                  className="absolute h-full bg-blue-600 transition-all duration-500 flex items-center"
-                  style={{ width: `${Math.min((gastosTotales / Math.max(provisionesTotal, gastosTotales, 1)) * 100, 100)}%` }}
+                  className="absolute h-full transition-all duration-500 flex items-center"
+                  style={{
+                    width: `${Math.min((gastosTotales / Math.max(provisionesTotal, gastosTotales, 1)) * 100, 100)}%`,
+                    backgroundColor: colors.secondary
+                  }}
                 >
                   <span className="text-xs font-bold text-white px-3 whitespace-nowrap">
                     Ejercido: {formatCurrency(gastosTotales)}
@@ -876,20 +848,23 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
               </div>
             </div>
 
-            {/* Provisión Bar - INVERTIDA: Provisión izquierda (verde billete), Gastado derecha */}
+            {/* Provisión Bar - INVERTIDA: Provisión izquierda, Gastado derecha */}
             <div>
               <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-medium text-emerald-700">💼 PROVISIÓN vs GASTADO</span>
+                <span className="text-xs font-medium" style={{ color: colors.primaryDark }}>💼 PROVISIÓN vs GASTADO</span>
                 <div className="flex gap-4 text-xs">
-                  <span className="text-emerald-600 font-bold">Provisión: {formatCurrency(provisionesDisponibles)}</span>
-                  <span className="text-slate-600">Gastado: {formatCurrency(gastosTotales)}</span>
+                  <span className="font-bold" style={{ color: colors.primary }}>Provisión: {formatCurrency(provisionesDisponibles)}</span>
+                  <span style={{ color: colors.secondary }}>Gastado: {formatCurrency(gastosTotales)}</span>
                 </div>
               </div>
               <div className="relative h-10 bg-slate-200 rounded-lg overflow-hidden flex">
-                {/* Barra izquierda: Provisión restante - COLOR BILLETE (verde esmeralda oscuro) */}
+                {/* Barra izquierda: Provisión restante - COLOR PRIMARIO */}
                 <div
-                  className="h-full bg-emerald-600 transition-all duration-500 flex items-center justify-start"
-                  style={{ width: `${provisionesTotal > 0 ? Math.min((provisionesDisponibles / provisionesTotal) * 100, 100) : 0}%` }}
+                  className="h-full transition-all duration-500 flex items-center justify-start"
+                  style={{
+                    width: `${provisionesTotal > 0 ? Math.min((provisionesDisponibles / provisionesTotal) * 100, 100) : 0}%`,
+                    backgroundColor: colors.primary
+                  }}
                 >
                   {provisionesDisponibles > 0 && (
                     <span className="text-xs font-bold text-white px-2 whitespace-nowrap">
@@ -897,10 +872,13 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
                     </span>
                   )}
                 </div>
-                {/* Barra derecha: Gastado - COLOR GRIS/SLATE */}
+                {/* Barra derecha: Gastado - COLOR SECUNDARIO */}
                 <div
-                  className="h-full bg-slate-500 transition-all duration-500 flex items-center justify-end"
-                  style={{ width: `${provisionesTotal > 0 ? Math.min((gastosTotales / provisionesTotal) * 100, 100) : 0}%` }}
+                  className="h-full transition-all duration-500 flex items-center justify-end"
+                  style={{
+                    width: `${provisionesTotal > 0 ? Math.min((gastosTotales / provisionesTotal) * 100, 100) : 0}%`,
+                    backgroundColor: colors.secondary
+                  }}
                 >
                   {gastosTotales > 0 && (
                     <span className="text-xs font-bold text-white px-2 whitespace-nowrap">
@@ -1082,6 +1060,15 @@ const IngresosTab: React.FC<{
   onEditIngreso: (ingreso: any) => void;
 }> = ({ ingresos, evento, onRefresh, onCreateIngreso, onEditIngreso }) => {
   const { canCreate, canUpdate, canDelete } = usePermissions();
+  const { paletteConfig } = useTheme();
+
+  // Colores dinámicos de la paleta
+  const colors = {
+    primary: paletteConfig.primary,
+    primaryLight: paletteConfig.shades[100],
+    primaryDark: paletteConfig.shades[700],
+    secondary: paletteConfig.secondary,
+  };
 
   const handleDelete = async (ingreso: any) => {
     if (confirm(`¿Está seguro de que desea eliminar este ingreso de ${formatCurrency(ingreso.total)}?`)) {
@@ -1090,7 +1077,7 @@ const IngresosTab: React.FC<{
           .from('evt_ingresos_erp')
           .delete()
           .eq('id', ingreso.id);
-        
+
         if (error) throw error;
         onRefresh();
       } catch (error) {
@@ -1116,40 +1103,62 @@ const IngresosTab: React.FC<{
     >
       {/* RESUMEN DE INGRESOS - CON ESTADOS COBRADOS/PENDIENTES */}
       <div className="grid grid-cols-4 gap-3 mb-6">
-        {/* FICHA 1: Total Ingresos */}
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">
+        {/* FICHA 1: Total Ingresos - COLOR PRIMARIO */}
+        <div
+          className="rounded-lg p-3 border"
+          style={{
+            background: `linear-gradient(135deg, ${colors.primaryLight} 0%, ${colors.primary}20 100%)`,
+            borderColor: `${colors.primary}40`
+          }}
+        >
           <div className="flex items-start justify-between gap-2 mb-0.5">
-            <div className="text-[10px] text-blue-700 font-semibold uppercase tracking-wide">Total Ingresos</div>
-            <div className="text-[10px] text-blue-600 font-semibold">{ingresos.length} facturas</div>
+            <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: colors.primaryDark }}>Total Ingresos</div>
+            <div className="text-[10px] font-semibold" style={{ color: colors.primary }}>{ingresos.length} facturas</div>
           </div>
-          <div className="text-xl font-bold text-blue-900">{formatCurrency(totalIngresos)}</div>
+          <div className="text-xl font-bold" style={{ color: colors.primaryDark }}>{formatCurrency(totalIngresos)}</div>
         </div>
 
-        {/* FICHA 2: Cobrados */}
-        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-3 border border-green-200">
+        {/* FICHA 2: Cobrados - COLOR PRIMARIO */}
+        <div
+          className="rounded-lg p-3 border"
+          style={{
+            background: `linear-gradient(135deg, ${colors.primaryLight} 0%, ${colors.primary}30 100%)`,
+            borderColor: `${colors.primary}50`
+          }}
+        >
           <div className="flex items-start justify-between gap-2 mb-0.5">
-            <div className="text-[10px] text-green-700 font-semibold uppercase tracking-wide">Cobrados</div>
-            <div className="text-[10px] text-green-600 font-semibold">{porcentajeCobrado.toFixed(0)}%</div>
+            <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: colors.primaryDark }}>Cobrados</div>
+            <div className="text-[10px] font-semibold" style={{ color: colors.primary }}>{porcentajeCobrado.toFixed(0)}%</div>
           </div>
-          <div className="text-xl font-bold text-green-800">{formatCurrency(totalCobrados)}</div>
-          <div className="text-[10px] text-green-600 mt-1">{numFacturasCobradas} facturas cobradas</div>
+          <div className="text-xl font-bold" style={{ color: colors.primaryDark }}>{formatCurrency(totalCobrados)}</div>
+          <div className="text-[10px] mt-1" style={{ color: colors.primary }}>{numFacturasCobradas} facturas cobradas</div>
         </div>
 
-        {/* FICHA 3: Pendientes */}
-        <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg p-3 border border-amber-200">
+        {/* FICHA 3: Pendientes - COLOR SECUNDARIO */}
+        <div
+          className="rounded-lg p-3 border"
+          style={{
+            background: `linear-gradient(135deg, ${colors.secondary}15 0%, ${colors.secondary}25 100%)`,
+            borderColor: `${colors.secondary}40`
+          }}
+        >
           <div className="flex items-start justify-between gap-2 mb-0.5">
-            <div className="text-[10px] text-amber-700 font-semibold uppercase tracking-wide">Pendientes</div>
-            <div className="text-[10px] text-amber-600 font-semibold">{(100 - porcentajeCobrado).toFixed(0)}%</div>
+            <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: colors.secondary }}>Pendientes</div>
+            <div className="text-[10px] font-semibold" style={{ color: colors.secondary }}>{(100 - porcentajeCobrado).toFixed(0)}%</div>
           </div>
-          <div className="text-xl font-bold text-amber-800">{formatCurrency(totalPendientes)}</div>
-          <div className="text-[10px] text-amber-600 mt-1">{numFacturasPendientes} facturas pendientes</div>
+          <div className="text-xl font-bold" style={{ color: colors.secondary }}>{formatCurrency(totalPendientes)}</div>
+          <div className="text-[10px] mt-1" style={{ color: colors.secondary }}>{numFacturasPendientes} facturas pendientes</div>
         </div>
 
-        {/* BOTÓN AGREGAR INGRESO */}
+        {/* BOTÓN AGREGAR INGRESO - COLOR PRIMARIO */}
         {canCreate('ingresos') && (
           <button
             onClick={onCreateIngreso}
-            className="bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 border border-green-400 rounded-lg p-3 transition-all flex flex-col items-center justify-center gap-1.5 group shadow-sm"
+            className="rounded-lg p-3 transition-all flex flex-col items-center justify-center gap-1.5 group shadow-sm hover:shadow-md"
+            style={{
+              background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`,
+              borderColor: colors.primary
+            }}
           >
             <Plus className="w-6 h-6 text-white" />
             <span className="text-[10px] font-semibold text-white uppercase tracking-wide text-center">Agregar<br/>Ingreso</span>
@@ -1174,10 +1183,10 @@ const IngresosTab: React.FC<{
                     <h4 className="font-medium text-gray-900 text-base">{ingreso.concepto}</h4>
                   </div>
                   <div>
-                    <span className="text-base font-bold text-green-600">{formatCurrency(ingreso.total)}</span>
+                    <span className="text-base font-bold" style={{ color: colors.primary }}>{formatCurrency(ingreso.total)}</span>
                   </div>
                   <div className="text-sm text-gray-500">
-                    {formatDate(ingreso.created_at)}
+                    {formatDate(ingreso.fecha_creacion)}
                   </div>
                   <div className="col-span-2 md:col-span-4 text-sm text-gray-400 truncate">
                     {ingreso.descripcion && <span className="mr-3">📝 {ingreso.descripcion}</span>}
@@ -1189,7 +1198,12 @@ const IngresosTab: React.FC<{
                   {canUpdate('ingresos') && (
                     <button
                       onClick={(e) => { e.stopPropagation(); onEditIngreso(ingreso); }}
-                      className="p-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 transition-colors border border-blue-200"
+                      className="p-2 rounded-lg transition-colors border"
+                      style={{
+                        backgroundColor: `${colors.primary}15`,
+                        borderColor: `${colors.primary}30`,
+                        color: colors.primary
+                      }}
                       title="Editar ingreso"
                     >
                       <Pencil className="w-4 h-4" />
@@ -1218,23 +1232,33 @@ const GastosTab: React.FC<{
   gastos: any[];
   evento: any;
   onRefresh: () => void;
+  onCreateGasto: () => void;
   onEditGasto: (gasto: any) => void;
-}> = ({ gastos, evento, onRefresh, onEditGasto }) => {
-  const { canUpdate, canDelete } = usePermissions();
+}> = ({ gastos, evento, onRefresh, onCreateGasto, onEditGasto }) => {
+  const { canCreate, canUpdate, canDelete } = usePermissions();
+  const { paletteConfig } = useTheme();
   const [activeSubTab, setActiveSubTab] = useState<'todos' | 'combustible' | 'materiales' | 'rh' | 'sps'>('todos');
-  const [isDesgloseExpanded, setIsDesgloseExpanded] = useState(false); // Oculto por defecto - desglose de categorías
+  const [isDesgloseExpanded, setIsDesgloseExpanded] = useState(false);
+
+  // Colores dinámicos de la paleta
+  const colors = {
+    primary: paletteConfig.primary,
+    primaryLight: paletteConfig.shades[100],
+    primaryDark: paletteConfig.shades[700],
+    secondary: paletteConfig.secondary,
+  };
 
   const handleDelete = async (gasto: any) => {
     if (confirm(`¿Está seguro de que desea eliminar este gasto de ${formatCurrency(gasto.total)}?`)) {
       try {
         const { error } = await supabase
           .from('evt_gastos_erp')
-          .update({ 
+          .update({
             deleted_at: new Date().toISOString(),
-            activo: false 
+            activo: false
           })
           .eq('id', gasto.id);
-        
+
         if (error) throw error;
         onRefresh();
       } catch (error) {
@@ -1243,9 +1267,8 @@ const GastosTab: React.FC<{
     }
   };
 
-  // Calcular totales desde la vista (siempre usar vw_eventos_analisis_financiero)
-  // NOTA: Todos los gastos ahora nacen como "pagados"
-  const totalGastos = evento.gastos_totales || 0; // Desde la vista
+  // Calcular totales desde la vista
+  const totalGastos = evento.gastos_totales || 0;
   const numGastos = gastos.length;
 
   // Provisiones
@@ -1254,13 +1277,13 @@ const GastosTab: React.FC<{
                            (evento.provision_recursos_humanos || 0) +
                            (evento.provision_solicitudes_pago || 0);
 
-  // Calcular por categoría (pagados + pendientes)
+  // Calcular por categoría
   const gastosCombustible = (evento.gastos_combustible_pagados || 0) + (evento.gastos_combustible_pendientes || 0);
   const gastosMateriales = (evento.gastos_materiales_pagados || 0) + (evento.gastos_materiales_pendientes || 0);
   const gastosRH = (evento.gastos_rh_pagados || 0) + (evento.gastos_rh_pendientes || 0);
   const gastosSPS = (evento.gastos_sps_pagados || 0) + (evento.gastos_sps_pendientes || 0);
 
-  // Calcular disponible por categoría (Provisión - Gastos Totales)
+  // Calcular disponible por categoría
   const dispCombustible = (evento.provision_combustible_peaje || 0) - gastosCombustible;
   const dispMateriales = (evento.provision_materiales || 0) - gastosMateriales;
   const dispRH = (evento.provision_recursos_humanos || 0) - gastosRH;
@@ -1275,8 +1298,8 @@ const GastosTab: React.FC<{
     { id: 'sps', label: '💳 Solicitudes de Pago', count: gastos.filter(g => g.categoria?.nombre === 'Solicitudes de Pago').length }
   ];
 
-  const gastosFilter = activeSubTab === 'todos' 
-    ? gastos 
+  const gastosFilter = activeSubTab === 'todos'
+    ? gastos
     : gastos.filter(g => {
         const categoryMap: Record<string, string> = {
           'combustible': 'Combustible/Peaje',
@@ -1294,101 +1317,83 @@ const GastosTab: React.FC<{
       exit={{ opacity: 0, y: -20 }}
       className="p-6"
     >
-      {/* RESUMEN DE GASTOS - 3 FICHAS */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        {/* FICHA 1: Provisionado - Clickeable completa */}
-        <button
-          onClick={() => setIsDesgloseExpanded(!isDesgloseExpanded)}
-          className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-lg p-3 border border-emerald-300 hover:shadow-md transition-all text-left"
+      {/* RESUMEN DE GASTOS - 4 FICHAS (igual que Provisiones) */}
+      <div className="grid grid-cols-4 gap-3 mb-6">
+        {/* FICHA 1: Total Gastos - COLOR SECUNDARIO */}
+        <div
+          className="rounded-lg p-3 border"
+          style={{
+            background: `linear-gradient(135deg, ${colors.secondary}10 0%, ${colors.secondary}20 100%)`,
+            borderColor: `${colors.secondary}30`
+          }}
         >
           <div className="flex items-start justify-between gap-2 mb-0.5">
-            <div className="text-[10px] text-emerald-700 font-semibold uppercase tracking-wide">Provisionado</div>
-            <div className="text-[10px] text-emerald-600 font-semibold">100%</div>
+            <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: colors.secondary }}>Total Gastos</div>
+            <div className="text-[10px] font-semibold" style={{ color: colors.secondary }}>{numGastos} items</div>
           </div>
-          <div className="text-xl font-bold text-emerald-800">{formatCurrency(totalProvisionado)}</div>
-          {isDesgloseExpanded && (
-            <div className="text-[10px] text-emerald-600 mt-1.5 space-y-0.5">
-              <div>⛽ {formatCurrency(evento.provision_combustible_peaje || 0)}</div>
-              <div>🛠️ {formatCurrency(evento.provision_materiales || 0)}</div>
-              <div>👥 {formatCurrency(evento.provision_recursos_humanos || 0)}</div>
-              <div>💳 {formatCurrency(evento.provision_solicitudes_pago || 0)}</div>
-            </div>
-          )}
-        </button>
+          <div className="text-xl font-bold" style={{ color: colors.secondary }}>{formatCurrency(totalGastos)}</div>
+        </div>
 
-        {/* FICHA 2: Gastado - SIMPLIFICADO (todos pagados) */}
-        <button
-          onClick={() => setIsDesgloseExpanded(!isDesgloseExpanded)}
-          className="col-span-2 bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg p-3 border border-slate-200 hover:shadow-md transition-all text-left"
-        >
-          <div className="flex items-start justify-between gap-1 mb-0.5">
-            <div className="text-[10px] text-slate-700 font-semibold uppercase tracking-wide">Total Gastado</div>
-            <div className="text-[10px] text-green-600 font-semibold flex items-center gap-1">
-              <span>✓</span> {numGastos} gastos
-            </div>
-          </div>
-          <div className="flex items-baseline gap-3">
-            <div className="text-xl font-bold text-slate-900">{formatCurrency(totalGastos)}</div>
-            <div className="text-[10px] text-slate-500">
-              ({totalProvisionado > 0 ? ((totalGastos / totalProvisionado) * 100).toFixed(0) : 0}% del presupuesto)
-            </div>
-          </div>
-          {isDesgloseExpanded && (
-            <div className="text-[9px] text-slate-600 mt-2 grid grid-cols-4 gap-2">
-              <div>⛽ {formatCurrency(gastosCombustible)}</div>
-              <div>🛠️ {formatCurrency(gastosMateriales)}</div>
-              <div>👥 {formatCurrency(gastosRH)}</div>
-              <div>💳 {formatCurrency(gastosSPS)}</div>
-            </div>
-          )}
-        </button>
-
-        {/* FICHA 4: Provisión (antes Por Ejercer) - Clickeable completa */}
-        <button
-          onClick={() => setIsDesgloseExpanded(!isDesgloseExpanded)}
-          className={`rounded-lg p-3 border text-left hover:shadow-md transition-all ${
-            totalDisponible >= 0
-              ? 'bg-gradient-to-br from-amber-50 to-amber-100 border-amber-300'
-              : 'bg-gradient-to-br from-red-50 to-red-100 border-red-200'
-          }`}
+        {/* FICHA 2: Pagados - COLOR PRIMARIO */}
+        <div
+          className="rounded-lg p-3 border"
+          style={{
+            background: `linear-gradient(135deg, ${colors.primaryLight} 0%, ${colors.primary}30 100%)`,
+            borderColor: `${colors.primary}50`
+          }}
         >
           <div className="flex items-start justify-between gap-2 mb-0.5">
-            <div className={`text-[10px] font-semibold uppercase tracking-wide ${totalDisponible >= 0 ? 'text-amber-700' : 'text-red-700'}`}>
-              Provisión
-            </div>
-            <div className={`text-[10px] font-semibold ${totalDisponible >= 0 ? 'text-amber-600' : 'text-red-600'}`}>
-              {totalProvisionado > 0 ? ((totalDisponible / totalProvisionado) * 100).toFixed(0) : 0}%
+            <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: colors.primaryDark }}>Pagados</div>
+            <div className="text-[10px] font-semibold" style={{ color: colors.primary }}>
+              {totalGastos > 0 ? ((evento.gastos_pagados_total || 0) / totalGastos * 100).toFixed(0) : 0}%
             </div>
           </div>
-          <div className={`text-xl font-bold ${totalDisponible >= 0 ? 'text-amber-900' : 'text-red-900'}`}>
-            {formatCurrency(Math.max(0, totalDisponible))}
-          </div>
-          {isDesgloseExpanded && (
-            <div className={`text-[10px] mt-1.5 space-y-0.5 ${totalDisponible >= 0 ? 'text-amber-600' : 'text-red-600'}`}>
-              <div>⛽ {formatCurrency(Math.max(0, dispCombustible))}</div>
-              <div>🛠️ {formatCurrency(Math.max(0, dispMateriales))}</div>
-              <div>👥 {formatCurrency(Math.max(0, dispRH))}</div>
-              <div>💳 {formatCurrency(Math.max(0, dispSPS))}</div>
-            </div>
-          )}
-        </button>
+          <div className="text-xl font-bold" style={{ color: colors.primaryDark }}>{formatCurrency(evento.gastos_pagados_total || 0)}</div>
+        </div>
 
+        {/* FICHA 3: Pendientes - COLOR SECUNDARIO */}
+        <div
+          className="rounded-lg p-3 border"
+          style={{
+            background: `linear-gradient(135deg, ${colors.secondary}15 0%, ${colors.secondary}25 100%)`,
+            borderColor: `${colors.secondary}40`
+          }}
+        >
+          <div className="flex items-start justify-between gap-2 mb-0.5">
+            <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: colors.secondary }}>Pendientes</div>
+          </div>
+          <div className="text-xl font-bold" style={{ color: colors.secondary }}>{formatCurrency(evento.gastos_pendientes_total || 0)}</div>
+        </div>
+
+        {/* BOTÓN AGREGAR GASTO - COLOR PRIMARIO */}
+        {canCreate('gastos') && (
+          <button
+            onClick={onCreateGasto}
+            className="rounded-lg p-3 transition-all flex flex-col items-center justify-center gap-1.5 group shadow-sm hover:shadow-md"
+            style={{
+              background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`,
+              borderColor: colors.primary
+            }}
+          >
+            <Plus className="w-6 h-6 text-white" />
+            <span className="text-[10px] font-semibold text-white uppercase tracking-wide text-center">Agregar<br/>Gasto</span>
+          </button>
+        )}
       </div>
-
 
       {/* LISTADO DETALLADO DE GASTOS */}
       <div className="bg-white border border-gray-200 rounded-lg mb-6 overflow-hidden p-4">
-        {/* SUBTABS */}
+        {/* SUBTABS CON COLOR PRIMARIO */}
         <div className="flex border-b mb-4">
           {subTabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveSubTab(tab.id as any)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeSubTab === tab.id
-                  ? 'border-gray-900 text-gray-900'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+              className="px-4 py-2 text-sm font-medium border-b-2 transition-colors"
+              style={{
+                borderBottomColor: activeSubTab === tab.id ? colors.primary : 'transparent',
+                color: activeSubTab === tab.id ? colors.primaryDark : '#6B7280'
+              }}
             >
               {tab.label} ({tab.count})
             </button>
@@ -1400,67 +1405,72 @@ const GastosTab: React.FC<{
         </h3>
 
         <div className="space-y-4">
-        {gastosFilter.length === 0 ? (
-          <div className="text-center py-12">
-            <TrendingDown className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">No hay gastos registrados</p>
-          </div>
-        ) : (
-          gastosFilter.map(gasto => (
-            <div key={gasto.id} className="bg-white border rounded-lg p-3 hover:bg-gray-50 transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-5 gap-x-3 gap-y-1 items-center">
-                  <div className="col-span-2 md:col-span-1 flex items-center gap-2">
-                    <h4 className="font-medium text-gray-900 text-base">{gasto.concepto}</h4>
+          {gastosFilter.length === 0 ? (
+            <div className="text-center py-12">
+              <TrendingDown className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500">No hay gastos registrados</p>
+            </div>
+          ) : (
+            gastosFilter.map(gasto => (
+              <div key={gasto.id} className="bg-white border rounded-lg p-3 hover:bg-gray-50 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-5 gap-x-3 gap-y-1 items-center">
+                    <div className="col-span-2 md:col-span-1 flex items-center gap-2">
+                      <h4 className="font-medium text-gray-900 text-base">{gasto.concepto}</h4>
+                    </div>
+                    <div>
+                      <span className="text-base font-bold" style={{ color: colors.secondary }}>{formatCurrency(gasto.total)}</span>
+                    </div>
+                    <div>
+                      {gasto.categoria && (
+                        <Badge
+                          variant="default"
+                          className="text-xs py-0.5"
+                          style={{ backgroundColor: gasto.categoria.color + '20', color: gasto.categoria.color }}
+                        >
+                          {gasto.categoria.nombre}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {formatDate(gasto.fecha_gasto)}
+                    </div>
+                    <div className="col-span-2 md:col-span-5 text-sm text-gray-400 truncate">
+                      {gasto.proveedor && <span className="mr-3">🏢 {gasto.proveedor}</span>}
+                      {gasto.descripcion && <span className="mr-3">📝 {gasto.descripcion}</span>}
+                      {gasto.referencia && <span>🏷️ {gasto.referencia}</span>}
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-base font-bold text-red-600">{formatCurrency(gasto.total)}</span>
-                  </div>
-                  <div>
-                    {gasto.categoria && (
-                      <Badge
-                        variant="default"
-                        className="text-xs py-0.5"
-                        style={{ backgroundColor: gasto.categoria.color + '20', color: gasto.categoria.color }}
+
+                  <div className="flex gap-2 flex-shrink-0">
+                    {canUpdate('gastos') && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onEditGasto(gasto); }}
+                        className="p-2 rounded-lg transition-colors border"
+                        style={{
+                          backgroundColor: `${colors.primary}15`,
+                          borderColor: `${colors.primary}30`,
+                          color: colors.primary
+                        }}
+                        title="Editar gasto"
                       >
-                        {gasto.categoria.nombre}
-                      </Badge>
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    )}
+                    {canDelete('gastos') && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDelete(gasto); }}
+                        className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-600 transition-colors border border-red-200"
+                        title="Eliminar gasto"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     )}
                   </div>
-                  <div className="text-sm text-gray-500">
-                    {formatDate(gasto.fecha_gasto)}
-                  </div>
-                  <div className="col-span-2 md:col-span-5 text-sm text-gray-400 truncate">
-                    {gasto.proveedor && <span className="mr-3">🏢 {gasto.proveedor}</span>}
-                    {gasto.descripcion && <span className="mr-3">📝 {gasto.descripcion}</span>}
-                    {gasto.referencia && <span>🏷️ {gasto.referencia}</span>}
-                  </div>
-                </div>
-
-                <div className="flex gap-2 flex-shrink-0">
-                  {canUpdate('gastos') && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onEditGasto(gasto); }}
-                      className="p-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 transition-colors border border-blue-200"
-                      title="Editar gasto"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                  )}
-                  {canDelete('gastos') && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDelete(gasto); }}
-                      className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-600 transition-colors border border-red-200"
-                      title="Eliminar gasto"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
                 </div>
               </div>
-            </div>
-          ))
-        )}
+            ))
+          )}
         </div>
       </div>
     </motion.div>
@@ -1475,6 +1485,16 @@ const ProvisionesTab: React.FC<{
   onEditProvision: (provision: any) => void;
 }> = ({ provisiones, evento, onRefresh, onCreateProvision, onEditProvision }) => {
   const { canCreate, canUpdate, canDelete } = usePermissions();
+  const { paletteConfig } = useTheme();
+  const [activeSubTab, setActiveSubTab] = useState<'todos' | 'combustible' | 'materiales' | 'rh' | 'sps'>('todos');
+
+  // Colores dinámicos de la paleta
+  const colors = {
+    primary: paletteConfig.primary,
+    primaryLight: paletteConfig.shades[100],
+    primaryDark: paletteConfig.shades[700],
+    secondary: paletteConfig.secondary,
+  };
 
   const handleDelete = async (provision: any) => {
     if (confirm(`¿Está seguro de que desea eliminar esta provisión de ${formatCurrency(provision.total)}?`)) {
@@ -1500,6 +1520,32 @@ const ProvisionesTab: React.FC<{
   // Calcular totales
   const totalProvisiones = provisiones.reduce((sum, p) => sum + (p.total || 0), 0);
   const numProvisiones = provisiones.length;
+  const pendientesCount = provisiones.filter(p => p.estado === 'pendiente').length;
+  const aprobadosCount = provisiones.filter(p => p.estado === 'aprobado').length;
+  const pagadosCount = provisiones.filter(p => p.estado === 'pagado').length;
+
+  // SubTabs por categoría (igual que Gastos)
+  const subTabs = [
+    { id: 'todos', label: 'Todos', count: provisiones.length },
+    { id: 'combustible', label: '⛽ Combustible/Peaje', count: provisiones.filter(p => p.categoria?.nombre === 'Combustible/Peaje' || p.categoria?.clave === 'combustible').length },
+    { id: 'materiales', label: '🛠️ Materiales', count: provisiones.filter(p => p.categoria?.nombre === 'Materiales' || p.categoria?.clave === 'materiales').length },
+    { id: 'rh', label: '👥 Recursos Humanos', count: provisiones.filter(p => p.categoria?.nombre === 'Recursos Humanos' || p.categoria?.clave === 'rh').length },
+    { id: 'sps', label: '💳 Solicitudes de Pago', count: provisiones.filter(p => p.categoria?.nombre === 'Solicitudes de Pago' || p.categoria?.clave === 'sps').length }
+  ];
+
+  // Filtrar provisiones por subtab activo
+  const provisionesFiltered = activeSubTab === 'todos'
+    ? provisiones
+    : provisiones.filter(p => {
+        const categoryMap: Record<string, string[]> = {
+          'combustible': ['Combustible/Peaje', 'combustible'],
+          'materiales': ['Materiales', 'materiales'],
+          'rh': ['Recursos Humanos', 'rh'],
+          'sps': ['Solicitudes de Pago', 'sps']
+        };
+        const validNames = categoryMap[activeSubTab] || [];
+        return validNames.includes(p.categoria?.nombre) || validNames.includes(p.categoria?.clave);
+      });
 
   return (
     <motion.div
@@ -1508,32 +1554,60 @@ const ProvisionesTab: React.FC<{
       exit={{ opacity: 0, y: -20 }}
       className="p-6"
     >
-      {/* RESUMEN DE PROVISIONES - 2 FICHAS + BOTÓN AGREGAR */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        {/* FICHA 1: Total Provisionado */}
-        <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg p-3 border border-amber-300">
+      {/* RESUMEN DE PROVISIONES - 4 FICHAS CON COLORES DINÁMICOS */}
+      <div className="grid grid-cols-4 gap-3 mb-6">
+        {/* FICHA 1: Total Provisionado - COLOR PRIMARIO */}
+        <div
+          className="rounded-lg p-3 border"
+          style={{
+            background: `linear-gradient(135deg, ${colors.primaryLight} 0%, ${colors.primary}20 100%)`,
+            borderColor: `${colors.primary}40`
+          }}
+        >
           <div className="flex items-start justify-between gap-2 mb-0.5">
-            <div className="text-[10px] text-amber-700 font-semibold uppercase tracking-wide">Total Provisiones</div>
-            <div className="text-[10px] text-amber-600 font-semibold">{numProvisiones} items</div>
+            <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: colors.primaryDark }}>Total Provisiones</div>
+            <div className="text-[10px] font-semibold" style={{ color: colors.primary }}>{numProvisiones} items</div>
           </div>
-          <div className="text-xl font-bold text-amber-800">{formatCurrency(totalProvisiones)}</div>
+          <div className="text-xl font-bold" style={{ color: colors.primaryDark }}>{formatCurrency(totalProvisiones)}</div>
         </div>
 
-        {/* FICHA 2: Por Ejercer */}
-        <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg p-3 border border-slate-200">
+        {/* FICHA 2: Pendientes - COLOR SECUNDARIO */}
+        <div
+          className="rounded-lg p-3 border"
+          style={{
+            background: `linear-gradient(135deg, ${colors.secondary}15 0%, ${colors.secondary}25 100%)`,
+            borderColor: `${colors.secondary}40`
+          }}
+        >
           <div className="flex items-start justify-between gap-2 mb-0.5">
-            <div className="text-[10px] text-slate-700 font-semibold uppercase tracking-wide">Pendientes</div>
+            <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: colors.secondary }}>Pendientes</div>
           </div>
-          <div className="text-xl font-bold text-slate-900">
-            {provisiones.filter(p => p.estado === 'pendiente').length} provisiones
-          </div>
+          <div className="text-xl font-bold" style={{ color: colors.secondary }}>{pendientesCount}</div>
         </div>
 
-        {/* BOTÓN AGREGAR PROVISIÓN */}
+        {/* FICHA 3: Aprobados - COLOR PRIMARIO */}
+        <div
+          className="rounded-lg p-3 border"
+          style={{
+            background: `linear-gradient(135deg, ${colors.primary}15 0%, ${colors.primary}30 100%)`,
+            borderColor: `${colors.primary}50`
+          }}
+        >
+          <div className="flex items-start justify-between gap-2 mb-0.5">
+            <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: colors.primaryDark }}>Aprobados</div>
+          </div>
+          <div className="text-xl font-bold" style={{ color: colors.primaryDark }}>{aprobadosCount}</div>
+        </div>
+
+        {/* BOTÓN AGREGAR PROVISIÓN - COLOR PRIMARIO */}
         {canCreate('gastos') && (
           <button
             onClick={onCreateProvision}
-            className="bg-gradient-to-br from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 border border-amber-400 rounded-lg p-3 transition-all flex flex-col items-center justify-center gap-1.5 group shadow-sm"
+            className="rounded-lg p-3 transition-all flex flex-col items-center justify-center gap-1.5 group shadow-sm hover:shadow-md"
+            style={{
+              background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`,
+              borderColor: colors.primary
+            }}
           >
             <Plus className="w-6 h-6 text-white" />
             <span className="text-[10px] font-semibold text-white uppercase tracking-wide text-center">Agregar<br/>Provisión</span>
@@ -1541,27 +1615,46 @@ const ProvisionesTab: React.FC<{
         )}
       </div>
 
-      {/* LISTADO DE PROVISIONES */}
+      {/* LISTADO DE PROVISIONES CON SUBTABS */}
       <div className="bg-white border border-gray-200 rounded-lg mb-6 overflow-hidden p-4">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Provisiones Registradas</h3>
+        {/* SUBTABS CON COLOR PRIMARIO */}
+        <div className="flex border-b mb-4">
+          {subTabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveSubTab(tab.id as any)}
+              className="px-4 py-2 text-sm font-medium border-b-2 transition-colors"
+              style={{
+                borderBottomColor: activeSubTab === tab.id ? colors.primary : 'transparent',
+                color: activeSubTab === tab.id ? colors.primaryDark : '#6B7280'
+              }}
+            >
+              {tab.label} ({tab.count})
+            </button>
+          ))}
+        </div>
+
+        <h3 className="text-lg font-medium text-gray-900 mb-4">
+          {activeSubTab === 'todos' ? 'Todas las Provisiones' : subTabs.find(t => t.id === activeSubTab)?.label}
+        </h3>
 
         <div className="space-y-4">
-          {provisiones.length === 0 ? (
+          {provisionesFiltered.length === 0 ? (
             <div className="text-center py-12">
               <Wallet className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">No hay provisiones registradas</p>
+              <p className="text-gray-500">No hay provisiones {activeSubTab !== 'todos' ? 'en esta categoría' : 'registradas'}</p>
               <p className="text-sm text-gray-400 mt-1">Las provisiones son gastos estimados que aún no se han pagado</p>
             </div>
           ) : (
-            provisiones.map(provision => (
+            provisionesFiltered.map(provision => (
               <div key={provision.id} className="bg-white border rounded-lg p-3 hover:bg-gray-50 transition-colors">
                 <div className="flex items-center gap-3">
                   <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-5 gap-x-3 gap-y-1 items-center">
                     <div className="col-span-2 md:col-span-1 flex items-center gap-2">
-                      <h4 className="font-medium text-gray-900 text-base truncate">{provision.concepto}</h4>
+                      <h4 className="font-medium text-gray-900 text-base">{provision.concepto}</h4>
                     </div>
                     <div>
-                      <span className="text-base font-bold text-amber-600">{formatCurrency(provision.total)}</span>
+                      <span className="text-base font-bold" style={{ color: colors.primary }}>{formatCurrency(provision.total)}</span>
                     </div>
                     <div>
                       {provision.categoria && (
@@ -1577,8 +1670,8 @@ const ProvisionesTab: React.FC<{
                     <div className="text-sm text-gray-500">
                       {provision.fecha_estimada ? formatDate(provision.fecha_estimada) : 'Sin fecha'}
                     </div>
-                    <div className="col-span-2 md:col-span-5 text-sm text-gray-400 truncate">
-                      {provision.proveedor?.razon_social && <span className="mr-3">🏢 {provision.proveedor.razon_social}</span>}
+                    <div className="col-span-2 md:col-span-5 text-sm text-gray-400">
+                      {provision.proveedor && <span className="mr-3">🏢 {provision.proveedor.razon_social}</span>}
                       {provision.descripcion && <span className="mr-3">📝 {provision.descripcion}</span>}
                       <span className={`px-2 py-0.5 rounded text-xs ${
                         provision.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-700' :
@@ -1595,7 +1688,12 @@ const ProvisionesTab: React.FC<{
                     {canUpdate('gastos') && (
                       <button
                         onClick={(e) => { e.stopPropagation(); onEditProvision(provision); }}
-                        className="p-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 transition-colors border border-blue-200"
+                        className="p-2 rounded-lg transition-colors border"
+                        style={{
+                          backgroundColor: `${colors.primary}15`,
+                          borderColor: `${colors.primary}30`,
+                          color: colors.primary
+                        }}
                         title="Editar provisión"
                       >
                         <Pencil className="w-4 h-4" />

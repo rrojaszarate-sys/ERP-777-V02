@@ -181,12 +181,28 @@ export const QRScanner: React.FC<QRScannerProps> = ({
     const stopScanner = async () => {
       if (scannerRef.current) {
         try {
-          await scannerRef.current.stop();
-          await scannerRef.current.clear();
-        } catch (err) {
-          console.error('Error deteniendo scanner:', err);
+          // Verificar si el scanner está escaneando antes de detenerlo
+          const scanner = scannerRef.current;
+          scannerRef.current = null; // Limpiar referencia primero
+          
+          if (scanner.isScanning) {
+            await scanner.stop();
+          }
+          // Solo llamar clear si el elemento existe en el DOM
+          const container = document.getElementById(containerId);
+          if (container && container.children.length > 0) {
+            try {
+              await scanner.clear();
+            } catch (clearErr) {
+              // Ignorar errores de clear, el elemento ya puede estar removido
+            }
+          }
+        } catch (err: any) {
+          // Solo loguear si no es un error de nodo ya removido
+          if (!err.message?.includes('removeChild') && !err.message?.includes('not a child')) {
+            console.warn('Error deteniendo scanner:', err.message);
+          }
         }
-        scannerRef.current = null;
         setIsScanning(false);
       }
     };
@@ -203,8 +219,14 @@ export const QRScanner: React.FC<QRScannerProps> = ({
   // Limpiar al cerrar
   useEffect(() => {
     if (!isOpen && scannerRef.current) {
-      scannerRef.current.stop().catch(console.error);
+      const scanner = scannerRef.current;
       scannerRef.current = null;
+      
+      // Detener de forma segura
+      if (scanner.isScanning) {
+        scanner.stop().catch(() => {});
+      }
+      
       setIsScanning(false);
       setManualCode('');
       setErrorMessage(null);

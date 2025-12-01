@@ -14,7 +14,7 @@ export function useUsers() {
   useEffect(() => {
     const fetchUsers = async () => {
       const { data, error } = await supabase
-        .from('users_erp')
+        .from('core_users')
         .select('id, nombre, email')
         .eq('activo', true);
 

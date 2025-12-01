@@ -1675,7 +1675,7 @@ export const DualOCRExpenseForm: React.FC<DualOCRExpenseFormProps> = ({
       
       // Obtener la clave_evento (formato: EVT-2025-001)
       const { data: eventData, error: eventError } = await supabase
-        .from('evt_eventos')
+        .from('evt_eventos_erp')
         .select('clave_evento')
         .eq('id', eventId)
         .single();

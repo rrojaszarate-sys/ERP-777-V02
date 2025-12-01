@@ -5,15 +5,37 @@ import type { Almacen, MovimientoInventario } from '../types';
 // PRODUCTOS
 // ============================================================================
 
-export const fetchProductos = async (companyId: string) => {
-  const { data, error } = await supabase
-    .from('productos_erp')
-    .select('*')
-    .eq('company_id', companyId)
-    .order('nombre', { ascending: true });
+export const fetchProductos = async (companyId: string, options?: { limit?: number; search?: string }) => {
+  console.log('[InventarioService] fetchProductos - companyId:', companyId, 'options:', options);
+  
+  try {
+    let query = supabase
+      .from('productos_erp')
+      .select('id, clave, nombre, descripcion, unidad, precio_venta, costo, codigo_qr, categoria, company_id')
+      .eq('company_id', companyId)
+      .order('nombre', { ascending: true });
 
-  if (error) throw error;
-  return data;
+    if (options?.limit) {
+      query = query.limit(options.limit);
+    }
+    
+    if (options?.search) {
+      query = query.or(`nombre.ilike.%${options.search}%,clave.ilike.%${options.search}%`);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('[InventarioService] Error fetchProductos:', error);
+      throw new Error(`Error cargando productos: ${error.message}`);
+    }
+    
+    console.log('[InventarioService] fetchProductos - resultados:', data?.length || 0);
+    return data || [];
+  } catch (err: any) {
+    console.error('[InventarioService] fetchProductos exception:', err);
+    throw err;
+  }
 };
 
 export const createProducto = async (producto: any) => {
@@ -53,14 +75,26 @@ export const deleteProducto = async (id: number) => {
 // ============================================================================
 
 export const fetchAlmacenes = async (companyId: string) => {
-  const { data, error } = await supabase
-    .from('almacenes_erp')
-    .select('*')
-    .eq('company_id', companyId)
-    .order('nombre', { ascending: true });
+  console.log('[InventarioService] fetchAlmacenes - companyId:', companyId);
+  
+  try {
+    const { data, error } = await supabase
+      .from('almacenes_erp')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('nombre', { ascending: true });
 
-  if (error) throw error;
-  return data;
+    if (error) {
+      console.error('[InventarioService] Error fetchAlmacenes:', error);
+      throw new Error(`Error cargando almacenes: ${error.message}`);
+    }
+    
+    console.log('[InventarioService] fetchAlmacenes - resultados:', data?.length || 0);
+    return data || [];
+  } catch (err: any) {
+    console.error('[InventarioService] fetchAlmacenes exception:', err);
+    throw err;
+  }
 };
 
 export const createAlmacen = async (almacen: any) => {

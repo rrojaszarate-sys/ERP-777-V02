@@ -103,7 +103,7 @@ export const EventoModal: React.FC<EventoModalProps> = ({ evento, onClose, onSav
   const loadClientes = async () => {
     try {
       const { data, error } = await supabase
-        .from('evt_clientes')
+        .from('evt_clientes_erp')
         .select('id, razon_social, nombre_comercial, sufijo')
         .eq('activo', true)
         .order('razon_social');
@@ -124,7 +124,7 @@ export const EventoModal: React.FC<EventoModalProps> = ({ evento, onClose, onSav
   const loadUsuarios = async () => {
     try {
       const { data, error } = await supabase
-        .from('users_erp')
+        .from('core_users')
         .select('id, nombre, apellidos, email')
         .eq('activo', true)
         .order('nombre');

@@ -72,7 +72,7 @@ export class ClientsService {
       let company_id = clientData.company_id;
       if (!company_id && userId) {
         const { data: userData } = await supabase
-          .from('users_erp')
+          .from('core_users')
           .select('company_id')
           .eq('id', userId)
           .single();

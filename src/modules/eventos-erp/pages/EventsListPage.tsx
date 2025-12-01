@@ -94,7 +94,7 @@ export const EventsListPage: React.FC = () => {
 
     try {
       const { error } = await supabase
-        .from('evt_eventos')
+        .from('evt_eventos_erp')
         .delete()
         .eq('id', evento.id);
       
@@ -197,15 +197,26 @@ export const EventsListPage: React.FC = () => {
           <div className="font-semibold text-red-600">
             {formatCurrency(value || 0)}
           </div>
-          {row.provisiones > 0 && (
+          {row.provisiones_total > 0 && (
             <div className={`text-xs ${
-              value <= row.provisiones 
-                ? 'text-green-600' 
+              value <= row.provisiones_total
+                ? 'text-green-600'
                 : 'text-red-600'
             }`}>
-              Prov: {formatCurrency(row.provisiones)}
+              Prov: {formatCurrency(row.provisiones_total)}
             </div>
           )}
+        </div>
+      )
+    },
+    {
+      key: 'provisiones_total',
+      label: 'Provisiones',
+      filterType: 'number' as const,
+      align: 'right' as const,
+      render: (value: number) => (
+        <div className="font-semibold text-purple-600">
+          {formatCurrency(value || 0)}
         </div>
       )
     },
@@ -221,9 +232,9 @@ export const EventsListPage: React.FC = () => {
             <div className={`font-bold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
               {formatCurrency(value || 0)}
             </div>
-            {row.margen_utilidad_real !== undefined && (
+            {row.margen_real_pct !== undefined && (
               <div className={`text-xs font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                {row.margen_utilidad_real.toFixed(1)}%
+                {row.margen_real_pct.toFixed(1)}%
               </div>
             )}
           </div>

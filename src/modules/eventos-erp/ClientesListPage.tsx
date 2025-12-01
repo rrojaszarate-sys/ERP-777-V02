@@ -46,7 +46,7 @@ export const ClientesPage: React.FC = () => {
         
         for (const cliente of clientes) {
           const { count } = await supabase
-            .from('evt_eventos')
+            .from('evt_eventos_erp')
             .select('*', { count: 'exact', head: true })
             .eq('cliente_id', cliente.id)
             .eq('activo', true);

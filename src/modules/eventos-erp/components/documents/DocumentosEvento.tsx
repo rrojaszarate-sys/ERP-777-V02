@@ -38,7 +38,7 @@ export const DocumentosEvento: React.FC<DocumentosEventoProps> = ({ eventoId, es
       if (isDevMode) {
         // Intentar encontrar un usuario válido en users_erp
         const { data: devUser } = await supabase
-          .from('users_erp')
+          .from('core_users')
           .select('id')
           .limit(1)
           .single<{ id: string }>();
@@ -104,7 +104,7 @@ export const DocumentosEvento: React.FC<DocumentosEventoProps> = ({ eventoId, es
 
     // Verificar que el usuario existe en users_erp
     const { data: userExists, error: userError } = await supabase
-      .from('users_erp')
+      .from('core_users')
       .select('id')
       .eq('id', effectiveUserId)
       .single();

@@ -85,7 +85,7 @@ export const EventStateManager: React.FC<EventStateManagerProps> = ({
     try {
       // Buscar el estado "Cancelado"
       const { data: canceladoState, error } = await supabase
-        .from('evt_estados')
+        .from('evt_estados_erp')
         .select('id, nombre, color, orden')
         .eq('nombre', 'Cancelado')
         .single();

@@ -17,7 +17,7 @@ export const useEventStates = () => {
     queryFn: async (): Promise<EventState[]> => {
       // Force direct read from Supabase, no cache
       const { data, error } = await supabase
-        .from('evt_estados')
+        .from('evt_estados_erp')
         .select('id, nombre, descripcion, color, orden, workflow_step')
         .neq('workflow_step', 0)
         .order('orden', { ascending: true });

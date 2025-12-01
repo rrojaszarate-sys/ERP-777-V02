@@ -44,9 +44,9 @@ export const CatalogosPage: React.FC = () => {
   // Obtener nombre de tabla según catálogo
   const getTableName = (catalogo: CatalogoTipo) => {
     const tables = {
-      clientes: 'evt_clientes',
-      tipos_evento: 'evt_tipos_evento',
-      tipos_gasto: 'evt_categorias_gastos'
+      clientes: 'evt_clientes_erp',
+      tipos_evento: 'evt_tipos_evento_erp',
+      tipos_gasto: 'evt_categorias_gastos_erp'
     };
     return tables[catalogo];
   };

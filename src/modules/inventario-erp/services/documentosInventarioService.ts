@@ -9,11 +9,38 @@ import type {
 } from '../types';
 
 // ============================================================================
+// UTILIDADES
+// ============================================================================
+
+/**
+ * Wrapper para manejar errores de Supabase de forma consistente
+ */
+const handleSupabaseError = (error: any, context: string): never => {
+  console.error(`[InventarioService] Error en ${context}:`, error);
+  
+  if (error.code === 'PGRST116') {
+    throw new Error(`No se encontró el registro (${context})`);
+  }
+  if (error.code === '42P01') {
+    throw new Error(`Tabla no encontrada: ${error.message}`);
+  }
+  if (error.code === '42703') {
+    throw new Error(`Columna no encontrada: ${error.message}`);
+  }
+  if (error.message?.includes('JWT')) {
+    throw new Error('Sesión expirada. Por favor, inicia sesión nuevamente.');
+  }
+  
+  throw new Error(error.message || `Error en ${context}`);
+};
+
+// ============================================================================
 // DOCUMENTOS DE INVENTARIO
 // ============================================================================
 
 /**
  * Obtener documentos de inventario con filtros opcionales
+ * Optimizado: usa la tabla directa con joins simples en lugar de vista compleja
  */
 export const fetchDocumentosInventario = async (
   companyId: string,
@@ -28,11 +55,30 @@ export const fetchDocumentosInventario = async (
     offset?: number;
   }
 ): Promise<{ data: DocumentoInventarioResumen[]; count: number }> => {
+  console.log('[InventarioService] fetchDocumentosInventario - companyId:', companyId);
+  
+  // Usar tabla directa con select específico para mejor rendimiento
   let query = supabase
-    .from('vista_documentos_inventario_erp')
-    .select('*', { count: 'exact' })
+    .from('documentos_inventario_erp')
+    .select(`
+      id,
+      numero_documento,
+      tipo,
+      estado,
+      fecha,
+      observaciones,
+      company_id,
+      almacen_id,
+      almacen:almacenes_erp(id, nombre),
+      evento_id,
+      nombre_entrega,
+      nombre_recibe,
+      created_at,
+      updated_at
+    `, { count: 'exact' })
     .eq('company_id', companyId)
-    .order('fecha', { ascending: false });
+    .order('fecha', { ascending: false })
+    .order('id', { ascending: false });
 
   // Aplicar filtros
   if (options?.tipo) {
@@ -55,17 +101,40 @@ export const fetchDocumentosInventario = async (
   }
 
   // Paginación
-  if (options?.limit) {
-    query = query.limit(options.limit);
-  }
-  if (options?.offset) {
-    query = query.range(options.offset, options.offset + (options.limit || 50) - 1);
-  }
+  const limit = options?.limit || 25;
+  const offset = options?.offset || 0;
+  query = query.range(offset, offset + limit - 1);
 
   const { data, error, count } = await query;
 
-  if (error) throw error;
-  return { data: data || [], count: count || 0 };
+  if (error) {
+    handleSupabaseError(error, 'fetchDocumentosInventario');
+  }
+  
+  console.log('[InventarioService] fetchDocumentosInventario - resultados:', data?.length || 0);
+  
+  // Transformar datos para compatibilidad con el formato esperado
+  const transformedData: DocumentoInventarioResumen[] = (data || []).map((doc: any) => ({
+    id: doc.id,
+    numero_documento: doc.numero_documento || `DOC-${doc.id}`,
+    tipo: doc.tipo,
+    estado: doc.estado,
+    fecha: doc.fecha,
+    observaciones: doc.observaciones,
+    company_id: doc.company_id,
+    almacen_id: doc.almacen_id,
+    almacen_nombre: doc.almacen?.nombre || 'Sin almacén',
+    evento_id: doc.evento_id,
+    evento_nombre: null,
+    nombre_entrega: doc.nombre_entrega,
+    nombre_recibe: doc.nombre_recibe,
+    created_at: doc.created_at,
+    updated_at: doc.updated_at,
+    total_lineas: 0,
+    total_productos: 0,
+  }));
+  
+  return { data: transformedData, count: count || 0 };
 };
 
 /**
@@ -74,18 +143,26 @@ export const fetchDocumentosInventario = async (
 export const fetchDocumentoById = async (
   documentoId: number
 ): Promise<DocumentoInventario | null> => {
+  console.log('[InventarioService] fetchDocumentoById:', documentoId);
+  
   // Obtener documento
   const { data: documento, error: docError } = await supabase
     .from('documentos_inventario_erp')
     .select(`
       *,
-      almacen:almacenes_erp(id, nombre, codigo),
-      evento:eventos_erp(id, nombre)
+      almacen:almacenes_erp(id, nombre),
+      evento:evt_eventos_erp(id, nombre)
     `)
     .eq('id', documentoId)
     .single();
 
-  if (docError) throw docError;
+  if (docError) {
+    if (docError.code === 'PGRST116') {
+      console.warn('[InventarioService] Documento no encontrado:', documentoId);
+      return null;
+    }
+    handleSupabaseError(docError, 'fetchDocumentoById');
+  }
   if (!documento) return null;
 
   // Obtener detalles
@@ -94,15 +171,19 @@ export const fetchDocumentoById = async (
     .select(`
       *,
       producto:productos_erp(
-        id, nombre, codigo, sku, codigo_qr, unidad_medida,
-        categoria:categorias_productos_erp(id, nombre)
+        id, nombre, clave, codigo_qr, unidad
       )
     `)
     .eq('documento_id', documentoId)
     .order('id', { ascending: true });
 
-  if (detError) throw detError;
+  if (detError) {
+    console.error('[InventarioService] Error cargando detalles:', detError);
+    // No lanzamos error, simplemente retornamos sin detalles
+  }
 
+  console.log('[InventarioService] Documento cargado con', detalles?.length || 0, 'detalles');
+  
   return {
     ...documento,
     detalles: detalles || [],
@@ -371,7 +452,7 @@ export const agregarDetalleDocumento = async (
       .eq('id', existing.id)
       .select(`
         *,
-        producto:productos_erp(id, nombre, codigo, sku, codigo_qr, unidad_medida)
+        producto:productos_erp(id, nombre, clave, codigo_qr, unidad)
       `)
       .single();
 
@@ -391,7 +472,7 @@ export const agregarDetalleDocumento = async (
       ])
       .select(`
         *,
-        producto:productos_erp(id, nombre, codigo, sku, codigo_qr, unidad_medida)
+        producto:productos_erp(id, nombre, clave, codigo_qr, unidad)
       `)
       .single();
 
@@ -434,7 +515,7 @@ export const actualizarDetalleDocumento = async (
     .eq('id', detalleId)
     .select(`
       *,
-      producto:productos_erp(id, nombre, codigo, sku, codigo_qr, unidad_medida)
+      producto:productos_erp(id, nombre, clave, codigo_qr, unidad)
     `)
     .single();
 
@@ -479,7 +560,7 @@ export const eliminarDetalleDocumento = async (detalleId: number): Promise<void>
 // ============================================================================
 
 /**
- * Buscar producto por código QR o código
+ * Buscar producto por código QR o clave
  */
 export const buscarProductoPorQR = async (
   codigo: string,
@@ -489,36 +570,21 @@ export const buscarProductoPorQR = async (
   let { data, error } = await supabase
     .from('productos_erp')
     .select(`
-      id, nombre, codigo, sku, codigo_qr, unidad_medida,
-      categoria:categorias_productos_erp(id, nombre)
+      id, nombre, clave, codigo_qr, unidad, costo, precio_venta
     `)
     .eq('company_id', companyId)
     .eq('codigo_qr', codigo)
     .single();
 
   if (!data) {
-    // Buscar por código
+    // Buscar por clave del producto
     ({ data, error } = await supabase
       .from('productos_erp')
       .select(`
-        id, nombre, codigo, sku, codigo_qr, unidad_medida,
-        categoria:categorias_productos_erp(id, nombre)
+        id, nombre, clave, codigo_qr, unidad, costo, precio_venta
       `)
       .eq('company_id', companyId)
-      .eq('codigo', codigo)
-      .single());
-  }
-
-  if (!data) {
-    // Buscar por SKU
-    ({ data, error } = await supabase
-      .from('productos_erp')
-      .select(`
-        id, nombre, codigo, sku, codigo_qr, unidad_medida,
-        categoria:categorias_productos_erp(id, nombre)
-      `)
-      .eq('company_id', companyId)
-      .eq('sku', codigo)
+      .eq('clave', codigo)
       .single());
   }
 

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../../../core/auth/AuthProvider';
 import { useTheme } from '../../../shared/components/theme';
-import { fetchDocumentosInventario, deleteDocumentoInventario, cancelarDocumento, confirmarDocumento, getEstadisticasDocumentos } from '../services/documentosInventarioService';
-import { fetchAlmacenes } from '../services/inventarioService';
+import { supabase } from '../../../core/config/supabase';
+import { deleteDocumentoInventario, cancelarDocumento, confirmarDocumento } from '../services/documentosInventarioService';
 import { DocumentoInventarioForm } from '../components/DocumentoInventarioForm';
 import { PDFDocumentoInventario } from '../components/PDFDocumentoInventario';
 import { QRLabelGenerator } from '../components/QRLabelGenerator';
@@ -10,7 +10,8 @@ import { ConfirmDialog } from '../../../shared/components/ui';
 import type { DocumentoInventarioResumen, TipoDocumentoInventario, EstadoDocumentoInventario, Almacen, Producto } from '../types';
 
 export const DocumentosInventarioPage: React.FC = () => {
-  const { userData, companyId } = useAuth();
+  const { user } = useAuth();
+  const companyId = user?.company_id;
   const { paletteConfig, isDark } = useTheme();
 
   // Estado
@@ -51,39 +52,88 @@ export const DocumentosInventarioPage: React.FC = () => {
     textMuted: isDark ? '#9ca3af' : '#6b7280',
   }), [paletteConfig, isDark]);
 
-  // Cargar datos iniciales
+  // Utilidad para timeout
+  const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T> => {
+    const timeout = new Promise<never>((_, reject) => 
+      setTimeout(() => reject(new Error('La operación tardó demasiado tiempo')), ms)
+    );
+    return Promise.race([promise, timeout]);
+  };
+
+  // Cargar datos iniciales con mejor manejo de errores
   const loadData = useCallback(async () => {
-    if (!companyId) return;
+    if (!companyId) {
+      setError('No se encontró el ID de la empresa. Por favor, inicia sesión nuevamente.');
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setError(null);
+    console.log('[DocumentosPage] Iniciando carga de datos...');
 
     try {
-      const [docsResult, almacenesData, statsData] = await Promise.all([
-        fetchDocumentosInventario(companyId, {
-          tipo: filtroTipo || undefined,
-          estado: filtroEstado || undefined,
-          almacenId: filtroAlmacen || undefined,
-          fechaDesde: filtroFechaDesde || undefined,
-          fechaHasta: filtroFechaHasta || undefined,
-          limit: pageSize,
-          offset: page * pageSize,
-        }),
-        fetchAlmacenes(companyId),
-        getEstadisticasDocumentos(companyId),
-      ]);
-
-      setDocumentos(docsResult.data);
-      setTotalCount(docsResult.count);
-      setAlmacenes(almacenesData || []);
-      setStats(statsData);
+      // Cargar documentos con timeout de 15s
+      console.log('[DocumentosPage] Cargando documentos...');
+      const docsPromise = supabase
+        .from('documentos_inventario_erp')
+        .select('id, numero_documento, tipo, estado, fecha, observaciones, almacen_id, created_at', { count: 'exact' })
+        .eq('company_id', companyId)
+        .order('created_at', { ascending: false })
+        .limit(pageSize);
+      
+      const { data: docsData, error: docsError, count } = await withTimeout(docsPromise, 15000);
+      
+      if (docsError) {
+        console.error('[DocumentosPage] Error en query documentos:', docsError);
+        throw new Error(`Error cargando documentos: ${docsError.message}`);
+      }
+      
+      console.log('[DocumentosPage] Documentos cargados:', docsData?.length || 0);
+      setDocumentos(docsData || []);
+      setTotalCount(count || 0);
+      
+      // Cargar almacenes con timeout de 5s
+      console.log('[DocumentosPage] Cargando almacenes...');
+      try {
+        const { data: almData, error: almError } = await withTimeout(
+          supabase
+            .from('almacenes_erp')
+            .select('id, nombre')
+            .eq('company_id', companyId)
+            .eq('activo', true),
+          5000
+        );
+        
+        if (almError) {
+          console.warn('[DocumentosPage] Error cargando almacenes:', almError.message);
+        }
+        setAlmacenes(almData || []);
+        console.log('[DocumentosPage] Almacenes cargados:', almData?.length || 0);
+      } catch (almErr: any) {
+        console.warn('[DocumentosPage] Timeout cargando almacenes:', almErr.message);
+        setAlmacenes([]);
+      }
+      
+      // Stats simples (calculados de los datos ya cargados, no requiere query adicional)
+      setStats({
+        total: count || 0,
+        entradas: docsData?.filter(d => d.tipo === 'entrada').length || 0,
+        salidas: docsData?.filter(d => d.tipo === 'salida').length || 0,
+        borradores: docsData?.filter(d => d.estado === 'borrador').length || 0,
+        confirmados: docsData?.filter(d => d.estado === 'confirmado').length || 0,
+        cancelados: docsData?.filter(d => d.estado === 'cancelado').length || 0,
+      });
+      
+      console.log('[DocumentosPage] Carga completa');
+      
     } catch (err: any) {
-      console.error('Error cargando datos:', err);
-      setError(err.message || 'Error al cargar los documentos');
+      console.error('[DocumentosPage] Error cargando datos:', err);
+      setError(err.message || 'Error al cargar los documentos. Intenta recargar la página.');
     } finally {
       setLoading(false);
     }
-  }, [companyId, filtroTipo, filtroEstado, filtroAlmacen, filtroFechaDesde, filtroFechaHasta, page, pageSize]);
+  }, [companyId, page, pageSize]);
 
   useEffect(() => {
     loadData();
@@ -91,12 +141,14 @@ export const DocumentosInventarioPage: React.FC = () => {
 
   // Handlers
   const handleNuevoDocumento = (tipo: TipoDocumentoInventario) => {
+    console.log('[DocumentosPage] Abriendo formulario para nuevo documento tipo:', tipo);
     setFormTipo(tipo);
     setEditingDoc(null);
     setShowForm(true);
   };
 
   const handleEditDocumento = (docId: number) => {
+    console.log('[DocumentosPage] Editando documento:', docId);
     setEditingDoc(docId);
     setShowForm(true);
   };
@@ -359,11 +411,29 @@ export const DocumentosInventarioPage: React.FC = () => {
             Cargando documentos...
           </div>
         ) : error ? (
-          <div className="p-12 text-center text-red-500">
-            <p>{error}</p>
-            <button onClick={loadData} className="mt-4 px-4 py-2 rounded-lg border border-red-300 hover:bg-red-50">
-              Reintentar
-            </button>
+          <div className="p-12 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
+              <svg className="w-8 h-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Error al cargar documentos</h3>
+            <p className="text-red-600 mb-2">{error}</p>
+            <p className="text-gray-500 text-sm mb-4">Revisa la consola del navegador (F12) para más detalles</p>
+            <div className="flex gap-3 justify-center">
+              <button 
+                onClick={loadData} 
+                className="px-6 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+              >
+                Reintentar
+              </button>
+              <button 
+                onClick={() => window.location.reload()} 
+                className="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Recargar página
+              </button>
+            </div>
           </div>
         ) : documentos.length === 0 ? (
           <div className="p-12 text-center" style={{ color: themeColors.textMuted }}>

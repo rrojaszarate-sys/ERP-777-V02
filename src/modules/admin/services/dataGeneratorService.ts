@@ -225,7 +225,7 @@ export class DataGeneratorService {
   async clearAllData(): Promise<void> {
     const adminClient = this.getAdminClient();
     // Delete in correct order to respect foreign key constraints
-    const tables = ['evt_gastos', 'evt_ingresos', 'evt_eventos', 'evt_clientes'];
+    const tables = ['evt_gastos_erp', 'evt_ingresos_erp', 'evt_eventos_erp', 'evt_clientes_erp'];
     
     for (const table of tables) {
       const { error } = await adminClient

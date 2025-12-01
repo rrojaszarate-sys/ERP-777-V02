@@ -17,10 +17,10 @@ export const useDatabaseStats = () => {
     queryFn: async (): Promise<DatabaseStats> => {
       try {
         const [clientesResult, eventosResult, gastosResult, ingresosResult] = await Promise.all([
-          supabase.from('evt_clientes').select('*', { count: 'exact', head: true }),
-          supabase.from('evt_eventos').select('*', { count: 'exact', head: true }),
-          supabase.from('evt_gastos').select('*', { count: 'exact', head: true }),
-          supabase.from('evt_ingresos').select('*', { count: 'exact', head: true })
+          supabase.from('evt_clientes_erp').select('*', { count: 'exact', head: true }),
+          supabase.from('evt_eventos_erp').select('*', { count: 'exact', head: true }),
+          supabase.from('evt_gastos_erp').select('*', { count: 'exact', head: true }),
+          supabase.from('evt_ingresos_erp').select('*', { count: 'exact', head: true })
         ]);
 
         return {
@@ -102,7 +102,7 @@ export const useGenerateTestData = () => {
         // Generate and insert clients
         const clientes = dataGeneratorService.generateClientes(numClients, referenceData.companyId, referenceData.createdByUserId);
         const clientesInsertados = await dataGeneratorService.batchInsert(
-          'evt_clientes',
+          'evt_clientes_erp',
           clientes,
           25,
           (current, total) => {
@@ -115,7 +115,7 @@ export const useGenerateTestData = () => {
         
         // Get created client IDs
         const { data: clientesCreados } = await supabase
-          .from('evt_clientes')
+          .from('evt_clientes_erp')
           .select('id')
           .order('created_at', { ascending: false })
           .limit(clientesInsertados);
