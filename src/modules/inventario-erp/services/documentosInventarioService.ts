@@ -151,7 +151,7 @@ export const fetchDocumentoById = async (
     .select(`
       *,
       almacen:almacenes_erp(id, nombre),
-      evento:evt_eventos_erp(id, nombre)
+      evento:evt_eventos_erp(id, nombre_proyecto)
     `)
     .eq('id', documentoId)
     .single();

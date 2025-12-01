@@ -133,11 +133,13 @@ export const QRScanner: React.FC<QRScannerProps> = ({
 
   // Iniciar/detener scanner
   useEffect(() => {
+    const CONTAINER_ID = 'qr-scanner-container';
+    
     const startScanner = async () => {
       if (!selectedCamera || !containerRef.current || scannerRef.current) return;
 
       try {
-        const html5QrCode = new Html5Qrcode('qr-scanner-container', {
+        const html5QrCode = new Html5Qrcode(CONTAINER_ID, {
           formatsToSupport: getFormatsForMode(scanMode),
           verbose: false,
         });
@@ -189,7 +191,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({
             await scanner.stop();
           }
           // Solo llamar clear si el elemento existe en el DOM
-          const container = document.getElementById(containerId);
+          const container = document.getElementById(CONTAINER_ID);
           if (container && container.children.length > 0) {
             try {
               await scanner.clear();

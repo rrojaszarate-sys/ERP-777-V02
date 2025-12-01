@@ -64,7 +64,7 @@ export const DocumentoInventarioForm: React.FC<DocumentoInventarioFormProps> = (
   // Datos auxiliares
   const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
-  const [eventos, setEventos] = useState<{ id: number; nombre: string }[]>([]);
+  const [eventos, setEventos] = useState<{ id: number; nombre_proyecto: string }[]>([]);
   const [documento, setDocumento] = useState<DocumentoInventario | null>(null);
 
   // UI State
@@ -142,7 +142,7 @@ export const DocumentoInventarioForm: React.FC<DocumentoInventarioFormProps> = (
           const { data: eventosData, error: evtError } = await withTimeout(
             supabase
               .from('evt_eventos_erp')
-              .select('id, nombre')
+              .select('id, nombre_proyecto')
               .eq('company_id', companyId)
               .order('created_at', { ascending: false })
               .limit(50),
@@ -561,7 +561,7 @@ export const DocumentoInventarioForm: React.FC<DocumentoInventarioFormProps> = (
               >
                 <option value="">Sin evento</option>
                 {eventos.map(e => (
-                  <option key={e.id} value={e.id}>{e.nombre}</option>
+                  <option key={e.id} value={e.id}>{e.nombre_proyecto}</option>
                 ))}
               </select>
             </div>
