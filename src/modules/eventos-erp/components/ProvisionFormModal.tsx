@@ -405,7 +405,7 @@ export const ProvisionFormModal = ({
       if (provision?.id) {
         // Actualizar
         const { error } = await supabase
-          .from('evt_provisiones')
+          .from('evt_provisiones_erp')
           .update(dataToSave)
           .eq('id', provision.id);
 
@@ -414,7 +414,7 @@ export const ProvisionFormModal = ({
       } else {
         // Crear
         const { error } = await supabase
-          .from('evt_provisiones')
+          .from('evt_provisiones_erp')
           .insert({
             ...dataToSave,
             created_at: new Date().toISOString()

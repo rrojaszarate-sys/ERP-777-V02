@@ -216,7 +216,7 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
 
       // Cargar provisiones desde evt_provisiones
       const { data: provisionesData, error: provisionesError } = await supabase
-        .from('evt_provisiones')
+        .from('evt_provisiones_erp')
         .select(`
           *,
           categoria:cat_categorias_gasto(id, nombre, clave, color),
@@ -355,7 +355,7 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
     { id: 'overview', label: 'Resumen', icon: Eye },
     { id: 'ingresos', label: 'Ingresos', icon: TrendingUp },
     { id: 'gastos', label: 'Gastos', icon: TrendingDown },
-    { id: 'provisiones', label: 'Provisionado', icon: Wallet },
+    { id: 'provisiones', label: 'Provisiones', icon: Wallet },
     { id: 'workflow', label: 'Workflow', icon: SettingsIcon }
   ];
 
@@ -1171,7 +1171,7 @@ const IngresosTab: React.FC<{
               <div className="flex items-center gap-3">
                 <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1">
                   <div className="col-span-2 md:col-span-1">
-                    <h4 className="font-medium text-gray-900 text-base truncate">{ingreso.concepto}</h4>
+                    <h4 className="font-medium text-gray-900 text-base">{ingreso.concepto}</h4>
                   </div>
                   <div>
                     <span className="text-base font-bold text-green-600">{formatCurrency(ingreso.total)}</span>
@@ -1411,7 +1411,7 @@ const GastosTab: React.FC<{
               <div className="flex items-center gap-3">
                 <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-5 gap-x-3 gap-y-1 items-center">
                   <div className="col-span-2 md:col-span-1 flex items-center gap-2">
-                    <h4 className="font-medium text-gray-900 text-base truncate">{gasto.concepto}</h4>
+                    <h4 className="font-medium text-gray-900 text-base">{gasto.concepto}</h4>
                   </div>
                   <div>
                     <span className="text-base font-bold text-red-600">{formatCurrency(gasto.total)}</span>
@@ -1480,7 +1480,7 @@ const ProvisionesTab: React.FC<{
     if (confirm(`¿Está seguro de que desea eliminar esta provisión de ${formatCurrency(provision.total)}?`)) {
       try {
         const { error } = await supabase
-          .from('evt_provisiones')
+          .from('evt_provisiones_erp')
           .update({
             deleted_at: new Date().toISOString(),
             activo: false

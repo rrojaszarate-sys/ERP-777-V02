@@ -43,6 +43,7 @@ const StockPage = lazy(() => import('./modules/inventario-erp/pages/StockPage').
 const DocumentosInventarioPage = lazy(() => import('./modules/inventario-erp/pages/DocumentosInventarioPage').then(m => ({ default: m.DocumentosInventarioPage })));
 const MobileScannerPage = lazy(() => import('./modules/inventario-erp/pages/MobileScanner').then(m => ({ default: m.MobileScanner })));
 const SesionesMovilPage = lazy(() => import('./modules/inventario-erp/pages/SesionesMovilPage').then(m => ({ default: m.SesionesMovilPage })));
+const EtiquetasPage = lazy(() => import('./modules/inventario-erp/pages/EtiquetasPage').then(m => ({ default: m.EtiquetasPage })));
 
 // MÓDULO DE RRHH Y NÓMINA
 const RRHHDashboard = lazy(() => import('./modules/rrhh-erp/pages/RRHHDashboard').then(m => ({ default: m.RRHHDashboard })));
@@ -142,6 +143,7 @@ function App() {
                 <Route path="inventario/movimientos" element={<MovimientosPage />} />
                 <Route path="inventario/stock" element={<StockPage />} />
                 <Route path="inventario/documentos" element={<DocumentosInventarioPage />} />
+                <Route path="inventario/etiquetas" element={<EtiquetasPage />} />
                 <Route path="inventario/sesiones" element={<SesionesMovilPage />} />
                 <Route path="inventario/scanner/:tipo" element={<MobileScannerPage />} />
                 <Route path="inventario/scanner/:tipo/:sessionId" element={<MobileScannerPage />} />
