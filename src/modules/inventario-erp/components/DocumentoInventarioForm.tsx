@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useAuth } from '../../../core/auth/AuthProvider';
 import { useTheme } from '../../../shared/components/theme';
 import { supabase } from '../../../core/config/supabase';
+import { QRCodeCanvas } from 'qrcode.react';
 import {
   fetchDocumentoById,
   createDocumentoInventario,
@@ -81,6 +82,10 @@ export const DocumentoInventarioForm: React.FC<DocumentoInventarioFormProps> = (
   const [scannerStatus, setScannerStatus] = useState<'idle' | 'scanning' | 'success' | 'error'>('idle');
   const [scannerMessage, setScannerMessage] = useState('');
   const scannerInputRef = useRef<HTMLInputElement>(null);
+  
+  // QR para escaneo móvil
+  const [showMobileQR, setShowMobileQR] = useState(false);
+  const [mobileSessionId] = useState(() => crypto.randomUUID());
 
   const themeColors = useMemo(() => ({
     primary: paletteConfig.primary,
@@ -587,7 +592,17 @@ export const DocumentoInventarioForm: React.FC<DocumentoInventarioFormProps> = (
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                     </svg>
-                    Escanear QR
+                    Cámara PC
+                  </button>
+                  <button
+                    onClick={() => setShowMobileQR(true)}
+                    className="px-3 py-1.5 rounded-lg flex items-center gap-2 text-sm font-medium text-white transition-all hover:opacity-90"
+                    style={{ backgroundColor: '#8b5cf6' }}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                    📱 Teléfono
                   </button>
                   <button
                     onClick={() => setShowProductSelector(true)}
@@ -597,7 +612,7 @@ export const DocumentoInventarioForm: React.FC<DocumentoInventarioFormProps> = (
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
-                    Agregar manual
+                    Manual
                   </button>
                 </div>
               )}
@@ -869,6 +884,76 @@ export const DocumentoInventarioForm: React.FC<DocumentoInventarioFormProps> = (
                 Cancelar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal QR para escaneo móvil */}
+      {showMobileQR && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">
+                  📱 Escanear con Teléfono
+                </h3>
+                <p className="text-sm text-gray-500">
+                  {tipo === 'entrada' ? 'Entrada' : 'Salida'} de inventario
+                </p>
+              </div>
+              <button
+                onClick={() => setShowMobileQR(false)}
+                className="p-1 hover:bg-gray-100 rounded-full"
+              >
+                <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-6 mb-4">
+              <QRCodeCanvas
+                value={`${window.location.origin}/inventario/mobile-scanner?session=${mobileSessionId}&tipo=${tipo}&company=${companyId}`}
+                size={200}
+                level="M"
+                includeMargin={true}
+                className="mx-auto"
+              />
+            </div>
+
+            <div className="space-y-3 text-left">
+              <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
+                <span className="text-2xl">1️⃣</span>
+                <div>
+                  <p className="font-medium text-blue-900">Escanea el QR</p>
+                  <p className="text-sm text-blue-700">Usa la cámara de tu teléfono</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
+                <span className="text-2xl">2️⃣</span>
+                <div>
+                  <p className="font-medium text-green-900">Escanea productos</p>
+                  <p className="text-sm text-green-700">Usa la cámara para leer códigos</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-3 bg-purple-50 rounded-lg">
+                <span className="text-2xl">3️⃣</span>
+                <div>
+                  <p className="font-medium text-purple-900">Envía los datos</p>
+                  <p className="text-sm text-purple-700">Presiona "Enviar" al terminar</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 p-3 bg-yellow-50 rounded-lg text-left">
+              <p className="text-xs text-yellow-800">
+                <strong>💡 Tip:</strong> Los productos escaneados se agregarán automáticamente a este documento cuando los envíes desde el teléfono.
+              </p>
+            </div>
+
+            <p className="mt-4 text-xs text-gray-400">
+              ID Sesión: {mobileSessionId.substring(0, 8)}...
+            </p>
           </div>
         </div>
       )}
