@@ -128,7 +128,7 @@ export class AccountsService {
    */
   static async getGastosPorCuenta(cuentaId: number): Promise<ExpenseExtended[]> {
     const { data, error } = await supabase
-      .from('gastos_erp')
+      .from('evt_gastos_erp')
       .select(`
         *,
         evento:eventos_erp(nombre_proyecto, clave_evento),
@@ -168,7 +168,7 @@ export class AccountsService {
     const cuenta = await this.getCuentaById(cuentaId);
 
     let query = supabase
-      .from('gastos_erp')
+      .from('evt_gastos_erp')
       .select('total, fecha_gasto')
       .eq('cuenta_id', cuentaId)
       .eq('activo', true);
@@ -227,7 +227,7 @@ export class AccountsService {
     const resumenes = await Promise.all(
       cuentas.map(async (cuenta) => {
         const { data, error } = await supabase
-          .from('gastos_erp')
+          .from('evt_gastos_erp')
           .select('total, fecha_gasto')
           .eq('cuenta_id', cuenta.id)
           .eq('activo', true)

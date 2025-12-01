@@ -229,7 +229,7 @@ export const ClientesPage: React.FC = () => {
     },
     {
       label: 'Editar',
-      icon: Edit,
+      icon: Pencil,
       onClick: handleEditCliente,
       show: () => canUpdate('clientes'),
       tooltip: canUpdate('clientes') ? 'Editar cliente' : 'Sin permisos para editar'

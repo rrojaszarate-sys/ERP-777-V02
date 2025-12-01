@@ -50,7 +50,7 @@ class EventStateValidationService {
     }
 
     const { data, error } = await supabase
-      .from('estados_erp')
+      .from('evt_estados_erp')
       .select('*')
       .order('orden', { ascending: true });
 
@@ -102,7 +102,7 @@ class EventStateValidationService {
 
       // Obtener datos del evento para validaciones específicas
       const { data: evento, error: eventoError } = await supabase
-        .from('eventos_erp')
+        .from('evt_eventos_erp')
         .select('*, ingresos:ingresos_erp(monto_cobrado), gastos:gastos_erp(total)')
         .eq('id', eventoId)
         .single();

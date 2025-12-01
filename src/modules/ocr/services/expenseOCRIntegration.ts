@@ -4,24 +4,14 @@
  * Este servicio conecta el clasificador inteligente de OCR
  * con el módulo de gastos, asegurando que TODOS los campos
  * de la base de datos se llenen correctamente.
- *
- * ESTRATEGIA OCR:
- * 1. Google Vision primero (mejor precisión)
- * 2. Fallback a Tesseract/OCR.space
- *
- * CLASIFICACIÓN AUTOMÁTICA:
- * - Imágenes (jpg, png, etc.) = TICKET
- * - PDFs = FACTURA
  */
 
 import { IntelligentExpenseClassifier, ExpenseClassificationResult, ExpenseCategory } from './intelligentOCRClassifier';
 import { tesseractOCRService } from './tesseractOCRService_OPTIMIZED';
 import { processWithBestOCR } from '../../eventos-erp/components/finances/bestOCR';
 import { processWithRealGoogleVision } from '../../eventos-erp/components/finances/realGoogleVision';
-import { TextDataExtractor } from './textDataExtractor';
-import { Expense } from '../../eventos/types/Finance';
-import { FinancesService } from '../../eventos/services/financesService';
-import type { TicketData, FacturaData } from '../types/OCRTypes';
+import { Expense } from '../../eventos-erp/types/Finance';
+import { FinancesService } from '../../eventos-erp/services/financesService';
 
 /**
  * MAPEO DE CATEGORÍAS: OCR → Base de Datos
@@ -91,87 +81,42 @@ export class ExpenseOCRIntegrationService {
       console.log('🔍 Paso 1/4: Ejecutando OCR...');
       console.log('📄 Tipo de archivo:', file.type);
 
-      let ocrResult: { texto_completo: string; datos_ticket?: TicketData; datos_factura?: FacturaData } | null = null;
-
-      // CLASIFICACIÓN AUTOMÁTICA POR TIPO DE ARCHIVO:
-      // - Imágenes (jpg, png, webp, etc.) = TICKET
-      // - PDFs = FACTURA
-      const isPDF = file.type === 'application/pdf';
-      const documentType = isPDF ? 'factura' : 'ticket';
-
-      console.log(`📄 Tipo de archivo: ${file.type} → Clasificado como: ${documentType.toUpperCase()}`);
+      let ocrResult: { texto_completo: string; datos_ticket?: any; datos_factura?: any };
 
       // ESTRATEGIA: Google Vision PRIMERO, luego fallback
       // (igual que módulo de Eventos)
-      let textoOCR = '';
-
       try {
         console.log('🔄 Intentando Google Vision PRIMERO...');
         const visionResult = await processWithRealGoogleVision(file);
 
         if (visionResult.text && visionResult.text.trim().length > 20) {
           console.log('✅ Google Vision exitoso:', visionResult.text.length, 'caracteres');
-          textoOCR = visionResult.text;
+          ocrResult = {
+            texto_completo: visionResult.text,
+            datos_ticket: null,
+            datos_factura: null
+          };
         } else {
           throw new Error('Google Vision: texto muy corto');
         }
       } catch (visionError) {
         console.warn('⚠️ Google Vision falló, usando fallback...', visionError);
 
+        const isPDF = file.type === 'application/pdf';
+
         if (isPDF) {
           // Para PDFs: usar bestOCR (Tesseract → OCR.space)
           console.log('📄 PDF - usando bestOCR como fallback...');
           const bestResult = await processWithBestOCR(file);
-          textoOCR = bestResult.text;
+          ocrResult = {
+            texto_completo: bestResult.text,
+            datos_ticket: null,
+            datos_factura: null
+          };
         } else {
           // Para imágenes: usar Tesseract
           console.log('🖼️ Imagen - usando Tesseract como fallback...');
-          const tesseractResult = await tesseractOCRService.processDocument(file);
-          textoOCR = tesseractResult.texto_completo;
-
-          // Si Tesseract ya extrajo datos estructurados, usarlos
-          if (tesseractResult.datos_ticket || tesseractResult.datos_factura) {
-            ocrResult = {
-              texto_completo: textoOCR,
-              datos_ticket: tesseractResult.datos_ticket,
-              datos_factura: tesseractResult.datos_factura
-            };
-            console.log('✅ Usando datos estructurados de Tesseract');
-          }
-        }
-      }
-
-      // EXTRAER DATOS ESTRUCTURADOS DEL TEXTO
-      // Si no tenemos datos estructurados aún, usar el extractor mejorado
-      if (!ocrResult) {
-        console.log('🔍 Extrayendo datos estructurados del texto OCR...');
-
-        if (documentType === 'factura') {
-          // PDFs = Facturas CFDI
-          const facturaData = TextDataExtractor.extractFacturaData(textoOCR);
-          ocrResult = {
-            texto_completo: textoOCR,
-            datos_ticket: undefined,
-            datos_factura: TextDataExtractor.toFacturaData(facturaData)
-          };
-          console.log('🧾 Datos de FACTURA extraídos:', {
-            uuid: facturaData.uuid,
-            rfc: facturaData.rfc_emisor,
-            total: facturaData.total
-          });
-        } else {
-          // Imágenes = Tickets
-          const ticketData = TextDataExtractor.extractTicketData(textoOCR);
-          ocrResult = {
-            texto_completo: textoOCR,
-            datos_ticket: TextDataExtractor.toTicketData(ticketData),
-            datos_factura: undefined
-          };
-          console.log('🎫 Datos de TICKET extraídos:', {
-            establecimiento: ticketData.establecimiento,
-            total: ticketData.total,
-            fecha: ticketData.fecha
-          });
+          ocrResult = await tesseractOCRService.processDocument(file);
         }
       }
 

@@ -17,6 +17,7 @@ import { DualOCRExpenseForm } from './finances/DualOCRExpenseForm';
 import { IncomeForm } from './finances/IncomeForm';
 import { GaugeChart } from './GaugeChart';
 import { useTheme } from '../../../shared/components/theme';
+import { ProvisionFormModal } from './ProvisionFormModal';
 
 interface EventoDetailModalProps {
   eventoId: number;
@@ -31,9 +32,10 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
   onEdit,
   onRefresh
 }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'ingresos' | 'gastos' | 'workflow'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'ingresos' | 'gastos' | 'provisiones' | 'workflow'>('overview');
   const [ingresos, setIngresos] = useState<any[]>([]);
   const [gastos, setGastos] = useState<any[]>([]);
+  const [provisiones, setProvisiones] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [eventDocuments, setEventDocuments] = useState<any[]>([]);
   const [isCanceling, setIsCanceling] = useState(false);
@@ -42,10 +44,15 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
   // Estados para el modal de gastos
   const [showGastoModal, setShowGastoModal] = useState(false);
   const [editingGasto, setEditingGasto] = useState<any | null>(null);
-  
+  const [defaultGastoCategory, setDefaultGastoCategory] = useState<string | undefined>(undefined);
+
   // Estados para el modal de ingresos
   const [showIngresoModal, setShowIngresoModal] = useState(false);
   const [editingIngreso, setEditingIngreso] = useState<any | null>(null);
+
+  // Estados para el modal de provisiones
+  const [showProvisionModal, setShowProvisionModal] = useState(false);
+  const [editingProvision, setEditingProvision] = useState<any | null>(null);
 
   // Estado para mostrar/ocultar IVA
   const [showIVA, setShowIVA] = useState(() => {
@@ -70,9 +77,9 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
   const { data: evento, isLoading: isLoadingEvent } = useQuery({
     queryKey: ['evento', eventoId],
     queryFn: async () => {
-      // IMPORTANTE: Cargar desde evt_eventos (NO desde la vista) para tener TODOS los campos
+      // IMPORTANTE: Cargar desde eventos_erp para tener TODOS los campos
       const { data: eventoBase, error: eventoError } = await supabase
-        .from('evt_eventos')
+        .from('evt_eventos_erp')
         .select('*')
         .eq('id', eventoId)
         .single();
@@ -86,7 +93,7 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
 
       if (eventoBase.cliente_id) {
         const { data } = await supabase
-          .from('evt_clientes')
+          .from('evt_clientes_erp')
           .select('id, razon_social, nombre_comercial')
           .eq('id', eventoBase.cliente_id)
           .single();
@@ -145,7 +152,7 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
       // Cargar datos financieros desde la vista (IGUAL QUE EN EL LISTADO)
       console.log('🔍 Cargando datos financieros para evento:', eventoId);
       const { data: eventoFinanciero, error: financieroError } = await supabase
-        .from('vw_eventos_analisis_financiero')
+        .from('vw_eventos_analisis_financiero_erp')
         .select('*')
         .eq('id', eventoId)
         .single();
@@ -186,7 +193,7 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
     setLoading(true);
     try {
       const { data: ingresosData, error: ingresosError } = await supabase
-        .from('evt_ingresos')
+        .from('evt_ingresos_erp')
         .select('*')
         .eq('evento_id', evento.id)
         .order('created_at', { ascending: false });
@@ -195,16 +202,37 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
       setIngresos(ingresosData || []);
 
       const { data: gastosData, error: gastosError } = await supabase
-        .from('evt_gastos')
+        .from('evt_gastos_erp')
         .select(`
           *,
-          categoria:evt_categorias_gastos(nombre, color)
+          categoria:evt_categorias_gastos_erp(nombre, color)
         `)
         .eq('evento_id', evento.id)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
       if (gastosError) throw gastosError;
       setGastos(gastosData || []);
+
+      // Cargar provisiones desde evt_provisiones
+      const { data: provisionesData, error: provisionesError } = await supabase
+        .from('evt_provisiones')
+        .select(`
+          *,
+          categoria:cat_categorias_gasto(id, nombre, clave, color),
+          proveedor:cat_proveedores(id, razon_social, rfc),
+          forma_pago:cat_formas_pago(id, nombre)
+        `)
+        .eq('evento_id', evento.id)
+        .eq('activo', true)
+        .order('created_at', { ascending: false });
+
+      if (provisionesError) {
+        console.warn('Error loading provisiones (tabla puede no existir):', provisionesError);
+        setProvisiones([]);
+      } else {
+        setProvisiones(provisionesData || []);
+      }
     } catch (error) {
       console.error('Error loading financial data:', error);
     } finally {
@@ -544,10 +572,6 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
                 gastos={gastos}
                 evento={evento}
                 onRefresh={loadFinancialData}
-                onCreateGasto={() => {
-                  setEditingGasto(null);
-                  setShowGastoModal(true);
-                }}
                 onEditGasto={(gasto) => {
                   setEditingGasto(gasto);
                   setShowGastoModal(true);
@@ -556,7 +580,19 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
             )}
 
             {activeTab === 'provisiones' && (
-              <ProvisionesTab evento={evento} eventoId={eventoId} onRefresh={loadFinancialData} />
+              <ProvisionesTab
+                provisiones={provisiones}
+                evento={evento}
+                onRefresh={loadFinancialData}
+                onCreateProvision={() => {
+                  setEditingProvision(null);
+                  setShowProvisionModal(true);
+                }}
+                onEditProvision={(provision) => {
+                  setEditingProvision(provision);
+                  setShowProvisionModal(true);
+                }}
+              />
             )}
 
             {activeTab === 'workflow' && (
@@ -569,19 +605,21 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
     
     {/* Modal de Gasto con OCR */}
     {showGastoModal && (
-      <Modal 
-        isOpen={showGastoModal} 
+      <Modal
+        isOpen={showGastoModal}
         size="xxl"
         closeOnBackdrop={false}
         onClose={() => {
           setShowGastoModal(false);
           setEditingGasto(null);
+          setDefaultGastoCategory(undefined);
         }}
       >
         <div className="p-6">
           <DualOCRExpenseForm
             expense={editingGasto}
             eventId={eventoId.toString()}
+            defaultCategoryName={defaultGastoCategory}
             onSave={async (data) => {
               try {
                 console.log('💾 [EventoDetailModal] Guardando gasto con datos:', data);
@@ -596,7 +634,7 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
                   // Actualizar gasto existente
                   console.log('📝 Actualizando gasto ID:', editingGasto.id);
                   const { error } = await supabase
-                    .from('evt_gastos')
+                    .from('evt_gastos_erp')
                     .update(gastoData)
                     .eq('id', editingGasto.id);
 
@@ -606,7 +644,7 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
                   // Crear nuevo gasto
                   console.log('➕ Creando nuevo gasto');
                   const { error } = await supabase
-                    .from('evt_gastos')
+                    .from('evt_gastos_erp')
                     .insert(gastoData);
 
                   if (error) throw error;
@@ -661,7 +699,7 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
                 if (editingIngreso?.id) {
                   // Actualizar ingreso existente
                   const { error } = await supabase
-                    .from('evt_ingresos')
+                    .from('evt_ingresos_erp')
                     .update(cleanData)
                     .eq('id', editingIngreso.id);
                   
@@ -670,7 +708,7 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
                 } else {
                   // Crear nuevo ingreso
                   const { error } = await supabase
-                    .from('evt_ingresos')
+                    .from('evt_ingresos_erp')
                     .insert([cleanData]);
                   
                   if (error) throw error;
@@ -692,6 +730,23 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
           />
         </div>
       </Modal>
+    )}
+
+    {/* Modal de Provisión */}
+    {showProvisionModal && (
+      <ProvisionFormModal
+        provision={editingProvision}
+        eventoId={eventoId}
+        onClose={() => {
+          setShowProvisionModal(false);
+          setEditingProvision(null);
+        }}
+        onSave={() => {
+          loadFinancialData();
+          setShowProvisionModal(false);
+          setEditingProvision(null);
+        }}
+      />
     )}
     </>
   );
@@ -1032,7 +1087,7 @@ const IngresosTab: React.FC<{
     if (confirm(`¿Está seguro de que desea eliminar este ingreso de ${formatCurrency(ingreso.total)}?`)) {
       try {
         const { error } = await supabase
-          .from('evt_ingresos')
+          .from('evt_ingresos_erp')
           .delete()
           .eq('id', ingreso.id);
         
@@ -1163,10 +1218,9 @@ const GastosTab: React.FC<{
   gastos: any[];
   evento: any;
   onRefresh: () => void;
-  onCreateGasto: () => void;
   onEditGasto: (gasto: any) => void;
-}> = ({ gastos, evento, onRefresh, onCreateGasto, onEditGasto }) => {
-  const { canCreate, canUpdate, canDelete } = usePermissions();
+}> = ({ gastos, evento, onRefresh, onEditGasto }) => {
+  const { canUpdate, canDelete } = usePermissions();
   const [activeSubTab, setActiveSubTab] = useState<'todos' | 'combustible' | 'materiales' | 'rh' | 'sps'>('todos');
   const [isDesgloseExpanded, setIsDesgloseExpanded] = useState(false); // Oculto por defecto - desglose de categorías
 
@@ -1174,7 +1228,7 @@ const GastosTab: React.FC<{
     if (confirm(`¿Está seguro de que desea eliminar este gasto de ${formatCurrency(gasto.total)}?`)) {
       try {
         const { error } = await supabase
-          .from('evt_gastos')
+          .from('evt_gastos_erp')
           .update({ 
             deleted_at: new Date().toISOString(),
             activo: false 
@@ -1240,8 +1294,8 @@ const GastosTab: React.FC<{
       exit={{ opacity: 0, y: -20 }}
       className="p-6"
     >
-      {/* RESUMEN DE GASTOS - 3 FICHAS + BOTÓN AGREGAR */}
-      <div className="grid grid-cols-4 gap-3 mb-6">
+      {/* RESUMEN DE GASTOS - 3 FICHAS */}
+      <div className="grid grid-cols-3 gap-3 mb-6">
         {/* FICHA 1: Provisionado - Clickeable completa */}
         <button
           onClick={() => setIsDesgloseExpanded(!isDesgloseExpanded)}
@@ -1319,16 +1373,6 @@ const GastosTab: React.FC<{
           )}
         </button>
 
-        {/* BOTÓN AGREGAR GASTO */}
-        {canCreate('gastos') && (
-          <button
-            onClick={onCreateGasto}
-            className="bg-gradient-to-br from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 border border-slate-400 rounded-lg p-3 transition-all flex flex-col items-center justify-center gap-1.5 group shadow-sm"
-          >
-            <Plus className="w-6 h-6 text-white" />
-            <span className="text-[10px] font-semibold text-white uppercase tracking-wide text-center">Agregar<br/>Gasto</span>
-          </button>
-        )}
       </div>
 
 
@@ -1424,140 +1468,38 @@ const GastosTab: React.FC<{
 };
 
 const ProvisionesTab: React.FC<{
+  provisiones: any[];
   evento: any;
-  eventoId: number;
   onRefresh: () => void;
-}> = ({ evento, eventoId, onRefresh }) => {
-  const queryClient = useQueryClient();
-  const [editingProvision, setEditingProvision] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState<string>('');
-  const [showAjusteModal, setShowAjusteModal] = useState(false);
-  const [margenPorcentaje, setMargenPorcentaje] = useState(10);
-  const [expandedKPI, setExpandedKPI] = useState<boolean>(false); // Oculto por defecto
+  onCreateProvision: () => void;
+  onEditProvision: (provision: any) => void;
+}> = ({ provisiones, evento, onRefresh, onCreateProvision, onEditProvision }) => {
+  const { canCreate, canUpdate, canDelete } = usePermissions();
 
-  const provisiones = [
-    {
-      tipo: 'combustible_peaje',
-      label: 'Combustible y Peaje',
-      icono: '⛽',
-      color: 'from-amber-500 to-orange-600',
-      provision: evento.provision_combustible_peaje || 0,
-      gastado: (evento.gastos_combustible_pagados || 0) + (evento.gastos_combustible_pendientes || 0),
-    },
-    {
-      tipo: 'materiales',
-      label: 'Materiales',
-      icono: '🛠️',
-      color: 'from-blue-500 to-indigo-600',
-      provision: evento.provision_materiales || 0,
-      gastado: (evento.gastos_materiales_pagados || 0) + (evento.gastos_materiales_pendientes || 0),
-    },
-    {
-      tipo: 'recursos_humanos',
-      label: 'Recursos Humanos',
-      icono: '👥',
-      color: 'from-purple-500 to-pink-600',
-      provision: evento.provision_recursos_humanos || 0,
-      gastado: (evento.gastos_rh_pagados || 0) + (evento.gastos_rh_pendientes || 0),
-    },
-    {
-      tipo: 'solicitudes_pago',
-      label: 'Solicitudes de Pago',
-      icono: '💳',
-      color: 'from-teal-500 to-cyan-600',
-      provision: evento.provision_solicitudes_pago || 0,
-      gastado: (evento.gastos_sps_pagados || 0) + (evento.gastos_sps_pendientes || 0),
-    },
-  ];
+  const handleDelete = async (provision: any) => {
+    if (confirm(`¿Está seguro de que desea eliminar esta provisión de ${formatCurrency(provision.total)}?`)) {
+      try {
+        const { error } = await supabase
+          .from('evt_provisiones')
+          .update({
+            deleted_at: new Date().toISOString(),
+            activo: false
+          })
+          .eq('id', provision.id);
 
-  const handleEditProvision = async (tipo: string, nuevoValor: number) => {
-    try {
-      const { error } = await supabase
-        .from('evt_eventos')
-        .update({ [`provision_${tipo}`]: nuevoValor })
-        .eq('id', evento.id);
-
-      if (error) throw error;
-
-      toast.success('Provisión actualizada correctamente');
-      setEditingProvision(null);
-      setEditValue('');
-      // Invalidar query para actualizar fichas inmediatamente
-      queryClient.invalidateQueries({ queryKey: ['evento', eventoId] });
-      onRefresh();
-    } catch (error: any) {
-      toast.error(`Error al actualizar provisión: ${error.message}`);
+        if (error) throw error;
+        toast.success('Provisión eliminada');
+        onRefresh();
+      } catch (error) {
+        console.error('Error deleting provision:', error);
+        toast.error('Error al eliminar provisión');
+      }
     }
   };
 
-  const startEditing = (tipo: string, currentValue: number) => {
-    setEditingProvision(tipo);
-    setEditValue(currentValue.toString());
-  };
-
-  const cancelEditing = () => {
-    setEditingProvision(null);
-    setEditValue('');
-  };
-
-  const saveEditing = (tipo: string) => {
-    const numValue = parseFloat(editValue) || 0;
-    handleEditProvision(tipo, numValue);
-  };
-
-  const handleAjusteAutomatico = async () => {
-    try {
-      const updates: Record<string, number> = {};
-
-      provisiones.forEach((prov) => {
-        const nuevoValor = prov.gastado * (1 + margenPorcentaje / 100);
-        updates[`provision_${prov.tipo}`] = nuevoValor;
-      });
-
-      const { error } = await supabase
-        .from('evt_eventos')
-        .update(updates)
-        .eq('id', evento.id);
-
-      if (error) throw error;
-
-      toast.success(`Provisiones ajustadas con margen del ${margenPorcentaje}%`);
-      setShowAjusteModal(false);
-      // Invalidar query para actualizar fichas inmediatamente
-      queryClient.invalidateQueries({ queryKey: ['evento', eventoId] });
-      onRefresh();
-    } catch (error: any) {
-      toast.error(`Error al ajustar provisiones: ${error.message}`);
-    }
-  };
-
-  const handleAjustarEnCero = async () => {
-    try {
-      const updates: Record<string, number> = {};
-      provisiones.forEach((prov) => {
-        updates[`provision_${prov.tipo}`] = prov.gastado;
-      });
-
-      const { error } = await supabase
-        .from('evt_eventos')
-        .update(updates)
-        .eq('id', evento.id);
-
-      if (error) throw error;
-
-      toast.success('Provisiones ajustadas a gastos reales (margen 0%)');
-      setShowAjusteModal(false);
-      // Invalidar query para actualizar fichas inmediatamente
-      queryClient.invalidateQueries({ queryKey: ['evento', eventoId] });
-      onRefresh();
-    } catch (error: any) {
-      toast.error(`Error al ajustar provisiones: ${error.message}`);
-    }
-  };
-
-  const totalProvision = provisiones.reduce((sum, p) => sum + p.provision, 0);
-  const totalGastado = provisiones.reduce((sum, p) => sum + p.gastado, 0);
-  const totalDisponible = totalProvision - totalGastado;
+  // Calcular totales
+  const totalProvisiones = provisiones.reduce((sum, p) => sum + (p.total || 0), 0);
+  const numProvisiones = provisiones.length;
 
   return (
     <motion.div
@@ -1566,307 +1508,115 @@ const ProvisionesTab: React.FC<{
       exit={{ opacity: 0, y: -20 }}
       className="p-6"
     >
-      {/* RESUMEN FINANCIERO COMPACTO - 3 FICHAS CLICKEABLES + BOTÓN AJUSTE */}
-      <div className="grid grid-cols-4 gap-3 mb-6">
-        {/* PROVISIONADO - Clickeable completa */}
-        <button
-          onClick={() => setExpandedKPI(!expandedKPI)}
-          className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-3 hover:shadow-md transition-all text-left"
-        >
+      {/* RESUMEN DE PROVISIONES - 2 FICHAS + BOTÓN AGREGAR */}
+      <div className="grid grid-cols-3 gap-3 mb-6">
+        {/* FICHA 1: Total Provisionado */}
+        <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg p-3 border border-amber-300">
           <div className="flex items-start justify-between gap-2 mb-0.5">
-            <div className="text-[10px] font-semibold text-blue-700 uppercase tracking-wide">Provisionado</div>
-            <div className="text-[10px] text-blue-600 font-semibold">100%</div>
+            <div className="text-[10px] text-amber-700 font-semibold uppercase tracking-wide">Total Provisiones</div>
+            <div className="text-[10px] text-amber-600 font-semibold">{numProvisiones} items</div>
           </div>
-          <div className="text-xl font-bold text-blue-900">{formatCurrency(totalProvision)}</div>
-          {expandedKPI && (
-            <div className="space-y-0.5 mt-1.5">
-              {provisiones.map(p => (
-                <div key={p.tipo} className="flex items-center gap-1.5 text-[10px] text-blue-600">
-                  <span>{p.icono}</span>
-                  <span className="font-semibold">{formatCurrency(p.provision)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </button>
+          <div className="text-xl font-bold text-amber-800">{formatCurrency(totalProvisiones)}</div>
+        </div>
 
-        {/* GASTADO - Clickeable completa */}
-        <button
-          onClick={() => setExpandedKPI(!expandedKPI)}
-          className="bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-300 rounded-lg p-3 hover:shadow-md transition-all text-left"
-        >
+        {/* FICHA 2: Por Ejercer */}
+        <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg p-3 border border-slate-200">
           <div className="flex items-start justify-between gap-2 mb-0.5">
-            <div className="text-[10px] font-semibold text-slate-700 uppercase tracking-wide">Gastado</div>
-            <div className="text-[10px] text-slate-600 font-semibold">
-              {totalProvision > 0 ? ((totalGastado / totalProvision) * 100).toFixed(0) : 0}%
-            </div>
+            <div className="text-[10px] text-slate-700 font-semibold uppercase tracking-wide">Pendientes</div>
           </div>
-          <div className="text-xl font-bold text-slate-900">{formatCurrency(totalGastado)}</div>
-          {expandedKPI && (
-            <div className="space-y-0.5 mt-1.5">
-              {provisiones.map(p => (
-                <div key={p.tipo} className="flex items-center gap-1.5 text-[10px] text-slate-600">
-                  <span>{p.icono}</span>
-                  <span className="font-semibold">{formatCurrency(p.gastado)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </button>
-
-        {/* PROVISIÓN - Clickeable completa */}
-        <button
-          onClick={() => setExpandedKPI(!expandedKPI)}
-          className={`bg-gradient-to-br rounded-lg p-3 border hover:shadow-md transition-all text-left ${
-            totalDisponible >= 0 ? 'from-amber-50 to-amber-100 border-amber-300' : 'from-red-50 to-red-100 border-red-200'
-          }`}
-        >
-          <div className="flex items-start justify-between gap-2 mb-0.5">
-            <div className={`text-[10px] font-semibold uppercase tracking-wide ${
-              totalDisponible >= 0 ? 'text-amber-700' : 'text-red-700'
-            }`}>Provisión</div>
-            <div className={`text-[10px] font-semibold ${totalDisponible >= 0 ? 'text-amber-600' : 'text-red-600'}`}>
-              {totalProvision > 0 ? ((totalDisponible / totalProvision) * 100).toFixed(0) : 0}%
-            </div>
-          </div>
-          <div className={`text-xl font-bold ${totalDisponible >= 0 ? 'text-amber-900' : 'text-red-900'}`}>
-            {formatCurrency(Math.max(0, totalDisponible))}
-          </div>
-          {expandedKPI && (
-            <div className="space-y-0.5 mt-1.5">
-              {provisiones.map(p => {
-                const porEjercer = p.provision - p.gastado;
-                return (
-                  <div key={p.tipo} className={`flex items-center gap-1.5 text-[10px] ${porEjercer >= 0 ? 'text-amber-600' : 'text-red-600'}`}>
-                    <span>{p.icono}</span>
-                    <span className="font-semibold">{formatCurrency(Math.max(0, porEjercer))}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </button>
-
-        {/* BOTÓN AJUSTE AUTOMÁTICO */}
-        <button
-          onClick={() => setShowAjusteModal(true)}
-          className="bg-gradient-to-br from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 border border-slate-400 rounded-lg p-3 transition-all flex flex-col items-center justify-center gap-1.5 group shadow-sm"
-        >
-          <SettingsIcon className="w-6 h-6 text-white group-hover:rotate-90 transition-transform duration-300" />
-          <span className="text-[10px] font-semibold text-white uppercase tracking-wide text-center">Ajuste<br/>Automático</span>
-        </button>
-      </div>
-
-      {/* GRID DE 2 COLUMNAS - FICHAS DE CATEGORÍAS */}
-      <div className="grid grid-cols-2 gap-4">
-        {provisiones.map((prov) => {
-          const porEjercer = prov.provision - prov.gastado;
-          const porcentajeGastado = prov.provision > 0 ? (prov.gastado / prov.provision) * 100 : 0;
-          const porcentajeDisponible = 100 - porcentajeGastado;
-          const isEditing = editingProvision === prov.tipo;
-
-          return (
-            <div key={prov.tipo} className="bg-white border-2 border-gray-200 rounded-xl p-4">
-              {/* Header: Ícono + Nombre + Provisionado editable a la derecha */}
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${prov.color} flex items-center justify-center text-xl flex-shrink-0`}>
-                    {prov.icono}
-                  </div>
-                  <h4 className="font-bold text-gray-900 text-base">{prov.label}</h4>
-                </div>
-                {/* Provisionado editable en esquina superior derecha - VACÍO (se muestra abajo) */}
-              </div>
-
-              {/* Barra de progreso - Verde para provisión disponible, Gris para gastado */}
-              <div className="relative h-8 bg-emerald-100 rounded-lg overflow-hidden mb-3">
-                {/* Barra: Gastado (gris) - de izquierda a derecha */}
-                <div
-                  className="absolute h-full bg-slate-400 transition-all duration-500 flex items-center justify-start"
-                  style={{ width: `${Math.min(porcentajeGastado, 100)}%` }}
-                >
-                  <span className="text-xs font-bold text-white px-2 whitespace-nowrap">
-                    Gastado: {formatCurrency(prov.gastado)}
-                  </span>
-                </div>
-                {/* Etiqueta Provisión disponible (verde) - en la parte derecha */}
-                <div
-                  className="absolute h-full flex items-center justify-end right-0"
-                  style={{ width: `${Math.max(0, porcentajeDisponible)}%` }}
-                >
-                  {porcentajeDisponible > 15 && (
-                    <span className="text-xs font-bold text-emerald-700 px-2 whitespace-nowrap">
-                      {formatCurrency(Math.max(0, porEjercer))}
-                    </span>
-                  )}
-                </div>
-                {/* Porcentaje centrado */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className={`text-xs font-bold drop-shadow-sm ${porcentajeGastado > 50 ? 'text-white' : 'text-emerald-800'}`}>
-                    {porcentajeGastado.toFixed(0)}%
-                  </span>
-                </div>
-              </div>
-
-              {/* Valores en grid 2 columnas: Provisionado editable (izq) y Provisión restante (der) */}
-              <div className="flex justify-between items-end">
-                {/* PROVISIONADO - Esquina inferior izquierda con lápiz */}
-                <div>
-                  <div className="flex items-center gap-1.5 mb-0.5">
-                    <span className="text-[10px] text-gray-500 uppercase font-medium">Provisionado</span>
-                    <button
-                      onClick={() => startEditing(prov.tipo, prov.provision)}
-                      className="p-0.5 rounded hover:bg-blue-100 text-blue-500 hover:text-blue-700 transition-colors"
-                      title="Editar provisión"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value.replace(/[^0-9.]/g, ''))}
-                      onBlur={() => saveEditing(prov.tipo)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') saveEditing(prov.tipo);
-                        if (e.key === 'Escape') cancelEditing();
-                      }}
-                      className="w-32 text-base font-bold text-blue-900 border border-blue-500 rounded px-2 py-1 focus:ring-1 focus:ring-blue-400"
-                      autoFocus
-                    />
-                  ) : (
-                    <div className="font-bold text-blue-900 text-lg">
-                      {formatCurrency(prov.provision)}
-                    </div>
-                  )}
-                </div>
-
-                {/* PROVISIÓN - Esquina inferior derecha */}
-                <div className="text-right">
-                  <div className="text-[10px] text-gray-500 uppercase font-medium mb-0.5">Provisión</div>
-                  <div className={`font-bold text-lg ${porEjercer >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {formatCurrency(Math.max(0, porEjercer))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Modal de Ajuste Automático - Compacto */}
-      {showAjusteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-2xl w-full">
-            {/* Header con botones de acción */}
-            <div className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 px-4 py-3 rounded-t-lg">
-              <div className="flex justify-between items-center">
-                <h3 className="text-base font-semibold text-gray-900 dark:text-white">Ajustar Provisiones</h3>
-                <div className="flex items-center gap-2">
-                  {/* Botón Ajustar en Cero */}
-                  <button
-                    onClick={handleAjustarEnCero}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors"
-                    title="Ajustar en cero (0%)"
-                  >
-                    <span className="text-sm">🎯</span>
-                    Cero
-                  </button>
-                  {/* Botón Aplicar Margen */}
-                  <button
-                    onClick={handleAjusteAutomatico}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg transition-colors"
-                    title={`Aplicar margen ${margenPorcentaje}%`}
-                  >
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    Aplicar {margenPorcentaje}%
-                  </button>
-                  {/* Separador */}
-                  <div className="w-px h-6 bg-gray-300"></div>
-                  {/* Botón Cerrar */}
-                  <button
-                    onClick={() => setShowAjusteModal(false)}
-                    className="p-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                    title="Cerrar"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-5">
-              {/* Grid de 2 columnas: Selector de margen y Vista previa */}
-              <div className="grid grid-cols-2 gap-5">
-                {/* COLUMNA 1: Selector de margen */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                    Margen de seguridad
-                  </label>
-                  <div className="grid grid-cols-2 gap-2 mb-3">
-                    {[5, 10, 15, 20].map((margin) => (
-                      <button
-                        key={margin}
-                        onClick={() => setMargenPorcentaje(margin)}
-                        className={`py-2.5 px-4 rounded-lg font-bold text-base transition-all ${
-                          margenPorcentaje === margin
-                            ? 'bg-blue-600 text-white shadow-md'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        {margin}%
-                      </button>
-                    ))}
-                  </div>
-                  <div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="50"
-                      step="5"
-                      value={margenPorcentaje}
-                      onChange={(e) => setMargenPorcentaje(parseInt(e.target.value))}
-                      className="w-full"
-                    />
-                    <div className="text-center text-sm text-gray-600 dark:text-gray-400 mt-2">
-                      Personalizado: <span className="font-bold text-blue-600 text-base">{margenPorcentaje}%</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* COLUMNA 2: Vista previa */}
-                <div>
-                  <label className="block text-sm font-semibold text-blue-900 dark:text-blue-300 mb-3">Vista Previa</label>
-                  <div className="space-y-2 max-h-[220px] overflow-y-auto">
-                    {provisiones.map((prov) => {
-                      const nuevoValor = prov.gastado * (1 + margenPorcentaje / 100);
-                      const cambio = nuevoValor - prov.provision;
-
-                      return (
-                        <div key={prov.tipo} className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 rounded-lg p-2.5">
-                          <span className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
-                            <span className="text-base">{prov.icono}</span>
-                            <span className="text-xs">{prov.label}</span>
-                          </span>
-                          <div className="text-right">
-                            <div className="font-semibold text-gray-900 dark:text-white text-xs">
-                              {formatCurrency(prov.provision)} → <span className="text-blue-600">{formatCurrency(nuevoValor)}</span>
-                            </div>
-                            <div className={`text-[10px] ${cambio >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {cambio >= 0 ? '+' : ''}{formatCurrency(cambio)}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div className="text-xl font-bold text-slate-900">
+            {provisiones.filter(p => p.estado === 'pendiente').length} provisiones
           </div>
         </div>
-      )}
+
+        {/* BOTÓN AGREGAR PROVISIÓN */}
+        {canCreate('gastos') && (
+          <button
+            onClick={onCreateProvision}
+            className="bg-gradient-to-br from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 border border-amber-400 rounded-lg p-3 transition-all flex flex-col items-center justify-center gap-1.5 group shadow-sm"
+          >
+            <Plus className="w-6 h-6 text-white" />
+            <span className="text-[10px] font-semibold text-white uppercase tracking-wide text-center">Agregar<br/>Provisión</span>
+          </button>
+        )}
+      </div>
+
+      {/* LISTADO DE PROVISIONES */}
+      <div className="bg-white border border-gray-200 rounded-lg mb-6 overflow-hidden p-4">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Provisiones Registradas</h3>
+
+        <div className="space-y-4">
+          {provisiones.length === 0 ? (
+            <div className="text-center py-12">
+              <Wallet className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500">No hay provisiones registradas</p>
+              <p className="text-sm text-gray-400 mt-1">Las provisiones son gastos estimados que aún no se han pagado</p>
+            </div>
+          ) : (
+            provisiones.map(provision => (
+              <div key={provision.id} className="bg-white border rounded-lg p-3 hover:bg-gray-50 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-5 gap-x-3 gap-y-1 items-center">
+                    <div className="col-span-2 md:col-span-1 flex items-center gap-2">
+                      <h4 className="font-medium text-gray-900 text-base truncate">{provision.concepto}</h4>
+                    </div>
+                    <div>
+                      <span className="text-base font-bold text-amber-600">{formatCurrency(provision.total)}</span>
+                    </div>
+                    <div>
+                      {provision.categoria && (
+                        <Badge
+                          variant="default"
+                          className="text-xs py-0.5"
+                          style={{ backgroundColor: (provision.categoria.color || '#6B7280') + '20', color: provision.categoria.color || '#6B7280' }}
+                        >
+                          {provision.categoria.nombre}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {provision.fecha_estimada ? formatDate(provision.fecha_estimada) : 'Sin fecha'}
+                    </div>
+                    <div className="col-span-2 md:col-span-5 text-sm text-gray-400 truncate">
+                      {provision.proveedor?.razon_social && <span className="mr-3">🏢 {provision.proveedor.razon_social}</span>}
+                      {provision.descripcion && <span className="mr-3">📝 {provision.descripcion}</span>}
+                      <span className={`px-2 py-0.5 rounded text-xs ${
+                        provision.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-700' :
+                        provision.estado === 'aprobado' ? 'bg-green-100 text-green-700' :
+                        provision.estado === 'pagado' ? 'bg-blue-100 text-blue-700' :
+                        'bg-gray-100 text-gray-700'
+                      }`}>
+                        {provision.estado}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 flex-shrink-0">
+                    {canUpdate('gastos') && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onEditProvision(provision); }}
+                        className="p-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 transition-colors border border-blue-200"
+                        title="Editar provisión"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    )}
+                    {canDelete('gastos') && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDelete(provision); }}
+                        className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-600 transition-colors border border-red-200"
+                        title="Eliminar provisión"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
     </motion.div>
   );
 };

@@ -33,19 +33,19 @@ export default defineConfig({
 
           // Feature chunks - módulos de la aplicación
           'eventos-module': [
-            './src/modules/eventos/pages/EventsDashboard',
-            './src/modules/eventos/pages/EventsListPage',
+            './src/modules/eventos-erp/pages/EventsDashboard',
+            './src/modules/eventos-erp/pages/EventsListPage',
           ],
           'admin-module': [
             './src/modules/admin/DatabaseAdminPage',
           ],
           'accounting-module': [
-            './src/modules/eventos/components/accounting/AccountingStateDashboard',
+            './src/modules/eventos-erp/components/accounting/AccountingStateDashboard',
             './src/services/accountingStateService.ts',
           ],
           'workflow-module': [
-            './src/modules/eventos/components/workflow/WorkflowVisualizationPage',
-            './src/modules/eventos/services/workflowService.ts',
+            './src/modules/eventos-erp/components/workflow/WorkflowVisualizationPage',
+            './src/modules/eventos-erp/services/workflowService.ts',
           ],
         },
       },

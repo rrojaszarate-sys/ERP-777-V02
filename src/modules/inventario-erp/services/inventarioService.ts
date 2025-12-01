@@ -135,6 +135,142 @@ export const createMovimiento = async (movimiento: Partial<MovimientoInventario>
 };
 
 // ============================================================================
+// OPERACIONES MASIVAS DE MOVIMIENTOS
+// ============================================================================
+
+export interface MovimientoMasivo {
+  almacen_id: number;
+  producto_id: number;
+  tipo: 'entrada' | 'salida' | 'ajuste' | 'transferencia';
+  cantidad: number;
+  costo_unitario?: number;
+  referencia?: string;
+  concepto?: string;
+}
+
+/**
+ * Registra múltiples movimientos de inventario en una sola operación
+ * Útil para entradas/salidas de varios productos a la vez
+ */
+export const createMovimientosMasivos = async (movimientos: MovimientoMasivo[]) => {
+  if (!movimientos || movimientos.length === 0) {
+    throw new Error('No hay movimientos para registrar');
+  }
+
+  const { data, error } = await supabase
+    .from('movimientos_inventario_erp')
+    .insert(movimientos)
+    .select();
+
+  if (error) throw error;
+  return data;
+};
+
+/**
+ * Registra entrada masiva de productos
+ * @param almacenId ID del almacén
+ * @param items Array de productos con cantidad y costo
+ * @param referencia Referencia del lote (ej: número de factura)
+ * @param concepto Descripción del movimiento
+ */
+export const registrarEntradaMasiva = async (
+  almacenId: number,
+  items: Array<{ productoId: number; cantidad: number; costoUnitario?: number }>,
+  referencia?: string,
+  concepto?: string
+) => {
+  const movimientos: MovimientoMasivo[] = items.map(item => ({
+    almacen_id: almacenId,
+    producto_id: item.productoId,
+    tipo: 'entrada',
+    cantidad: item.cantidad,
+    costo_unitario: item.costoUnitario,
+    referencia: referencia || `ENT_${Date.now()}`,
+    concepto: concepto || 'Entrada de mercancía',
+  }));
+
+  return createMovimientosMasivos(movimientos);
+};
+
+/**
+ * Registra salida masiva de productos
+ * @param almacenId ID del almacén
+ * @param items Array de productos con cantidad
+ * @param referencia Referencia del documento (ej: ticket de venta)
+ * @param concepto Descripción del movimiento
+ */
+export const registrarSalidaMasiva = async (
+  almacenId: number,
+  items: Array<{ productoId: number; cantidad: number }>,
+  referencia?: string,
+  concepto?: string
+) => {
+  // Verificar stock disponible antes de la salida
+  const stockErrors: string[] = [];
+  
+  for (const item of items) {
+    const stock = await obtenerStockProducto(item.productoId, almacenId);
+    if (stock < item.cantidad) {
+      stockErrors.push(`Producto ID ${item.productoId}: stock disponible ${stock}, solicitado ${item.cantidad}`);
+    }
+  }
+
+  if (stockErrors.length > 0) {
+    throw new Error(`Stock insuficiente:\n${stockErrors.join('\n')}`);
+  }
+
+  const movimientos: MovimientoMasivo[] = items.map(item => ({
+    almacen_id: almacenId,
+    producto_id: item.productoId,
+    tipo: 'salida',
+    cantidad: item.cantidad,
+    referencia: referencia || `SAL_${Date.now()}`,
+    concepto: concepto || 'Salida de mercancía',
+  }));
+
+  return createMovimientosMasivos(movimientos);
+};
+
+/**
+ * Obtiene el stock actual de un producto en un almacén específico
+ */
+export const obtenerStockProducto = async (productoId: number, almacenId: number): Promise<number> => {
+  const { data: entradas } = await supabase
+    .from('movimientos_inventario_erp')
+    .select('cantidad')
+    .eq('producto_id', productoId)
+    .eq('almacen_id', almacenId)
+    .in('tipo', ['entrada', 'ajuste']);
+
+  const { data: salidas } = await supabase
+    .from('movimientos_inventario_erp')
+    .select('cantidad')
+    .eq('producto_id', productoId)
+    .eq('almacen_id', almacenId)
+    .eq('tipo', 'salida');
+
+  const totalEntradas = (entradas || []).reduce((sum, m) => sum + m.cantidad, 0);
+  const totalSalidas = (salidas || []).reduce((sum, m) => sum + m.cantidad, 0);
+
+  return totalEntradas - totalSalidas;
+};
+
+/**
+ * Busca producto por código QR o código de barras
+ */
+export const buscarProductoPorCodigo = async (codigo: string, companyId: string) => {
+  const { data, error } = await supabase
+    .from('productos_erp')
+    .select('*')
+    .eq('company_id', companyId)
+    .or(`codigo_qr.eq.${codigo},clave.eq.${codigo}`)
+    .single();
+
+  if (error && error.code !== 'PGRST116') throw error;
+  return data;
+};
+
+// ============================================================================
 // STOCK Y ANÁLISIS
 // ============================================================================
 

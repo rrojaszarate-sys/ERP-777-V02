@@ -18,7 +18,7 @@ export class FinancesService {
   async getIncomes(eventId: string): Promise<Income[]> {
     try {
       const { data, error } = await supabase
-        .from('ingresos_erp')
+        .from('evt_ingresos_erp')
         .select('*')
         .eq('evento_id', eventId)
         .order('created_at', { ascending: false });
@@ -68,7 +68,7 @@ export class FinancesService {
       });
 
       const { data, error } = await supabase
-        .from('ingresos_erp')
+        .from('evt_ingresos_erp')
         .insert([{
           ...cleanIncomeData,
           created_at: new Date().toISOString(),
@@ -114,7 +114,7 @@ export class FinancesService {
       }
 
       const { data, error } = await supabase
-        .from('ingresos_erp')
+        .from('evt_ingresos_erp')
         .update({
           ...calculatedData,
           updated_at: new Date().toISOString()
@@ -134,7 +134,7 @@ export class FinancesService {
   async deleteIncome(id: string): Promise<void> {
     try {
       const { error } = await supabase
-        .from('ingresos_erp')
+        .from('evt_ingresos_erp')
         .delete()
         .eq('id', id);
 
@@ -148,7 +148,7 @@ export class FinancesService {
   private async getIncomeById(id: string): Promise<Income | null> {
     try {
       const { data, error } = await supabase
-        .from('ingresos_erp')
+        .from('evt_ingresos_erp')
         .select('*')
         .eq('id', id)
         .single();
@@ -164,10 +164,10 @@ export class FinancesService {
   async getExpenses(eventId: string): Promise<Expense[]> {
     try {
       const { data, error } = await supabase
-        .from('gastos_erp')
+        .from('evt_gastos_erp')
         .select(`
           *,
-          categoria:categorias_gastos_erp(id, nombre, color)
+          categoria:evt_categorias_gastos_erp(id, nombre, color)
         `)
         .eq('evento_id', eventId)
         .is('deleted_at', null)
@@ -289,11 +289,11 @@ export class FinancesService {
       console.log('🛒 [financesService] detalle_compra final:', dataToInsert.detalle_compra);
 
       const { data, error } = await supabase
-        .from('gastos_erp')
+        .from('evt_gastos_erp')
         .insert([dataToInsert])
         .select(`
           *,
-          categoria:categorias_gastos_erp(id, nombre, color)
+          categoria:evt_categorias_gastos_erp(id, nombre, color)
         `)
         .single();
 
@@ -376,7 +376,7 @@ export class FinancesService {
       }
 
       const { data, error} = await supabase
-        .from('gastos_erp')
+        .from('evt_gastos_erp')
         .update({
           ...calculatedData,
           updated_at: new Date().toISOString()
@@ -384,7 +384,7 @@ export class FinancesService {
         .eq('id', id)
         .select(`
           *,
-          categoria:categorias_gastos_erp(id, nombre, color)
+          categoria:evt_categorias_gastos_erp(id, nombre, color)
         `)
         .single();
 
@@ -406,7 +406,7 @@ export class FinancesService {
       
       // Soft delete
       const { error } = await supabase
-        .from('gastos_erp')
+        .from('evt_gastos_erp')
         .update({
           deleted_at: new Date().toISOString(),
           deleted_by: deletedBy,
@@ -425,7 +425,7 @@ export class FinancesService {
   private async getExpenseById(id: string): Promise<Expense | null> {
     try {
       const { data, error } = await supabase
-        .from('gastos_erp')
+        .from('evt_gastos_erp')
         .select('*')
         .eq('id', id)
         .single();
@@ -441,7 +441,7 @@ export class FinancesService {
   async getExpenseCategories(): Promise<ExpenseCategory[]> {
     try {
       const { data, error } = await supabase
-        .from('categorias_gastos_erp')
+        .from('evt_categorias_gastos_erp')
         .select('*')
         .eq('activo', true)
         .order('nombre');
@@ -611,7 +611,7 @@ export class FinancesService {
   async getIncomeAnalytics(eventId?: string): Promise<any> {
     try {
       const { data, error } = await supabase
-        .from('ingresos_erp')
+        .from('evt_ingresos_erp')
         .select('facturado, cobrado, total, created_at')
         .eq('evento_id', eventId || 0);
 
@@ -703,7 +703,7 @@ export class FinancesService {
       });
 
       const { data, error } = await supabase
-        .from('gastos_erp')
+        .from('evt_gastos_erp')
         .insert([expenseData])
         .select()
         .single();
@@ -776,7 +776,7 @@ export class FinancesService {
       });
 
       const { data, error } = await supabase
-        .from('ingresos_erp')
+        .from('evt_ingresos_erp')
         .insert([incomeData])
         .select()
         .single();
@@ -821,12 +821,12 @@ export class FinancesService {
     try {
       const [expensesResult, incomesResult] = await Promise.all([
         supabase
-          .from('gastos_erp')
+          .from('evt_gastos_erp')
           .select('documento_ocr_id, ocr_confianza, ocr_validado')
           .eq('evento_id', eventId)
           .not('documento_ocr_id', 'is', null),
         supabase
-          .from('ingresos_erp')
+          .from('evt_ingresos_erp')
           .select('documento_ocr_id, ocr_confianza, ocr_validado')
           .eq('evento_id', eventId)
           .not('documento_ocr_id', 'is', null)

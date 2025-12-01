@@ -191,7 +191,7 @@ export const EventosListPage: React.FC = () => {
       // Cargar evento completo desde evt_eventos (no desde la vista)
       // La vista vw_eventos_analisis_financiero no incluye responsable_id, solicitante_id, etc.
       const { data, error } = await supabase
-        .from('evt_eventos')
+        .from('evt_eventos_erp')
         .select('*')
         .eq('id', evento.id)
         .single();
@@ -223,7 +223,7 @@ export const EventosListPage: React.FC = () => {
 
     try {
       const { error } = await supabase
-        .from('evt_eventos')
+        .from('evt_eventos_erp')
         .delete()
         .eq('id', evento.id);
       
@@ -250,7 +250,7 @@ export const EventosListPage: React.FC = () => {
         console.log('🔄 Actualizando evento ID:', editingEvento.id);
 
         const { data, error } = await supabase
-          .from('evt_eventos')
+          .from('evt_eventos_erp')
           .update({
             ...formData,
             updated_at: new Date().toISOString(),
@@ -270,7 +270,7 @@ export const EventosListPage: React.FC = () => {
         console.log('🆕 Creando evento nuevo');
 
         const { data, error } = await supabase
-          .from('evt_eventos')
+          .from('evt_eventos_erp')
           .insert([{
             ...formData,
             created_at: new Date().toISOString(),

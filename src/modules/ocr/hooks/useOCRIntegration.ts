@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { expenseOCRIntegration, ExpenseOCRIntegrationResult } from '../services/expenseOCRIntegration';
-import { financesService } from '../../eventos/services/financesService';
+import { financesService } from '../../eventos-erp/services/financesService';
 import { useAuth } from '../../../core/auth/AuthProvider';
 import { supabase } from '../../../core/config/supabase';
 

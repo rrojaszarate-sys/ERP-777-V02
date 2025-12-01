@@ -41,7 +41,7 @@ export class WorkflowService {
   ): Promise<void> {
     // Obtener el estado actual del evento
     const { data: currentEvent, error: eventError } = await supabase
-      .from('eventos_erp')
+      .from('evt_eventos_erp')
       .select('estado_id, nombre_proyecto')
       .eq('id', eventId)
       .single<{ estado_id: number; nombre_proyecto: string }>();
@@ -50,7 +50,7 @@ export class WorkflowService {
 
     // Obtener información del estado
     const { data: newState, error: stateError } = await supabase
-      .from('estados_erp')
+      .from('evt_estados_erp')
       .select('*')
       .eq('id', newStateId)
       .single<Estado>();
@@ -76,7 +76,7 @@ export class WorkflowService {
     }
 
     const { error: updateError } = await supabase
-      .from('eventos_erp')
+      .from('evt_eventos_erp')
       .update(updateData)
       .eq('id', eventId);
 
@@ -142,7 +142,7 @@ export class WorkflowService {
     try {
       // 2. Obtener el ID del estado objetivo
       const { data: targetState, error: stateError } = await supabase
-        .from('estados_erp')
+        .from('evt_estados_erp')
         .select('id, nombre, orden')
         .eq('nombre', targetStateName)
         .single<Pick<Estado, 'id' | 'nombre' | 'orden'>>();
@@ -155,7 +155,7 @@ export class WorkflowService {
       // 3. Obtener el estado actual del evento
       workflowLogger.info(`Consultando evento ID: ${eventId}`);
       const { data: currentEvent, error: eventError } = await supabase
-        .from('eventos_erp')
+        .from('evt_eventos_erp')
         .select('estado_id')
         .eq('id', eventId)
         .single<{ estado_id: number }>();
@@ -169,7 +169,7 @@ export class WorkflowService {
 
       // Obtener el orden del estado actual
       const { data: currentState, error: currentStateError } = await supabase
-        .from('estados_erp')
+        .from('evt_estados_erp')
         .select('orden, nombre')
         .eq('id', currentEvent.estado_id)
         .single<{ orden: number; nombre: string }>();
@@ -245,7 +245,7 @@ export class WorkflowService {
     try {
       // Obtener información de los estados
       const { data, error } = await supabase
-        .from('estados_erp')
+        .from('evt_estados_erp')
         .select('id, nombre, orden')
         .in('id', [currentStateId, targetStateId]);
 
@@ -277,7 +277,7 @@ export class WorkflowService {
         if (targetState.nombre.toLowerCase() === 'facturado') {
           // Validar que el evento tenga registros de ingresos
           const { count } = await supabase
-            .from('ingresos_erp')
+            .from('evt_ingresos_erp')
             .select('*', { count: 'exact', head: true })
             .eq('evento_id', eventId);
 
@@ -289,7 +289,7 @@ export class WorkflowService {
         if (targetState.nombre.toLowerCase() === 'pagado') {
           // Validar que el evento haya sido facturado
           const { data: event } = await supabase
-            .from('eventos_erp')
+            .from('evt_eventos_erp')
             .select('status_facturacion')
             .eq('id', eventId)
             .single<{ status_facturacion: string | null }>();
@@ -319,7 +319,7 @@ export class WorkflowService {
   async getEventsByState(stateId?: number, companyId?: string): Promise<Evento[]> {
     try {
       let query = supabase
-        .from('eventos_erp')
+        .from('evt_eventos_erp')
         .select('*')
         .eq('activo', true);
 
@@ -351,7 +351,7 @@ export class WorkflowService {
     try {
       // 1. Obtener el ID del estado "Cancelado"
       const { data: cancelledState, error: stateError } = await supabase
-        .from('estados_erp')
+        .from('evt_estados_erp')
         .select('id, nombre')
         .eq('nombre', 'Cancelado')
         .single<Pick<Estado, 'id' | 'nombre'>>();
@@ -368,7 +368,7 @@ export class WorkflowService {
 
       // 3. Opcional: Actualizar el campo status_evento si existe
       await supabase
-        .from('eventos_erp')
+        .from('evt_eventos_erp')
         .update({ status_evento: 'cancelado' } as any) // Solución: Forzar el tipo
         .eq('id', eventId);
 
@@ -390,7 +390,7 @@ export class WorkflowService {
     try {
       // 1. Obtener el ID del estado "Finalizado"
       const { data: finalizedState, error: stateError } = await supabase
-        .from('estados_erp')
+        .from('evt_estados_erp')
         .select('id, nombre')
         .eq('nombre', 'Finalizado')
         .single<Pick<Estado, 'id' | 'nombre'>>();

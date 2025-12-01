@@ -1,0 +1,464 @@
+[
+  {
+    "mantener_id": 29,
+    "mantener_nombre": "OPERADORA CONCESINARIA MEXIQUENSE SA DE CV",
+    "eliminar_id": 67,
+    "eliminar_nombre": "OPERADORA CONCESIONARIA MEXIQUENSE SA DE CV",
+    "similitud": 98
+  },
+  {
+    "mantener_id": 12,
+    "mantener_nombre": "CONTINENTAL MOBILITY SA DE CV",
+    "eliminar_id": 143,
+    "eliminar_nombre": "CONTINENTAL MOBOLITY SA DE CV",
+    "similitud": 97
+  },
+  {
+    "mantener_id": 90,
+    "mantener_nombre": "YAIR CRESCENCIO PEREZ MONTES DE OCA",
+    "eliminar_id": 88,
+    "eliminar_nombre": "YAIR CRESENCIO PEREZ MONTES DE OCA",
+    "similitud": 97
+  },
+  {
+    "mantener_id": 216,
+    "mantener_nombre": "FERRETERIA LA CARREDANA",
+    "eliminar_id": 382,
+    "eliminar_nombre": "FERRETERIA LA CERREDANA",
+    "similitud": 96
+  },
+  {
+    "mantener_id": 276,
+    "mantener_nombre": "FARMACIA GUADALAJARA",
+    "eliminar_id": 324,
+    "eliminar_nombre": "FARMACIAS GUADALAJARA",
+    "similitud": 95
+  },
+  {
+    "mantener_id": 145,
+    "mantener_nombre": "GASOLINERA RENOVACION",
+    "eliminar_id": 385,
+    "eliminar_nombre": "GASOLINERA REOVACION",
+    "similitud": 95
+  },
+  {
+    "mantener_id": 145,
+    "mantener_nombre": "GASOLINERA RENOVACION",
+    "eliminar_id": 270,
+    "eliminar_nombre": "GASOLINERIA RENOVACION",
+    "similitud": 95
+  },
+  {
+    "mantener_id": 319,
+    "mantener_nombre": "PROMIMEX S DE RL DE CV",
+    "eliminar_id": 146,
+    "eliminar_nombre": "PROPIMEX S DE RL DE CV",
+    "similitud": 95
+  },
+  {
+    "mantener_id": 272,
+    "mantener_nombre": "SERVICIO PORTOMARIN",
+    "eliminar_id": 263,
+    "eliminar_nombre": "SERVICIO POTOMARIN",
+    "similitud": 95
+  },
+  {
+    "mantener_id": 123,
+    "mantener_nombre": "EDGAR OSORIO VELA",
+    "eliminar_id": 185,
+    "eliminar_nombre": "EDGAR OSORIO VERA",
+    "similitud": 94
+  },
+  {
+    "mantener_id": 378,
+    "mantener_nombre": "GUILLERMO MEDOZA",
+    "eliminar_id": 298,
+    "eliminar_nombre": "GUILLERMO MENDOZA",
+    "similitud": 94
+  },
+  {
+    "mantener_id": 81,
+    "mantener_nombre": "OPERADORA CONCESIONARIA MEXIQUENSE",
+    "eliminar_id": 154,
+    "eliminar_nombre": "OPERADORA CONSECIONARIA MEXIQUENSE",
+    "similitud": 94
+  },
+  {
+    "mantener_id": 57,
+    "mantener_nombre": "PAULA OLIVIA MOLINA HERNANDEZ",
+    "eliminar_id": 350,
+    "eliminar_nombre": "PAULINA OLIVIA MOLINA HERNANDEZ",
+    "similitud": 94
+  },
+  {
+    "mantener_id": 303,
+    "mantener_nombre": "MILTI HERRAJES",
+    "eliminar_id": 135,
+    "eliminar_nombre": "MULTI HERRAJES",
+    "similitud": 93
+  },
+  {
+    "mantener_id": 135,
+    "mantener_nombre": "MULTI HERRAJES",
+    "eliminar_id": 245,
+    "eliminar_nombre": "MULTIHERRAJES",
+    "similitud": 93
+  },
+  {
+    "mantener_id": 105,
+    "mantener_nombre": "PESA TECNOLOGIA",
+    "eliminar_id": 137,
+    "eliminar_nombre": "PESA TECNOLOGIC",
+    "similitud": 93
+  },
+  {
+    "mantener_id": 266,
+    "mantener_nombre": "QUALITAS COMPANIA DE SEGUROS S.A. DE C.V",
+    "eliminar_id": 69,
+    "eliminar_nombre": "QUALITAS COMPANIA DE SEGUROS SA DE CV",
+    "similitud": 93
+  },
+  {
+    "mantener_id": 302,
+    "mantener_nombre": "AUROMOTRIZ HF",
+    "eliminar_id": 40,
+    "eliminar_nombre": "AUTOMOTRIZ HF",
+    "similitud": 92
+  },
+  {
+    "mantener_id": 13,
+    "mantener_nombre": "SISTEMA DE CORTE CNC METAL SA DE CV",
+    "eliminar_id": 267,
+    "eliminar_nombre": "SISTEMA DE CORTE CNC METAL. S.A DE C.V",
+    "similitud": 92
+  },
+  {
+    "mantener_id": 385,
+    "mantener_nombre": "GASOLINERA REOVACION",
+    "eliminar_id": 270,
+    "eliminar_nombre": "GASOLINERIA RENOVACION",
+    "similitud": 91
+  },
+  {
+    "mantener_id": 155,
+    "mantener_nombre": "THOMAS SANABRIA ECUTIA",
+    "eliminar_id": 99,
+    "eliminar_nombre": "TOMAS SANABRIA ESCUTIA",
+    "similitud": 91
+  },
+  {
+    "mantener_id": 4,
+    "mantener_nombre": "UNALANA PAY",
+    "eliminar_id": 8,
+    "eliminar_nombre": "UNALANAPAY",
+    "similitud": 91
+  },
+  {
+    "mantener_id": 280,
+    "mantener_nombre": "GOBIERNO DEL EDO DE MEXICO",
+    "eliminar_id": 219,
+    "eliminar_nombre": "GOBIERNO DEL ESTADO DE MEXICO",
+    "similitud": 90
+  },
+  {
+    "mantener_id": 128,
+    "mantener_nombre": "ELECTRICA SANTA ANA",
+    "eliminar_id": 287,
+    "eliminar_nombre": "ELECTRICA SANTANA",
+    "similitud": 89
+  },
+  {
+    "mantener_id": 286,
+    "mantener_nombre": "TEELFONOS DE MEXICO",
+    "eliminar_id": 153,
+    "eliminar_nombre": "TELEFONOS DE MEXICO",
+    "similitud": 89
+  },
+  {
+    "mantener_id": 236,
+    "mantener_nombre": "FISAX FERRETERIAS",
+    "eliminar_id": 251,
+    "eliminar_nombre": "FIX FERRETERIAS",
+    "similitud": 88
+  },
+  {
+    "mantener_id": 346,
+    "mantener_nombre": "SERVICIOS GAOLINEROS METEPEC",
+    "eliminar_id": 375,
+    "eliminar_nombre": "SERVICIOS GASOLINEROS DE METEPEC",
+    "similitud": 88
+  },
+  {
+    "mantener_id": 214,
+    "mantener_nombre": "WAL MART",
+    "eliminar_id": 254,
+    "eliminar_nombre": "WALMART",
+    "similitud": 88
+  },
+  {
+    "mantener_id": 251,
+    "mantener_nombre": "FIX FERRETERIAS",
+    "eliminar_id": 130,
+    "eliminar_nombre": "MAX FERRETERIAS",
+    "similitud": 87
+  },
+  {
+    "mantener_id": 303,
+    "mantener_nombre": "MILTI HERRAJES",
+    "eliminar_id": 245,
+    "eliminar_nombre": "MULTIHERRAJES",
+    "similitud": 86
+  },
+  {
+    "mantener_id": 375,
+    "mantener_nombre": "SERVICIOS GASOLINEROS DE METEPEC",
+    "eliminar_id": 170,
+    "eliminar_nombre": "SERVICIOS GASOLINEROS DE MEXICO",
+    "similitud": 84
+  },
+  {
+    "mantener_id": 479,
+    "mantener_nombre": "SERVICIO MIRUSA",
+    "eliminar_id": 344,
+    "eliminar_nombre": "SERVICIO MIRUSA II",
+    "similitud": 83
+  },
+  {
+    "mantener_id": 236,
+    "mantener_nombre": "FISAX FERRETERIAS",
+    "eliminar_id": 130,
+    "eliminar_nombre": "MAX FERRETERIAS",
+    "similitud": 82
+  },
+  {
+    "mantener_id": 417,
+    "mantener_nombre": "PROVISION",
+    "eliminar_id": 405,
+    "eliminar_nombre": "PROVISIONES",
+    "similitud": 82
+  },
+  {
+    "mantener_id": 417,
+    "mantener_nombre": "PROVISION",
+    "eliminar_id": 427,
+    "eliminar_nombre": "PROVISIONES",
+    "similitud": 82
+  },
+  {
+    "mantener_id": 439,
+    "mantener_nombre": "PROVISION",
+    "eliminar_id": 405,
+    "eliminar_nombre": "PROVISIONES",
+    "similitud": 82
+  },
+  {
+    "mantener_id": 439,
+    "mantener_nombre": "PROVISION",
+    "eliminar_id": 427,
+    "eliminar_nombre": "PROVISIONES",
+    "similitud": 82
+  },
+  {
+    "mantener_id": 333,
+    "mantener_nombre": "DIST DE TORNILLOS BIRLOS Y HERRAMIENTAS",
+    "eliminar_id": 140,
+    "eliminar_nombre": "DISTRIBUIDORA DE TORNILLOS BIRLOS Y HERRAMIENTAS",
+    "similitud": 81
+  },
+  {
+    "mantener_id": 102,
+    "mantener_nombre": "DISTRIBUIDORA SAGARO DE MEXICO",
+    "eliminar_id": 176,
+    "eliminar_nombre": "DISTRIBUIDORA SAGARO SA DE CV",
+    "similitud": 80
+  },
+  {
+    "mantener_id": 387,
+    "mantener_nombre": "ALBERTO SUAREZ JIMENEZ",
+    "eliminar_id": 63,
+    "eliminar_nombre": "GUILLERMO SUAREZ JIMENEZ",
+    "similitud": 79
+  },
+  {
+    "mantener_id": 387,
+    "mantener_nombre": "ALBERTO SUAREZ JIMENEZ",
+    "eliminar_id": 450,
+    "eliminar_nombre": "GUILLERMO SUAREZ JIMENEZ",
+    "similitud": 79
+  },
+  {
+    "mantener_id": 376,
+    "mantener_nombre": "EDGAR OCTAVIO ALVARADO",
+    "eliminar_id": 107,
+    "eliminar_nombre": "EDGAR OCTAVIO MEJIA ALVARADO",
+    "similitud": 79
+  },
+  {
+    "mantener_id": 465,
+    "mantener_nombre": "EDGAR OCTAVIO ALVARADO",
+    "eliminar_id": 107,
+    "eliminar_nombre": "EDGAR OCTAVIO MEJIA ALVARADO",
+    "similitud": 79
+  },
+  {
+    "mantener_id": 144,
+    "mantener_nombre": "MULTISERVICIOS DUAL",
+    "eliminar_id": 37,
+    "eliminar_nombre": "MULTISERVS DUAL",
+    "similitud": 79
+  },
+  {
+    "mantener_id": 81,
+    "mantener_nombre": "OPERADORA CONCESIONARIA MEXIQUENSE",
+    "eliminar_id": 67,
+    "eliminar_nombre": "OPERADORA CONCESIONARIA MEXIQUENSE SA DE CV",
+    "similitud": 79
+  },
+  {
+    "mantener_id": 74,
+    "mantener_nombre": "DISTRIBUIDOR PAPELERO DE TOLUCA",
+    "eliminar_id": 201,
+    "eliminar_nombre": "DISTRIBUIDOR PAPELERO DE TOLUCA SA DE CV",
+    "similitud": 78
+  },
+  {
+    "mantener_id": 262,
+    "mantener_nombre": "EDGAR JOSE ARGUELLES",
+    "eliminar_id": 478,
+    "eliminar_nombre": "EDGAR JOSE ARGUELLES DURAN",
+    "similitud": 77
+  },
+  {
+    "mantener_id": 346,
+    "mantener_nombre": "SERVICIOS GAOLINEROS METEPEC",
+    "eliminar_id": 170,
+    "eliminar_nombre": "SERVICIOS GASOLINEROS DE MEXICO",
+    "similitud": 77
+  },
+  {
+    "mantener_id": 29,
+    "mantener_nombre": "OPERADORA CONCESINARIA MEXIQUENSE SA DE CV",
+    "eliminar_id": 81,
+    "eliminar_nombre": "OPERADORA CONCESIONARIA MEXIQUENSE",
+    "similitud": 76
+  },
+  {
+    "mantener_id": 151,
+    "mantener_nombre": "CONSORCIO C T A AUTOMOTRIZ",
+    "eliminar_id": 191,
+    "eliminar_nombre": "CONSORCIO C T A AUTOMOTRIZ SA DE CV",
+    "similitud": 74
+  },
+  {
+    "mantener_id": 102,
+    "mantener_nombre": "DISTRIBUIDORA SAGARO DE MEXICO",
+    "eliminar_id": 220,
+    "eliminar_nombre": "DISTRIBUIDORA SAGARO DE MEXICO SA S DE CV",
+    "similitud": 73
+  },
+  {
+    "mantener_id": 338,
+    "mantener_nombre": "MUEBLES PARA BANO GERSA",
+    "eliminar_id": 195,
+    "eliminar_nombre": "MUEBLES PARA BANO SA DE CV",
+    "similitud": 73
+  },
+  {
+    "mantener_id": 220,
+    "mantener_nombre": "DISTRIBUIDORA SAGARO DE MEXICO SA S DE CV",
+    "eliminar_id": 176,
+    "eliminar_nombre": "DISTRIBUIDORA SAGARO SA DE CV",
+    "similitud": 71
+  },
+  {
+    "mantener_id": 453,
+    "mantener_nombre": "JESUS SANCHEZ GALICIA",
+    "eliminar_id": 182,
+    "eliminar_nombre": "JESUS SANCHEZ SANCHEZ",
+    "similitud": 71
+  },
+  {
+    "mantener_id": 477,
+    "mantener_nombre": "OPERADORA CONCESIONARIA",
+    "eliminar_id": 81,
+    "eliminar_nombre": "OPERADORA CONCESIONARIA MEXIQUENSE",
+    "similitud": 68
+  },
+  {
+    "mantener_id": 200,
+    "mantener_nombre": "ROGELIO VILCHIS",
+    "eliminar_id": 210,
+    "eliminar_nombre": "ROGELIO VILCHIS REYNOSO",
+    "similitud": 65
+  },
+  {
+    "mantener_id": 55,
+    "mantener_nombre": "JESSICA GARCIA",
+    "eliminar_id": 448,
+    "eliminar_nombre": "JESSICA GARCIA GONZALEZ",
+    "similitud": 61
+  },
+  {
+    "mantener_id": 174,
+    "mantener_nombre": "KAWIR GRUPO",
+    "eliminar_id": 54,
+    "eliminar_nombre": "KAWIR GRUPO SA DE CV",
+    "similitud": 55
+  },
+  {
+    "mantener_id": 116,
+    "mantener_nombre": "ECONOCOMEX",
+    "eliminar_id": 96,
+    "eliminar_nombre": "ECONOCOMEX SA DE CV",
+    "similitud": 53
+  },
+  {
+    "mantener_id": 477,
+    "mantener_nombre": "OPERADORA CONCESIONARIA",
+    "eliminar_id": 67,
+    "eliminar_nombre": "OPERADORA CONCESIONARIA MEXIQUENSE SA DE CV",
+    "similitud": 53
+  },
+  {
+    "mantener_id": 189,
+    "mantener_nombre": "SUPERFIL",
+    "eliminar_id": 156,
+    "eliminar_nombre": "SUPERFIL SA DE CV",
+    "similitud": 47
+  },
+  {
+    "mantener_id": 124,
+    "mantener_nombre": "SUPERFIL EDOMEX TOLUCA",
+    "eliminar_id": 181,
+    "eliminar_nombre": "SUPERFIL TOLUCA SA DE CV",
+    "similitud": 46
+  },
+  {
+    "mantener_id": 113,
+    "mantener_nombre": "NOVELSA",
+    "eliminar_id": 109,
+    "eliminar_nombre": "NOVELSA SA DE CV",
+    "similitud": 44
+  },
+  {
+    "mantener_id": 86,
+    "mantener_nombre": "DON LOLO",
+    "eliminar_id": 138,
+    "eliminar_nombre": "FERRETERIA DON LOLO",
+    "similitud": 42
+  },
+  {
+    "mantener_id": 107,
+    "mantener_nombre": "EDGAR OCTAVIO MEJIA ALVARADO",
+    "eliminar_id": 14,
+    "eliminar_nombre": "OCTAVIO ALVARADO MEJIA",
+    "similitud": 36
+  },
+  {
+    "mantener_id": 207,
+    "mantener_nombre": "PROPIMEX",
+    "eliminar_id": 146,
+    "eliminar_nombre": "PROPIMEX S DE RL DE CV",
+    "similitud": 36
+  }
+]

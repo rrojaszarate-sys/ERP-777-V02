@@ -57,36 +57,36 @@ export const useDataSeeder = (): DataSeederHook => {
 
       // Catálogos
       const { count: estadosCount } = await supabase
-        .from('estados_erp')
+        .from('evt_estados_erp')
         .select('*', { count: 'exact', head: true });
       const { count: tiposCount } = await supabase
         .from('tipos_eventos_erp')
         .select('*', { count: 'exact', head: true });
       const { count: categoriasCount } = await supabase
-        .from('categorias_gastos_erp')
+        .from('evt_categorias_gastos_erp')
         .select('*', { count: 'exact', head: true });
       stats.catalogos = (estadosCount || 0) + (tiposCount || 0) + (categoriasCount || 0);
 
       // Clientes
       const { count: clientesCount } = await supabase
-        .from('clientes_erp')
+        .from('evt_clientes_erp')
         .select('*', { count: 'exact', head: true });
       stats.clientes = clientesCount || 0;
 
       // Eventos
       const { count: eventosCount } = await supabase
-        .from('eventos_erp')
+        .from('evt_eventos_erp')
         .select('*', { count: 'exact', head: true })
         .is('deleted_at', null);
       stats.eventos = eventosCount || 0;
 
       // Finanzas
       const { count: ingresosCount } = await supabase
-        .from('ingresos_erp')
+        .from('evt_ingresos_erp')
         .select('*', { count: 'exact', head: true })
         .is('deleted_at', null);
       const { count: gastosCount } = await supabase
-        .from('gastos_erp')
+        .from('evt_gastos_erp')
         .select('*', { count: 'exact', head: true })
         .is('deleted_at', null);
       const { count: provisionesCount } = await supabase

@@ -127,10 +127,10 @@ export const useEventosFinancialList = (filters?: EventosFinancialFilters) => {
     queryKey: ['eventos-financial-list-v2', filters], // v2 para forzar refresh después de actualizar vista
     queryFn: async (): Promise<EventoFinancialListItem[]> => {
       try {
-        console.log('🔍 Cargando eventos desde vw_eventos_analisis_financiero...');
+        console.log('🔍 Cargando eventos desde vw_eventos_analisis_financiero_erp...');
         
         let query = supabase
-          .from('vw_eventos_analisis_financiero')
+          .from('vw_eventos_analisis_financiero_erp')
           .select('*')
           .order('fecha_evento', { ascending: false });
 
@@ -231,7 +231,7 @@ export const useEventosFinancialDashboard = (filters?: EventosFinancialFilters) 
         console.log('📊 Calculando dashboard financiero...');
         
         let query = supabase
-          .from('vw_eventos_analisis_financiero')
+          .from('vw_eventos_analisis_financiero_erp')
           .select('*');
 
         // Aplicar mismos filtros

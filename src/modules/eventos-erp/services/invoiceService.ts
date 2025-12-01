@@ -96,7 +96,7 @@ export class InvoiceService {
       
       // 6. Insertar en la base de datos
       const { data, error } = await supabase
-        .from('ingresos_erp')
+        .from('evt_ingresos_erp')
         .insert([facturaData])
         .select(`
           *,
@@ -140,7 +140,7 @@ export class InvoiceService {
   async getInvoices(filters?: InvoiceFilters): Promise<Invoice[]> {
     try {
       let query = supabase
-        .from('ingresos_erp')
+        .from('evt_ingresos_erp')
         .select(`
           *,
           evento:eventos_erp(
@@ -241,7 +241,7 @@ export class InvoiceService {
   async getInvoiceById(id: string): Promise<Invoice | null> {
     try {
       const { data, error } = await supabase
-        .from('ingresos_erp')
+        .from('evt_ingresos_erp')
         .select(`
           *,
           evento:eventos_erp(
@@ -297,7 +297,7 @@ export class InvoiceService {
       
       // Actualizar
       const { data, error } = await supabase
-        .from('ingresos_erp')
+        .from('evt_ingresos_erp')
         .update({
           monto_cobrado: montoCobrado,
           status_cobro: nuevoEstado,
@@ -335,7 +335,7 @@ export class InvoiceService {
   async cancelarFactura(id: string, motivo?: string): Promise<Invoice> {
     try {
       const { data, error } = await supabase
-        .from('ingresos_erp')
+        .from('evt_ingresos_erp')
         .update({
           status_cobro: 'cancelado',
           status_facturacion: 'cancelado',
@@ -445,7 +445,7 @@ export class InvoiceService {
         
         if (nuevoEstado !== factura.status_cobro) {
           await supabase
-            .from('ingresos_erp')
+            .from('evt_ingresos_erp')
             .update({ status_cobro: nuevoEstado })
             .eq('id', factura.id);
           

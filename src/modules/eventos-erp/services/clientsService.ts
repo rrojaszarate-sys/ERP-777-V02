@@ -21,7 +21,7 @@ export class ClientsService {
   }): Promise<Cliente[]> {
     try {
       let query = supabase
-        .from('clientes_erp')
+        .from('evt_clientes_erp')
         .select('*');
 
       // Apply filters
@@ -52,7 +52,7 @@ export class ClientsService {
   async getClientById(id: string): Promise<Cliente | null> {
     try {
       const { data, error } = await supabase
-        .from('clientes_erp') // Ya estaba correcto, pero confirmamos que no use la vista.
+        .from('evt_clientes_erp') // Ya estaba correcto, pero confirmamos que no use la vista.
         .select('*, company:companies_erp(nombre)')
         .eq('id', id)
         .eq('activo', true)
@@ -80,7 +80,7 @@ export class ClientsService {
       }
 
       const { data, error } = await supabase
-        .from('clientes_erp')
+        .from('evt_clientes_erp')
         .insert([{
           ...clientData,
           company_id,
@@ -102,7 +102,7 @@ export class ClientsService {
   async updateClient(id: string, clientData: Partial<Cliente>): Promise<Cliente> {
     try {
       const { data, error } = await supabase
-        .from('clientes_erp')
+        .from('evt_clientes_erp')
         .update({
           ...clientData,
           updated_at: new Date().toISOString()
@@ -123,7 +123,7 @@ export class ClientsService {
     try {
       // Soft delete - mark as inactive
       const { error } = await supabase
-        .from('clientes_erp')
+        .from('evt_clientes_erp')
         .update({ 
           activo: false,
           updated_at: new Date().toISOString()
@@ -141,7 +141,7 @@ export class ClientsService {
   async getClientEvents(clientId: string): Promise<any[]> {
     try {
       const { data, error } = await supabase
-        .from('eventos_erp')
+        .from('evt_eventos_erp')
         .select(`
           id,
           clave_evento,
@@ -177,11 +177,11 @@ export class ClientsService {
     try {
       const [clientsResult, eventsResult] = await Promise.all([
         supabase
-          .from('clientes_erp')
+          .from('evt_clientes_erp')
           .select('id, email, telefono')
           .eq('activo', true),
         supabase
-          .from('eventos_erp')
+          .from('evt_eventos_erp')
           .select('*', { count: 'exact', head: true })
           .eq('activo', true)
       ]);
@@ -265,7 +265,7 @@ export class ClientsService {
   async checkRFCExists(rfc: string, excludeId?: string): Promise<boolean> {
     try {
       let query = supabase
-        .from('clientes_erp')
+        .from('evt_clientes_erp')
         .select('id')
         .eq('rfc', rfc.toUpperCase())
         .eq('activo', true);
@@ -287,7 +287,7 @@ export class ClientsService {
   async getClientsByRFC(rfc: string): Promise<Cliente[]> {
     try {
       const { data, error } = await supabase
-        .from('clientes_erp')
+        .from('evt_clientes_erp')
         .select('*')
         .eq('rfc', rfc.toUpperCase())
         .eq('activo', true);

@@ -91,7 +91,7 @@ export const DocumentoInventarioForm: React.FC<DocumentoInventarioFormProps> = (
           fetchAlmacenes(companyId),
           fetchProductos(companyId),
           supabase
-            .from('eventos_erp')
+            .from('evt_eventos_erp')
             .select('id, nombre')
             .eq('company_id', companyId)
             .order('fecha_evento', { ascending: false })

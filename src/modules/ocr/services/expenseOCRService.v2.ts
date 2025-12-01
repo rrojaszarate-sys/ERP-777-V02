@@ -6,8 +6,8 @@
  */
 
 import { ocrServiceV2, OCRResult } from './ocrService.v2';
-import { Expense } from '../../eventos/types/Finance';
-import { FinancesService } from '../../eventos/services/financesService';
+import { Expense } from '../../eventos-erp/types/Finance';
+import { FinancesService } from '../../eventos-erp/services/financesService';
 
 export interface ExpenseFromOCRResult {
   success: boolean;

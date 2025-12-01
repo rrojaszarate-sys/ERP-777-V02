@@ -95,7 +95,7 @@ export const fetchGastoById = async (id: number) => {
     .from('cont_gastos_externos')
     .select(`
       *,
-      clave_gasto:cont_claves_gasto(*),
+      cuenta_contable:cont_cuentas_contables(*),
       proveedor_rel:cont_proveedores(*),
       forma_pago_rel:cont_formas_pago(*),
       ejecutivo_rel:cont_ejecutivos(*)
@@ -122,7 +122,7 @@ export const createGasto = async (
       iva: gasto.iva,
       iva_porcentaje: gasto.iva > 0 ? (gasto.iva / gasto.subtotal) * 100 : 0,
       total: gasto.total,
-      clave_gasto_id: gasto.clave_gasto_id,
+      cuenta_contable_id: gasto.clave_gasto_id, // Ahora usa cuenta_contable_id
       proveedor_id: gasto.proveedor_id,
       forma_pago_id: gasto.forma_pago_id,
       ejecutivo_id: gasto.ejecutivo_id,
@@ -134,7 +134,6 @@ export const createGasto = async (
       folio_factura: gasto.folio_factura,
       documento_url: gasto.documento_url,
       notas: gasto.notas,
-      cuenta_id: 1, // Default, se puede configurar
       importado_de: 'manual',
       created_by: userId
     }])
@@ -182,15 +181,15 @@ export const deleteGasto = async (id: number) => {
 };
 
 // ============================================================================
-// CATÁLOGO: CLAVES DE GASTO
+// CATÁLOGO: CUENTAS CONTABLES (antes claves de gasto)
 // ============================================================================
 
 export const fetchClavesGasto = async (companyId: string) => {
   const { data, error } = await supabase
-    .from('cont_claves_gasto')
+    .from('cont_cuentas_contables')
     .select('*')
     .eq('company_id', companyId)
-    .eq('activo', true)
+    .eq('activa', true)
     .order('cuenta')
     .order('clave');
 
@@ -218,8 +217,8 @@ export const createClaveGasto = async (
   companyId: string
 ) => {
   const { data, error } = await supabase
-    .from('cont_claves_gasto')
-    .insert([{ ...clave, company_id: companyId }])
+    .from('cont_cuentas_contables')
+    .insert([{ ...clave, company_id: companyId, activa: true }])
     .select()
     .single();
 
@@ -232,7 +231,7 @@ export const updateClaveGasto = async (
   updates: Partial<ClaveGastoFormData>
 ) => {
   const { data, error } = await supabase
-    .from('cont_claves_gasto')
+    .from('cont_cuentas_contables')
     .update(updates)
     .eq('id', id)
     .select()
@@ -250,8 +249,8 @@ export const fetchFormasPago = async (companyId: string) => {
   const { data, error } = await supabase
     .from('cont_formas_pago')
     .select('*')
-    .eq('company_id', companyId)
-    .eq('activo', true)
+    .or(`company_id.eq.${companyId},company_id.is.null`)
+    .eq('activa', true)
     .order('nombre');
 
   if (error) throw error;

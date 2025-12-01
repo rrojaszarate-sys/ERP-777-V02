@@ -45,7 +45,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({
     queryKey: ['evento-detail', initialEvent.id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('vw_eventos_completos')
+        .from('vw_eventos_completos_erp')
         .select('*')
         .eq('id', initialEvent.id)
         .single();

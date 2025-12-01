@@ -28,8 +28,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { alertService } from '@/modules/eventos/services/alertService';
-import { invoiceService } from '@/modules/eventos/services/invoiceService';
+import { alertService } from '@/modules/eventos-erp/services/alertService';
+import { invoiceService } from '@/modules/eventos-erp/services/invoiceService';
 
 export const runtime = 'edge';
 

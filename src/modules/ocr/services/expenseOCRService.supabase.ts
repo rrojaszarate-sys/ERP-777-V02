@@ -6,8 +6,8 @@
  */
 
 import { ocrSupabaseService, OCRSupabaseResult } from './ocrService.supabase';
-import { Expense } from '../../eventos/types/Finance';
-import { FinancesService } from '../../eventos/services/financesService';
+import { Expense } from '../../eventos-erp/types/Finance';
+import { FinancesService } from '../../eventos-erp/services/financesService';
 
 export interface ExpenseFromOCRSupabaseResult {
   success: boolean;

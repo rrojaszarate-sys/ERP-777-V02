@@ -23,7 +23,7 @@ export class EventsService {
     responsable?: string;
   }): Promise<EventoCompleto[]> {
     try {
-      console.log('🔍 Intentando cargar eventos desde vw_eventos_completos...');
+      console.log('🔍 Intentando cargar eventos desde vw_eventos_completos_erp...');
       
       let query = supabase
         .from('vw_eventos_completos_erp')
@@ -57,12 +57,12 @@ export class EventsService {
       const { data, error } = await query.order('fecha_evento', { ascending: false });
 
       if (error) {
-        console.error('❌ Error en vw_eventos_completos:', error);
+        console.error('❌ Error en vw_eventos_completos_erp:', error);
         console.log('🔄 Intentando cargar desde eventos_erp directamente...');
         
         // Fallback: intentar cargar directamente de eventos_erp si la vista falla
         const { data: eventosData, error: eventosError } = await supabase
-          .from('eventos_erp')
+          .from('evt_eventos_erp')
           .select('*')
           .eq('activo', true)
           .order('fecha_evento', { ascending: false });
@@ -76,7 +76,7 @@ export class EventsService {
         return eventosData || [];
       }
       
-      console.log('✅ Eventos cargados desde vw_eventos_completos:', data?.length || 0);
+      console.log('✅ Eventos cargados desde vw_eventos_completos_erp:', data?.length || 0);
       return data || [];
     } catch (error) {
       console.error('❌ Error crítico al cargar eventos:', error);
@@ -117,7 +117,7 @@ export class EventsService {
       if (sanitizedData.fecha_evento === '') sanitizedData.fecha_evento = null;
 
       const { data, error } = await supabase
-        .from('eventos_erp')
+        .from('evt_eventos_erp')
         .insert([{
           ...sanitizedData,
           clave_evento,
@@ -146,7 +146,7 @@ export class EventsService {
       );
 
       const { data, error } = await supabase
-        .from('eventos_erp')
+        .from('evt_eventos_erp')
         .update({
           ...cleanedData,
           updated_at: new Date().toISOString()
@@ -166,7 +166,7 @@ export class EventsService {
   async deleteEvent(id: string): Promise<void> {
     try {
       const { error } = await supabase
-        .from('eventos_erp')
+        .from('evt_eventos_erp')
         .update({ activo: false })
         .eq('id', id);
 
@@ -181,7 +181,7 @@ export class EventsService {
   async getClients(): Promise<Cliente[]> {
     try {
       const { data, error } = await supabase
-        .from('clientes_erp')
+        .from('evt_clientes_erp')
         .select('*')
         .eq('activo', true)
         .order('razon_social');
@@ -197,7 +197,7 @@ export class EventsService {
   async createClient(clientData: Partial<Cliente>): Promise<Cliente> {
     try {
       const { data, error } = await supabase
-        .from('clientes_erp')
+        .from('evt_clientes_erp')
         .insert([{
           ...clientData,
           created_at: new Date().toISOString(),
@@ -217,7 +217,7 @@ export class EventsService {
   async updateClient(id: number, clientData: Partial<Cliente>): Promise<Cliente> {
     try {
       const { data, error } = await supabase
-        .from('clientes_erp')
+        .from('evt_clientes_erp')
         .update({
           ...clientData,
           updated_at: new Date().toISOString()
@@ -302,7 +302,7 @@ export class EventsService {
 
     try {
       const { data, error } = await supabase
-        .from('gastos_erp')
+        .from('evt_gastos_erp')
         .select(`
           categoria_id,
           total,
@@ -366,7 +366,7 @@ export class EventsService {
     if (clienteId) {
       try {
         const { data: cliente, error } = await supabase
-          .from('clientes_erp')
+          .from('evt_clientes_erp')
           .select('sufijo')
           .eq('id', clienteId)
           .single();
@@ -384,7 +384,7 @@ export class EventsService {
 
         // Contar eventos con el mismo sufijo y año
         const { count } = await supabase
-          .from('eventos_erp')
+          .from('evt_eventos_erp')
           .select('*', { count: 'exact', head: true })
           .like('clave_evento', `${sufijo}${year}-%`);
 
@@ -398,7 +398,7 @@ export class EventsService {
 
     // Fallback: generar clave genérica si no hay cliente_id
     const { count } = await supabase
-      .from('eventos_erp')
+      .from('evt_eventos_erp')
       .select('*', { count: 'exact', head: true })
       .like('clave_evento', `EVT-${year}-%`);
 
@@ -457,7 +457,7 @@ export class EventsService {
   async getEventStates(): Promise<any[]> {
     try {
       const { data, error } = await supabase
-        .from('estados_erp')
+        .from('evt_estados_erp')
         .select('id, nombre, descripcion, color, orden, workflow_step')
         .neq('workflow_step', 0)
         .order('orden', { ascending: true });

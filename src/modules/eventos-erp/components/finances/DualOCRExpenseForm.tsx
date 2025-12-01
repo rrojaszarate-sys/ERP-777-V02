@@ -31,6 +31,7 @@ interface DualOCRExpenseFormProps {
   onSave: (data: Partial<Expense>) => void;
   onCancel: () => void;
   className?: string;
+  defaultCategoryName?: string; // Para pre-seleccionar categoría desde ProvisionesTab
 }
 
 interface OCRData {
@@ -95,7 +96,8 @@ export const DualOCRExpenseForm: React.FC<DualOCRExpenseFormProps> = ({
   eventId,
   onSave,
   onCancel,
-  className = ''
+  className = '',
+  defaultCategoryName
 }) => {
   const [formData, setFormData] = useState({
     concepto: expense?.concepto || '',
@@ -161,6 +163,19 @@ export const DualOCRExpenseForm: React.FC<DualOCRExpenseFormProps> = ({
   const { data: categories } = useExpenseCategories();
   const { data: cuentasContables } = useCuentasContables();
   const { data: users } = useUsers();
+
+  // 📋 Pre-seleccionar categoría si viene de ProvisionesTab
+  useEffect(() => {
+    if (defaultCategoryName && categories && !expense?.categoria_id) {
+      const matchingCategory = categories.find(
+        cat => cat.nombre.toLowerCase().includes(defaultCategoryName.toLowerCase()) ||
+               defaultCategoryName.toLowerCase().includes(cat.nombre.toLowerCase())
+      );
+      if (matchingCategory) {
+        setFormData(prev => ({ ...prev, categoria_id: matchingCategory.id }));
+      }
+    }
+  }, [defaultCategoryName, categories, expense?.categoria_id]);
 
   // 🔒 Filtrar cuentas bancarias solo para gastos (id <= 23) según reglas de negocio
   const filteredCuentas = useMemo(() => {
