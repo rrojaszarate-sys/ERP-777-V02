@@ -206,7 +206,9 @@ export interface ClaveGastoFormData {
 // ============================================================================
 
 export interface GNIFiltros {
-  periodo?: string;
+  periodo?: string;        // Formato: "YYYY-MM" (un solo mes)
+  anio?: number;           // Año completo (ej: 2025)
+  meses?: number[];        // Meses específicos del año (1-12)
   cuenta?: string;
   clave_gasto_id?: number;
   proveedor_id?: number;

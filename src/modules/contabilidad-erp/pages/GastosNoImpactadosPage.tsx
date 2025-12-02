@@ -62,6 +62,10 @@ import {
   fetchEjecutivos,
   getPeriodoActual,
   getPeriodosDisponibles,
+  getAnioActual,
+  fetchAniosConDatos,
+  getMesesDelAnio,
+  MESES_NOMBRES,
   createClaveGasto,
   updateClaveGasto,
   createProveedor,
@@ -217,13 +221,12 @@ export const GastosNoImpactadosPage = () => {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [ejecutivos, setEjecutivos] = useState<Ejecutivo[]>([]);
 
-  // Filtros - Periodo actual por default para carga rápida
-  const periodoActual = useMemo(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  }, []);
-  const [filtros, setFiltros] = useState<GNIFiltros>({ periodo: periodoActual });
+  // Filtros - Año actual completo por default
+  const anioActual = useMemo(() => getAnioActual(), []);
+  const [filtros, setFiltros] = useState<GNIFiltros>({ anio: anioActual });
   const [showFilters, setShowFilters] = useState(true); // Visible por defecto
+  const [aniosDisponibles, setAniosDisponibles] = useState<number[]>([anioActual]);
+  const [mesesSeleccionados, setMesesSeleccionados] = useState<number[]>([]); // Vacío = todos los meses
 
   // Tipo de gráfica: 'bar' (horizontal), 'vbar' (vertical), 'pie', o 'line'
   const [chartType, setChartType] = useState<'bar' | 'vbar' | 'pie' | 'line'>('bar');
@@ -284,28 +287,55 @@ export const GastosNoImpactadosPage = () => {
   // Filtros por columna
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
 
-  // Periodos disponibles
-  const periodos = useMemo(() => getPeriodosDisponibles(2025), []);
+  // Periodos disponibles (para compatibilidad legacy)
+  const periodos = useMemo(() => getPeriodosDisponibles(2024), []);
 
-  // Cargar datos
+  // Meses del año seleccionado
+  const mesesDelAnio = useMemo(() => {
+    return getMesesDelAnio(filtros.anio || anioActual);
+  }, [filtros.anio, anioActual]);
+
+  // Cargar datos iniciales
   useEffect(() => {
     if (companyId) {
       loadCatalogos();
       loadGastos();
       loadResumenAnual();
+      loadAniosDisponibles();
     }
   }, [companyId]);
 
+  // Recargar cuando cambian los filtros
   useEffect(() => {
     if (companyId) {
       loadGastos();
+      loadResumenAnual();
     }
   }, [filtros]);
+
+  // Actualizar filtros cuando cambian los meses seleccionados
+  useEffect(() => {
+    setFiltros(prev => ({
+      ...prev,
+      meses: mesesSeleccionados.length > 0 ? mesesSeleccionados : undefined
+    }));
+  }, [mesesSeleccionados]);
+
+  const loadAniosDisponibles = async () => {
+    if (!companyId) return;
+    try {
+      const anios = await fetchAniosConDatos(companyId);
+      setAniosDisponibles(anios);
+    } catch (error) {
+      console.error('Error cargando años disponibles:', error);
+    }
+  };
 
   const loadResumenAnual = async () => {
     if (!companyId) return;
     try {
-      const data = await fetchResumenAnual(companyId, 2025);
+      const anio = filtros.anio || anioActual;
+      const data = await fetchResumenAnual(companyId, anio);
       setResumenAnual(data);
     } catch (error) {
       console.error('Error cargando resumen anual:', error);
@@ -549,51 +579,67 @@ export const GastosNoImpactadosPage = () => {
     return `${meses[parseInt(mes) - 1]} ${anio}`;
   };
 
-  // Exportar a Excel
+  // Definición de columnas disponibles para exportación
+  const excelColumnDefs = [
+    { key: 'periodo', label: 'Período', width: 10 },
+    { key: 'fecha_gasto', label: 'Fecha', width: 12 },
+    { key: 'clave', label: 'Clave', width: 15 },
+    { key: 'cuenta', label: 'Cuenta', width: 25 },
+    { key: 'subcuenta', label: 'Subcuenta (Subclave)', width: 30 },
+    { key: 'proveedor', label: 'Proveedor', width: 35 },
+    { key: 'rfc_proveedor', label: 'RFC Proveedor', width: 15 },
+    { key: 'concepto', label: 'Concepto', width: 40 },
+    { key: 'subtotal', label: 'Subtotal', width: 14 },
+    { key: 'iva', label: 'IVA', width: 12 },
+    { key: 'total', label: 'Total', width: 14 },
+    { key: 'forma_pago', label: 'Forma de Pago', width: 20 },
+    { key: 'validacion', label: 'Validación', width: 12 },
+    { key: 'status_pago', label: 'Status Pago', width: 12 },
+    { key: 'ejecutivo', label: 'Ejecutivo', width: 20 },
+    { key: 'folio_factura', label: 'Folio Factura', width: 18 },
+  ];
+
+  // Estado para columnas seleccionadas en exportación
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportColumns, setExportColumns] = useState<Record<string, boolean>>(() => {
+    const defaults: Record<string, boolean> = {};
+    excelColumnDefs.forEach(c => { defaults[c.key] = true; });
+    return defaults;
+  });
+
+  // Exportar a Excel con columnas seleccionadas
   const handleExportExcel = () => {
-    const dataToExport = gastosFiltrados.map(g => ({
-      'Fecha': g.fecha_gasto ? new Date(g.fecha_gasto).toLocaleDateString('es-MX') : '',
-      'Proveedor': g.proveedor || '',
-      'Concepto': g.concepto || '',
-      'Clave': g.clave || '',
-      'Cuenta': g.cuenta || '',
-      'Subcuenta': g.subcuenta || '',
-      'Forma de Pago': g.forma_pago || '',
-      'Subtotal': g.subtotal || 0,
-      'IVA': g.iva || 0,
-      'Total': g.total || 0,
-      'Validación': g.validacion || '',
-      'Status Pago': g.status_pago || '',
-      'Ejecutivo': g.ejecutivo || '',
-      'Folio Factura': g.folio_factura || ''
-    }));
+    const selectedCols = excelColumnDefs.filter(c => exportColumns[c.key]);
+
+    const dataToExport = gastosFiltrados.map(g => {
+      const row: Record<string, string | number> = {};
+      selectedCols.forEach(col => {
+        if (col.key === 'fecha_gasto') {
+          row[col.label] = g.fecha_gasto ? new Date(g.fecha_gasto).toLocaleDateString('es-MX') : '';
+        } else if (col.key === 'subtotal' || col.key === 'iva' || col.key === 'total') {
+          row[col.label] = (g as any)[col.key] || 0;
+        } else {
+          row[col.label] = (g as any)[col.key] || '';
+        }
+      });
+      return row;
+    });
 
     const ws = XLSX.utils.json_to_sheet(dataToExport);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Gastos');
 
     // Ajustar anchos de columna
-    const colWidths = [
-      { wch: 12 }, // Fecha
-      { wch: 30 }, // Proveedor
-      { wch: 40 }, // Concepto
-      { wch: 15 }, // Clave
-      { wch: 20 }, // Cuenta
-      { wch: 25 }, // Subcuenta
-      { wch: 20 }, // Forma de Pago
-      { wch: 12 }, // Subtotal
-      { wch: 10 }, // IVA
-      { wch: 12 }, // Total
-      { wch: 12 }, // Validación
-      { wch: 12 }, // Status Pago
-      { wch: 20 }, // Ejecutivo
-      { wch: 15 }, // Folio
-    ];
-    ws['!cols'] = colWidths;
+    ws['!cols'] = selectedCols.map(c => ({ wch: c.width }));
 
-    const periodo = filtros.periodo || getPeriodoActual();
-    XLSX.writeFile(wb, `GNI_${periodo}.xlsx`);
+    // Nombre del archivo con año o periodo
+    const nombreArchivo = filtros.anio
+      ? `GNI_${filtros.anio}${filtros.meses?.length ? '_Meses' + filtros.meses.join('-') : ''}.xlsx`
+      : `GNI_${filtros.periodo || getPeriodoActual()}.xlsx`;
+
+    XLSX.writeFile(wb, nombreArchivo);
     toast.success('Excel generado correctamente');
+    setShowExportModal(false);
   };
 
   // Definición de columnas con sus propiedades
@@ -616,9 +662,8 @@ export const GastosNoImpactadosPage = () => {
 
   // Generar reporte estilo Excel por período
   const handleExportReportePeriodo = () => {
-    // Obtener el año del período seleccionado o actual
-    const periodoBase = filtros.periodo || getPeriodoActual();
-    const anio = periodoBase.split('-')[0];
+    // Obtener el año del filtro actual
+    const anio = filtros.anio || filtros.periodo?.split('-')[0] || anioActual;
     const meses = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
 
     // Agrupar gastos por clave y cuenta
@@ -946,7 +991,7 @@ export const GastosNoImpactadosPage = () => {
             PDF
           </button>
           <button
-            onClick={handleExportExcel}
+            onClick={() => setShowExportModal(true)}
             className="px-4 py-2 bg-emerald-50 border border-emerald-300 text-emerald-700 rounded-lg hover:bg-emerald-100 flex items-center gap-2"
           >
             <FileSpreadsheet className="w-4 h-4" />
@@ -1853,17 +1898,37 @@ export const GastosNoImpactadosPage = () => {
             />
           </div>
 
-          {/* Selector de período */}
+          {/* Selector de Año */}
           <select
-            value={filtros.periodo || ''}
-            onChange={(e) => setFiltros({ ...filtros, periodo: e.target.value })}
-            className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 bg-white"
+            value={filtros.anio || anioActual}
+            onChange={(e) => {
+              const nuevoAnio = parseInt(e.target.value);
+              setFiltros({ ...filtros, anio: nuevoAnio, periodo: undefined });
+              setMesesSeleccionados([]); // Reset meses al cambiar año
+            }}
+            className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 bg-white font-medium"
           >
-            <option value="">Todos los períodos</option>
-            {periodos.map(p => (
-              <option key={p} value={p}>{getPeriodoLabel(p)}</option>
+            {aniosDisponibles.map(a => (
+              <option key={a} value={a}>{a}</option>
             ))}
           </select>
+
+          {/* Selector de Meses (multi-select visual) */}
+          <div className="relative">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`px-3 py-2 border rounded-lg flex items-center gap-2 transition-colors text-sm ${
+                mesesSeleccionados.length > 0 ? 'bg-teal-50 border-teal-300 text-teal-700' : 'hover:bg-gray-50'
+              }`}
+            >
+              <Calendar className="w-4 h-4" />
+              {mesesSeleccionados.length === 0
+                ? 'Todo el año'
+                : mesesSeleccionados.length === 1
+                  ? MESES_NOMBRES[mesesSeleccionados[0] - 1]
+                  : `${mesesSeleccionados.length} meses`}
+            </button>
+          </div>
 
           {/* Toggle filtros avanzados */}
           <button
@@ -1900,21 +1965,57 @@ export const GastosNoImpactadosPage = () => {
 
         {/* Filtros avanzados */}
         {showFilters && (
-          <div className="mt-4 pt-4 border-t grid grid-cols-2 md:grid-cols-6 gap-4">
+          <div className="mt-4 pt-4 border-t space-y-4">
+            {/* Selector de Meses - Visual tipo calendario */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Periodo</label>
-              <select
-                value={filtros.periodo || ''}
-                onChange={(e) => setFiltros({ ...filtros, periodo: e.target.value || undefined })}
-                className="w-full px-3 py-2 border rounded-lg"
-              >
-                <option value="">Todos los periodos</option>
-                {periodos.map(p => (
-                  <option key={p} value={p}>{getPeriodoLabel(p)}</option>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Meses de {filtros.anio || anioActual}
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setMesesSeleccionados([])}
+                    className={`px-2 py-1 text-xs rounded ${mesesSeleccionados.length === 0 ? 'bg-teal-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
+                  >
+                    Todo el año
+                  </button>
+                  <button
+                    onClick={() => setMesesSeleccionados(mesesDelAnio.filter(m => m.disponible).map(m => m.valor))}
+                    className="px-2 py-1 text-xs rounded bg-gray-100 hover:bg-gray-200"
+                  >
+                    Seleccionar todos
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-6 md:grid-cols-12 gap-1">
+                {mesesDelAnio.map(mes => (
+                  <button
+                    key={mes.valor}
+                    disabled={!mes.disponible}
+                    onClick={() => {
+                      if (mesesSeleccionados.includes(mes.valor)) {
+                        setMesesSeleccionados(mesesSeleccionados.filter(m => m !== mes.valor));
+                      } else {
+                        setMesesSeleccionados([...mesesSeleccionados, mes.valor].sort((a, b) => a - b));
+                      }
+                    }}
+                    className={`px-2 py-1.5 text-xs rounded transition-colors ${
+                      !mes.disponible
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : mesesSeleccionados.includes(mes.valor)
+                          ? 'bg-teal-600 text-white'
+                          : 'bg-gray-100 hover:bg-teal-100 text-gray-700'
+                    }`}
+                    title={mes.nombre}
+                  >
+                    {mes.nombre.substring(0, 3)}
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
 
+            {/* Otros filtros en grid */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Cuenta</label>
               <select
@@ -1982,6 +2083,7 @@ export const GastosNoImpactadosPage = () => {
                   <option key={e.id} value={e.id}>{e.nombre}</option>
                 ))}
               </select>
+            </div>
             </div>
           </div>
         )}

@@ -44,8 +44,20 @@ export const fetchGastosNoImpactados = async (
       .order('fecha_gasto', { ascending: false })
       .range(from, from + PAGE_SIZE - 1);
 
+    // Filtro por período específico (YYYY-MM)
     if (filtros?.periodo) {
       query = query.eq('periodo', filtros.periodo);
+    }
+    // Filtro por año completo o meses específicos del año
+    else if (filtros?.anio) {
+      if (filtros.meses && filtros.meses.length > 0 && filtros.meses.length < 12) {
+        // Filtrar meses específicos del año
+        const periodos = filtros.meses.map(m => `${filtros.anio}-${m.toString().padStart(2, '0')}`);
+        query = query.in('periodo', periodos);
+      } else {
+        // Filtrar todo el año (periodo empieza con el año)
+        query = query.like('periodo', `${filtros.anio}-%`);
+      }
     }
     if (filtros?.cuenta) {
       query = query.eq('cuenta', filtros.cuenta);
@@ -651,7 +663,7 @@ export const getPeriodoActual = (): string => {
   return `${year}-${month}`;
 };
 
-export const getPeriodosDisponibles = (anioInicio: number = 2025): string[] => {
+export const getPeriodosDisponibles = (anioInicio: number = 2024): string[] => {
   const periodos: string[] = [];
   const now = new Date();
   const anioActual = now.getFullYear();
@@ -665,4 +677,58 @@ export const getPeriodosDisponibles = (anioInicio: number = 2025): string[] => {
   }
 
   return periodos.reverse();
+};
+
+// Obtener el año actual
+export const getAnioActual = (): number => {
+  return new Date().getFullYear();
+};
+
+// Obtener años disponibles con datos
+export const fetchAniosConDatos = async (companyId: string): Promise<number[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('v_gastos_no_impactados')
+      .select('periodo')
+      .eq('company_id', companyId)
+      .not('periodo', 'is', null);
+
+    if (error) throw error;
+
+    // Extraer años únicos de los períodos
+    const anios = [...new Set(
+      (data || [])
+        .map(d => parseInt(d.periodo?.split('-')[0]))
+        .filter(a => !isNaN(a))
+    )].sort((a, b) => b - a); // Ordenar descendente
+
+    // Si no hay datos, retornar al menos el año actual
+    if (anios.length === 0) {
+      return [new Date().getFullYear()];
+    }
+
+    return anios;
+  } catch (error) {
+    console.error('Error obteniendo años con datos:', error);
+    return [new Date().getFullYear()];
+  }
+};
+
+// Nombres de meses en español
+export const MESES_NOMBRES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+];
+
+// Obtener meses disponibles para un año específico
+export const getMesesDelAnio = (anio: number): { valor: number; nombre: string; disponible: boolean }[] => {
+  const now = new Date();
+  const anioActual = now.getFullYear();
+  const mesActual = now.getMonth() + 1;
+
+  return MESES_NOMBRES.map((nombre, idx) => ({
+    valor: idx + 1,
+    nombre,
+    disponible: anio < anioActual || (anio === anioActual && idx + 1 <= mesActual)
+  }));
 };

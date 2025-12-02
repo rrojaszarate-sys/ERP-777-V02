@@ -257,10 +257,10 @@ export const DashboardEjecutivoGNI: React.FC<DashboardEjecutivoGNIProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
-      <div className="min-h-screen p-4 flex items-start justify-center">
+    <div className="fixed inset-0 z-50 overflow-hidden" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
+      <div className="h-full p-2 md:p-4 flex items-center justify-center">
         <div
-          className="w-full max-w-7xl rounded-2xl shadow-2xl overflow-hidden"
+          className="w-full max-w-[98vw] max-h-[96vh] rounded-2xl shadow-2xl overflow-y-auto"
           style={{ backgroundColor: themeColors.cardBg }}
         >
           {/* Header */}
@@ -423,7 +423,7 @@ export const DashboardEjecutivoGNI: React.FC<DashboardEjecutivoGNIProps> = ({
                 <Activity className="w-5 h-5" style={{ color: themeColors.primary }} />
                 <h3 className="font-semibold" style={{ color: themeColors.textPrimary }}>Tendencia Mensual</h3>
               </div>
-              <ResponsiveContainer width="100%" height={280}>
+              <ResponsiveContainer width="100%" height={200}>
                 <AreaChart data={datosTendenciaMensual}>
                   <defs>
                     <linearGradient id="gradientArea" x1="0" y1="0" x2="0" y2="1">
@@ -466,7 +466,7 @@ export const DashboardEjecutivoGNI: React.FC<DashboardEjecutivoGNIProps> = ({
                 <PieChartIcon className="w-5 h-5" style={{ color: themeColors.primary }} />
                 <h3 className="font-semibold" style={{ color: themeColors.textPrimary }}>Distribución por Cuenta</h3>
               </div>
-              <ResponsiveContainer width="100%" height={280}>
+              <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
                   <Pie
                     data={datosPorCuenta}
@@ -500,7 +500,7 @@ export const DashboardEjecutivoGNI: React.FC<DashboardEjecutivoGNIProps> = ({
                 <Building2 className="w-5 h-5" style={{ color: themeColors.primary }} />
                 <h3 className="font-semibold" style={{ color: themeColors.textPrimary }}>Top 10 Proveedores</h3>
               </div>
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={datosTopProveedores} layout="vertical" margin={{ left: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={themeColors.gridColor} />
                   <XAxis type="number" tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} tick={{ fill: themeColors.textSecondary, fontSize: 10 }} />
@@ -530,7 +530,7 @@ export const DashboardEjecutivoGNI: React.FC<DashboardEjecutivoGNIProps> = ({
                 <Users className="w-5 h-5" style={{ color: themeColors.primary }} />
                 <h3 className="font-semibold" style={{ color: themeColors.textPrimary }}>Gastos por Ejecutivo</h3>
               </div>
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={datosPorEjecutivo}>
                   <CartesianGrid strokeDasharray="3 3" stroke={themeColors.gridColor} />
                   <XAxis dataKey="name" tick={{ fill: themeColors.textSecondary, fontSize: 9 }} angle={-45} textAnchor="end" height={60} />
@@ -635,7 +635,7 @@ export const DashboardEjecutivoGNI: React.FC<DashboardEjecutivoGNIProps> = ({
                 <BarChart3 className="w-5 h-5" style={{ color: themeColors.primary }} />
                 <h3 className="font-semibold" style={{ color: themeColors.textPrimary }}>Pagado vs Pendiente</h3>
               </div>
-              <ResponsiveContainer width="100%" height={220}>
+              <ResponsiveContainer width="100%" height={160}>
                 <BarChart data={datosTendenciaMensual.slice(-6)}>
                   <CartesianGrid strokeDasharray="3 3" stroke={themeColors.gridColor} />
                   <XAxis dataKey="mes" tick={{ fill: themeColors.textSecondary, fontSize: 9 }} />
