@@ -731,6 +731,9 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
     utilidad: false
   });
 
+  // Toggle para mostrar Totales (con IVA) o Subtotales (sin IVA)
+  const [showTotales, setShowTotales] = useState(false); // Por default subtotales (como Excel)
+
   // Colores dinámicos de la paleta
   const colors = {
     primary: paletteConfig.primary,
@@ -782,101 +785,139 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
     >
       {/* ANÁLISIS FINANCIERO - DISEÑO LIMPIO Y SOBRIO */}
       <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-        <h3 className="text-lg font-semibold text-gray-800 mb-6 flex items-center">
-          <TrendingUp className="w-5 h-5 mr-2" style={{ color: colors.primary }} />
-          Análisis Financiero
-        </h3>
-
-        {/* GRÁFICA DE BARRAS - FLUJO DE DINERO */}
-        <div className="space-y-5">
-          {/* INGRESOS */}
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-medium text-gray-700">Ingresos</span>
-              <span className="text-lg font-bold" style={{ color: colors.primary }}>{formatCurrency(ingresosTotales)}</span>
-            </div>
-            <div className="relative h-8 bg-gray-100 rounded overflow-hidden">
-              <div
-                className="h-full transition-all duration-500 rounded"
-                style={{
-                  width: `${ingresosTotales > 0 ? 100 : 0}%`,
-                  backgroundColor: colors.primary
-                }}
-              />
-            </div>
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+            <TrendingUp className="w-5 h-5 mr-2" style={{ color: colors.primary }} />
+            Análisis Financiero
+          </h3>
+          {/* TOGGLE TOTALES / SUBTOTALES */}
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setShowTotales(false)}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+                !showTotales
+                  ? 'bg-white shadow text-gray-900'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Subtotales
+            </button>
+            <button
+              onClick={() => setShowTotales(true)}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+                showTotales
+                  ? 'bg-white shadow text-gray-900'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Con IVA
+            </button>
           </div>
+        </div>
 
-          {/* GASTOS - Color gris sobrio */}
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-medium text-gray-700">Gastos</span>
-              <span className="text-lg font-bold text-gray-600">{formatCurrency(gastosTotales)}</span>
-            </div>
-            <div className="relative h-8 bg-gray-100 rounded overflow-hidden">
-              <div
-                className="h-full transition-all duration-500 rounded bg-gray-500"
-                style={{
-                  width: `${ingresosTotales > 0 ? Math.min((gastosTotales / ingresosTotales) * 100, 100) : 0}%`
-                }}
-              />
-            </div>
-          </div>
+        {/* Valores a mostrar según toggle */}
+        {(() => {
+          const ingresosDisplay = showTotales ? ingresosTotales : ingresosSubtotal;
+          const gastosDisplay = showTotales ? gastosTotales : gastosSubtotal;
+          const provisionesDisplay = showTotales ? provisionesTotal : provisionesSubtotal;
+          const utilidadDisplay = showTotales ? utilidadReal : utilidadBruta;
+          const margenDisplay = showTotales ? margenRealPct : margenBrutoPct;
+          const baseIngresos = showTotales ? ingresosTotales : ingresosSubtotal;
 
-          {/* PROVISIONES - Color verde sobrio */}
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-medium text-gray-700">Provisiones</span>
-              <span className="text-lg font-bold text-emerald-600">{formatCurrency(provisionesTotal)}</span>
-            </div>
-            <div className="relative h-8 bg-gray-100 rounded overflow-hidden">
-              <div
-                className="h-full transition-all duration-500 rounded bg-emerald-500"
-                style={{
-                  width: `${ingresosTotales > 0 ? Math.min((provisionesTotal / ingresosTotales) * 100, 100) : 0}%`
-                }}
-              />
-            </div>
-          </div>
-
-          {/* LÍNEA DIVISORIA */}
-          <div className="border-t border-gray-200 pt-4">
-            {/* FÓRMULA VISUAL: Ingresos - Gastos - Provisiones = Utilidad */}
-            <div className="flex items-center justify-center gap-2 text-sm text-gray-500 mb-4">
-              <span style={{ color: colors.primary }}>{formatCurrency(ingresosTotales)}</span>
-              <span>−</span>
-              <span className="text-gray-600">{formatCurrency(gastosTotales)}</span>
-              <span>−</span>
-              <span className="text-emerald-600">{formatCurrency(provisionesTotal)}</span>
-              <span>=</span>
-              <span className={`font-bold ${utilidadBruta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {formatCurrency(utilidadBruta)}
-              </span>
-            </div>
-
-            {/* UTILIDAD - Barra con indicador de resultado */}
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-semibold text-gray-800">Utilidad</span>
-                <span className={`text-xl font-bold ${utilidadBruta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatCurrency(utilidadBruta)}
-                </span>
+          return (
+            <div className="space-y-5">
+              {/* INGRESOS */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-gray-700">Ingresos {!showTotales && <span className="text-[10px] text-gray-400">(sin IVA)</span>}</span>
+                  <span className="text-lg font-bold" style={{ color: colors.primary }}>{formatCurrency(ingresosDisplay)}</span>
+                </div>
+                <div className="relative h-8 bg-gray-100 rounded overflow-hidden">
+                  <div
+                    className="h-full transition-all duration-500 rounded"
+                    style={{
+                      width: `${ingresosDisplay > 0 ? 100 : 0}%`,
+                      backgroundColor: colors.primary
+                    }}
+                  />
+                </div>
               </div>
-              <div className="relative h-10 bg-gray-100 rounded overflow-hidden">
-                <div
-                  className={`h-full transition-all duration-500 rounded ${utilidadBruta >= 0 ? 'bg-green-500' : 'bg-red-500'}`}
-                  style={{
-                    width: `${ingresosTotales > 0 ? Math.min(Math.abs(utilidadBruta / ingresosTotales) * 100, 100) : 0}%`
-                  }}
-                />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-sm font-semibold text-gray-700">
-                    {ingresosTotales > 0 ? ((utilidadBruta / ingresosTotales) * 100).toFixed(1) : 0}% del ingreso
+
+              {/* GASTOS - Color gris sobrio */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-gray-700">Gastos {!showTotales && <span className="text-[10px] text-gray-400">(sin IVA)</span>}</span>
+                  <span className="text-lg font-bold text-gray-600">{formatCurrency(gastosDisplay)}</span>
+                </div>
+                <div className="relative h-8 bg-gray-100 rounded overflow-hidden">
+                  <div
+                    className="h-full transition-all duration-500 rounded bg-gray-500"
+                    style={{
+                      width: `${baseIngresos > 0 ? Math.min((gastosDisplay / baseIngresos) * 100, 100) : 0}%`
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* PROVISIONES - Color verde sobrio */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-gray-700">Provisiones {!showTotales && <span className="text-[10px] text-gray-400">(sin IVA)</span>}</span>
+                  <span className="text-lg font-bold text-emerald-600">{formatCurrency(provisionesDisplay)}</span>
+                </div>
+                <div className="relative h-8 bg-gray-100 rounded overflow-hidden">
+                  <div
+                    className="h-full transition-all duration-500 rounded bg-emerald-500"
+                    style={{
+                      width: `${baseIngresos > 0 ? Math.min((provisionesDisplay / baseIngresos) * 100, 100) : 0}%`
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* LÍNEA DIVISORIA */}
+              <div className="border-t border-gray-200 pt-4">
+                {/* FÓRMULA VISUAL: Ingresos - Gastos - Provisiones = Utilidad */}
+                <div className="flex items-center justify-center gap-2 text-sm text-gray-500 mb-4">
+                  <span style={{ color: colors.primary }}>{formatCurrency(ingresosDisplay)}</span>
+                  <span>−</span>
+                  <span className="text-gray-600">{formatCurrency(gastosDisplay)}</span>
+                  <span>−</span>
+                  <span className="text-emerald-600">{formatCurrency(provisionesDisplay)}</span>
+                  <span>=</span>
+                  <span className={`font-bold ${utilidadDisplay >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatCurrency(utilidadDisplay)}
                   </span>
+                </div>
+
+                {/* UTILIDAD - Barra con indicador de resultado */}
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-semibold text-gray-800">
+                      Utilidad {showTotales ? '(con IVA)' : 'Bruta'}
+                    </span>
+                    <span className={`text-xl font-bold ${utilidadDisplay >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {formatCurrency(utilidadDisplay)}
+                    </span>
+                  </div>
+                  <div className="relative h-10 bg-gray-100 rounded overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-500 rounded ${utilidadDisplay >= 0 ? 'bg-green-500' : 'bg-red-500'}`}
+                      style={{
+                        width: `${baseIngresos > 0 ? Math.min(Math.abs(utilidadDisplay / baseIngresos) * 100, 100) : 0}%`
+                      }}
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-sm font-semibold text-gray-700">
+                        {margenDisplay.toFixed(1)}% {showTotales ? 'margen total' : 'margen bruto'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
+          );
+        })()}
       </div>
 
         {/* DATOS DEL RESUMEN DEL EVENTO - Con desglose colapsable */}
