@@ -56,6 +56,7 @@ const ReservasPage = lazy(() => import('./modules/inventario-erp/pages/ReservasP
 const KitsEventoPage = lazy(() => import('./modules/inventario-erp/pages/KitsEventoPage').then(m => ({ default: m.default })));
 const ChecklistEventoPage = lazy(() => import('./modules/inventario-erp/pages/ChecklistEventoPage').then(m => ({ default: m.default })));
 const AlertasInventarioPage = lazy(() => import('./modules/inventario-erp/pages/AlertasInventarioPage').then(m => ({ default: m.default })));
+const ConfiguracionInventarioPage = lazy(() => import('./modules/inventario-erp/pages/ConfiguracionInventarioPage').then(m => ({ default: m.default })));
 
 // MÓDULO DE RRHH Y NÓMINA
 const RRHHDashboard = lazy(() => import('./modules/rrhh-erp/pages/RRHHDashboard').then(m => ({ default: m.RRHHDashboard })));
@@ -189,6 +190,7 @@ function App() {
                 <Route path="inventario/kits" element={<KitsEventoPage />} />
                 <Route path="inventario/checklists" element={<ChecklistEventoPage />} />
                 <Route path="inventario/alertas" element={<AlertasInventarioPage />} />
+                <Route path="inventario/configuracion" element={<ConfiguracionInventarioPage />} />
 
                 {/* Rutas de RRHH y Nómina */}
                 <Route path="rrhh" element={<RRHHDashboard />} />

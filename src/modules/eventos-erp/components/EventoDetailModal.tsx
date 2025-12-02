@@ -65,10 +65,11 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
   const [showProvisionModal, setShowProvisionModal] = useState(false);
   const [editingProvision, setEditingProvision] = useState<any | null>(null);
 
-  // Estado para mostrar/ocultar IVA
+  // Estado para mostrar Totales (con IVA) o Subtotales (sin IVA)
+  // Por defecto TRUE para coincidir con el listado de eventos
   const [showIVA, setShowIVA] = useState(() => {
     const saved = localStorage.getItem('eventos_erp_show_iva');
-    return saved ? JSON.parse(saved) : false;
+    return saved !== null ? JSON.parse(saved) : true; // Default: Totales (con IVA)
   });
   
   const { canUpdate } = usePermissions();
@@ -392,6 +393,21 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
               {(evento.nombre_proyecto || evento.proyecto || evento.nombre) && ` - ${evento.nombre_proyecto || evento.proyecto || evento.nombre}`}
             </h2>
             <div className="flex items-center gap-2">
+              {/* Toggle Subtotales/Totales - GLOBAL */}
+              <button
+                onClick={toggleIVA}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors border ${
+                  showIVA
+                    ? 'bg-blue-100 text-blue-700 border-blue-300'
+                    : 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200'
+                }`}
+                title={showIVA ? 'Mostrando Totales con IVA' : 'Mostrando Subtotales sin IVA'}
+              >
+                <span className="text-[10px]">{showIVA ? '💰' : '📊'}</span>
+                <span>{showIVA ? 'Totales' : 'Subtotales'}</span>
+              </button>
+              {/* Separador visual */}
+              <div className="w-px h-6 bg-gray-300"></div>
               {/* Botones de acción de evento */}
               <button
                 onClick={handleCancelEvent}
@@ -475,58 +491,79 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
             <div>
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-xs font-semibold text-green-600 uppercase">
-                  💰 Resumen Financiero
+                  💰 Resumen Financiero {showIVA ? '(con IVA)' : '(sin IVA)'}
                 </h3>
-                {/* Toggle IVA */}
-                <button
-                  onClick={toggleIVA}
-                  className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded transition-colors ${
-                    showIVA
-                      ? 'bg-blue-100 text-blue-700 border border-blue-300'
-                      : 'bg-gray-100 text-gray-500 border border-gray-300 hover:bg-gray-200'
-                  }`}
-                  title={showIVA ? 'Ocultar IVA' : 'Mostrar IVA'}
-                >
-                  <span>{showIVA ? '✓' : '○'}</span>
-                  <span>IVA 16%</span>
-                </button>
+                <span className="text-[10px] text-gray-400">
+                  {showIVA ? 'Totales incluyen IVA 16%' : 'Subtotales netos'}
+                </span>
               </div>
               <div className="space-y-1 text-xs">
-                <div className="flex justify-between">
+                {/* Ingresos */}
+                <div className="flex justify-between items-center">
                   <span className="text-gray-600">Ingresos:</span>
-                  <div className="text-right">
-                    <span className="font-bold text-green-700">{formatCurrency(ingresosTotales)}</span>
-                    {showIVA && <span className="text-gray-400 text-[10px] ml-1">(+IVA {formatCurrency(ivaIngresos)})</span>}
-                  </div>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Gastos:</span>
-                  <div className="text-right">
-                    <span className="font-bold text-red-700">{formatCurrency(gastosTotales)}</span>
-                    {showIVA && <span className="text-gray-400 text-[10px] ml-1">(+IVA {formatCurrency(ivaGastos)})</span>}
-                  </div>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Provisiones:</span>
-                  <div className="text-right">
-                    <span className={`font-bold ${provisionesTotal > 0 ? 'text-amber-600' : 'text-gray-500'}`}>
-                      {formatCurrency(provisionesTotal)}
+                  <div className="text-right flex items-center gap-2">
+                    <span className="font-bold text-green-700">
+                      {formatCurrency(showIVA ? ingresosTotales : ingresosSubtotal)}
                     </span>
-                    {showIVA && provisionesTotal > 0 && <span className="text-gray-400 text-[10px] ml-1">(+IVA {formatCurrency(ivaProvisiones)})</span>}
+                    {showIVA && ivaIngresos > 0 && (
+                      <span className="text-[9px] text-green-500 bg-green-50 px-1.5 py-0.5 rounded">
+                        IVA: {formatCurrency(ivaIngresos)}
+                      </span>
+                    )}
                   </div>
                 </div>
-                <div className="flex justify-between pt-1 border-t border-gray-300">
-                  <span className="text-gray-900 font-semibold">Utilidad Bruta ({margenBruto.toFixed(1)}%):</span>
-                  <span className={`font-bold ${utilidadBruta >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                    {formatCurrency(utilidadBruta)}
+                {/* Gastos */}
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Gastos:</span>
+                  <div className="text-right flex items-center gap-2">
+                    <span className="font-bold text-red-700">
+                      {formatCurrency(showIVA ? gastosTotales : gastosSubtotal)}
+                    </span>
+                    {showIVA && ivaGastos > 0 && (
+                      <span className="text-[9px] text-red-500 bg-red-50 px-1.5 py-0.5 rounded">
+                        IVA: {formatCurrency(ivaGastos)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {/* Provisiones */}
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Provisiones:</span>
+                  <div className="text-right flex items-center gap-2">
+                    <span className={`font-bold ${provisionesTotal > 0 ? 'text-amber-600' : 'text-gray-500'}`}>
+                      {formatCurrency(showIVA ? provisionesTotal : provisionesSubtotal)}
+                    </span>
+                    {showIVA && ivaProvisiones > 0 && (
+                      <span className="text-[9px] text-amber-500 bg-amber-50 px-1.5 py-0.5 rounded">
+                        IVA: {formatCurrency(ivaProvisiones)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {/* Línea separadora con resumen de IVAs */}
+                <div className="pt-1 border-t border-gray-300">
+                  {showIVA && (
+                    <div className="flex justify-between text-[10px] text-gray-500 mb-1">
+                      <span>∑ IVA Trasladado:</span>
+                      <span className="text-green-600">+{formatCurrency(ivaIngresos)}</span>
+                    </div>
+                  )}
+                  {showIVA && (
+                    <div className="flex justify-between text-[10px] text-gray-500 mb-1">
+                      <span>∑ IVA Acreditable:</span>
+                      <span className="text-red-600">-{formatCurrency(ivaGastos + ivaProvisiones)}</span>
+                    </div>
+                  )}
+                </div>
+                {/* Utilidad */}
+                <div className="flex justify-between items-center pt-1 border-t border-gray-300">
+                  <span className="text-gray-900 font-semibold">
+                    Utilidad {showIVA ? 'Neta' : ''} ({(showIVA ? margenUtilidad : margenBruto).toFixed(1)}%):
+                  </span>
+                  <span className={`font-bold text-base ${(showIVA ? utilidadReal : utilidadBruta) >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                    {formatCurrency(showIVA ? utilidadReal : utilidadBruta)}
                   </span>
                 </div>
-                {showIVA && (
-                  <div className="flex justify-between text-[10px] text-gray-400">
-                    <span>Util. con IVA ({margenUtilidad.toFixed(1)}%):</span>
-                    <span>{formatCurrency(utilidadReal)}</span>
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -574,9 +611,10 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
             )}
             
             {activeTab === 'ingresos' && (
-              <IngresosTab 
-                ingresos={ingresos} 
-                evento={evento} 
+              <IngresosTab
+                ingresos={ingresos}
+                evento={evento}
+                showIVA={showIVA}
                 onRefresh={loadFinancialData}
                 onCreateIngreso={() => {
                   setEditingIngreso(null);
@@ -593,6 +631,7 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
               <GastosTab
                 gastos={gastos}
                 evento={evento}
+                showIVA={showIVA}
                 onRefresh={loadFinancialData}
                 onCreateGasto={() => {
                   setEditingGasto(null);
@@ -632,6 +671,7 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
               <ProvisionesTab
                 provisiones={provisiones}
                 evento={evento}
+                showIVA={showIVA}
                 onRefresh={loadFinancialData}
                 onCreateProvision={() => {
                   setEditingProvision(null);
@@ -790,7 +830,7 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
   );
 };
 
-const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, showIVA = false }) => {
+const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, showIVA = true }) => {
   const { paletteConfig } = useTheme();
 
   // Estado para controlar qué fichas están expandidas (por default colapsado)
@@ -801,8 +841,8 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
     utilidad: false
   });
 
-  // Toggle para mostrar Totales (con IVA) o Subtotales (sin IVA)
-  const [showTotales, setShowTotales] = useState(false); // Por default subtotales (como Excel)
+  // Usar el toggle global (showIVA) en lugar de uno local
+  const showTotales = showIVA;
 
   // Colores dinámicos de la paleta
   const colors = {
@@ -860,29 +900,10 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
             <TrendingUp className="w-5 h-5 mr-2" style={{ color: colors.primary }} />
             Análisis Financiero
           </h3>
-          {/* TOGGLE TOTALES / SUBTOTALES */}
-          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-            <button
-              onClick={() => setShowTotales(false)}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
-                !showTotales
-                  ? 'bg-white shadow text-gray-900'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Subtotales
-            </button>
-            <button
-              onClick={() => setShowTotales(true)}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
-                showTotales
-                  ? 'bg-white shadow text-gray-900'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Con IVA
-            </button>
-          </div>
+          {/* Indicador del modo actual (el toggle está en el header) */}
+          <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">
+            {showTotales ? '💰 Con IVA' : '📊 Subtotales'}
+          </span>
         </div>
 
         {/* Valores a mostrar según toggle */}
@@ -1157,10 +1178,11 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
 const IngresosTab: React.FC<{
   ingresos: any[];
   evento: any;
+  showIVA?: boolean;
   onRefresh: () => void;
   onCreateIngreso: () => void;
   onEditIngreso: (ingreso: any) => void;
-}> = ({ ingresos, evento, onRefresh, onCreateIngreso, onEditIngreso }) => {
+}> = ({ ingresos, evento, showIVA = false, onRefresh, onCreateIngreso, onEditIngreso }) => {
   const { canCreate, canUpdate, canDelete } = usePermissions();
   const { paletteConfig } = useTheme();
 
@@ -1189,12 +1211,26 @@ const IngresosTab: React.FC<{
   };
 
   // Calcular totales desde la vista (siempre usar vw_eventos_analisis_financiero)
-  const totalIngresos = evento.ingresos_totales || 0;
-  const totalCobrados = evento.ingresos_cobrados || 0;
-  const totalPendientes = evento.ingresos_pendientes || 0;
+  const totalIngresosConIVA = evento.ingresos_totales || 0;
+  const totalCobradosConIVA = evento.ingresos_cobrados || 0;
+  const totalPendientesConIVA = evento.ingresos_pendientes || 0;
+
+  // Subtotales sin IVA
+  const subtotalIngresos = evento.ingresos_subtotal || (totalIngresosConIVA / 1.16);
+  const subtotalCobrados = totalCobradosConIVA / 1.16;
+  const subtotalPendientes = totalPendientesConIVA / 1.16;
+
+  // Usar valores según toggle
+  const totalIngresos = showIVA ? totalIngresosConIVA : subtotalIngresos;
+  const totalCobrados = showIVA ? totalCobradosConIVA : subtotalCobrados;
+  const totalPendientes = showIVA ? totalPendientesConIVA : subtotalPendientes;
+
   const porcentajeCobrado = totalIngresos > 0 ? (totalCobrados / totalIngresos) * 100 : 0;
   const numFacturasCobradas = ingresos.filter(i => i.cobrado).length;
   const numFacturasPendientes = ingresos.filter(i => !i.cobrado).length;
+
+  // IVA calculado
+  const ivaIngresos = totalIngresosConIVA - subtotalIngresos;
 
   return (
     <motion.div
@@ -1214,10 +1250,15 @@ const IngresosTab: React.FC<{
           }}
         >
           <div className="flex items-start justify-between gap-2 mb-0.5">
-            <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: colors.primaryDark }}>Total Ingresos</div>
+            <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: colors.primaryDark }}>
+              Total {showIVA ? '(+IVA)' : '(Neto)'}
+            </div>
             <div className="text-[10px] font-semibold" style={{ color: colors.primary }}>{ingresos.length} facturas</div>
           </div>
           <div className="text-xl font-bold" style={{ color: colors.primaryDark }}>{formatCurrency(totalIngresos)}</div>
+          {showIVA && ivaIngresos > 0 && (
+            <div className="text-[9px] mt-0.5" style={{ color: colors.primary }}>IVA: {formatCurrency(ivaIngresos)}</div>
+          )}
         </div>
 
         {/* FICHA 2: Cobrados - COLOR PRIMARIO */}
@@ -1277,15 +1318,24 @@ const IngresosTab: React.FC<{
             <p className="text-gray-500">No hay ingresos registrados</p>
           </div>
         ) : (
-          ingresos.map(ingreso => (
+          ingresos.map(ingreso => {
+            const ingresoTotal = ingreso.total || 0;
+            const ingresoSubtotal = ingreso.subtotal || (ingresoTotal / 1.16);
+            const ingresoIVA = ingreso.iva || (ingresoTotal - ingresoSubtotal);
+            const montoMostrar = showIVA ? ingresoTotal : ingresoSubtotal;
+
+            return (
             <div key={ingreso.id} className="bg-white border rounded-lg p-3 hover:bg-gray-50 transition-colors">
               <div className="flex items-center gap-3">
                 <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1">
                   <div className="col-span-2 md:col-span-1">
                     <h4 className="font-medium text-gray-900 text-base">{ingreso.concepto}</h4>
                   </div>
-                  <div>
-                    <span className="text-base font-bold" style={{ color: colors.primary }}>{formatCurrency(ingreso.total)}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base font-bold" style={{ color: colors.primary }}>{formatCurrency(montoMostrar)}</span>
+                    {showIVA && ingresoIVA > 0 && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-50 text-green-600">+IVA</span>
+                    )}
                   </div>
                   <div className="text-sm text-gray-500">
                     {formatDate(ingreso.fecha_creacion)}
@@ -1323,7 +1373,8 @@ const IngresosTab: React.FC<{
                 </div>
               </div>
             </div>
-          ))
+            );
+          })
         )}
       </div>
     </motion.div>
@@ -1333,6 +1384,7 @@ const IngresosTab: React.FC<{
 const GastosTab: React.FC<{
   gastos: any[];
   evento: any;
+  showIVA?: boolean;
   onRefresh: () => void;
   onCreateGasto: () => void;
   onEditGasto: (gasto: any) => void;
@@ -1341,7 +1393,7 @@ const GastosTab: React.FC<{
   onCreateIngresoMaterial?: () => void;
   onCreateRetornoMaterial?: () => void;
   onEditMaterialAlmacen?: (item: any) => void;
-}> = ({ gastos, evento, onRefresh, onCreateGasto, onEditGasto, onCreateRetorno, onEditRetorno, onCreateIngresoMaterial, onCreateRetornoMaterial, onEditMaterialAlmacen }) => {
+}> = ({ gastos, evento, showIVA = false, onRefresh, onCreateGasto, onEditGasto, onCreateRetorno, onEditRetorno, onCreateIngresoMaterial, onCreateRetornoMaterial, onEditMaterialAlmacen }) => {
   const { canCreate, canUpdate, canDelete } = usePermissions();
   const { paletteConfig } = useTheme();
   const [activeSubTab, setActiveSubTab] = useState<'todos' | 'combustible' | 'materiales' | 'rh' | 'sps'>('todos');
@@ -1374,7 +1426,10 @@ const GastosTab: React.FC<{
   };
 
   // Calcular totales desde la vista vw_eventos_analisis_financiero_erp
-  const totalGastos = evento.gastos_totales || 0;
+  const totalGastosConIVA = evento.gastos_totales || 0;
+  const subtotalGastos = evento.gastos_subtotal || (totalGastosConIVA / 1.16);
+  const ivaGastos = totalGastosConIVA - subtotalGastos;
+  const totalGastos = showIVA ? totalGastosConIVA : subtotalGastos;
 
   const subTabs = [
     { id: 'todos', label: 'Todos', count: gastos.length },
@@ -1402,17 +1457,17 @@ const GastosTab: React.FC<{
   const gastosRH = gastos.filter(g => g.categoria?.nombre === 'Recursos Humanos');
   const gastosSPs = gastos.filter(g => g.categoria?.nombre === 'Solicitudes de Pago');
 
-  const totalCombustible = gastosCombustible.reduce((sum, g) => sum + (g.total || 0), 0);
-  const totalMateriales = gastosMateriales.reduce((sum, g) => sum + (g.total || 0), 0);
-  const totalRH = gastosRH.reduce((sum, g) => sum + (g.total || 0), 0);
-  const totalSPs = gastosSPs.reduce((sum, g) => sum + (g.total || 0), 0);
+  // Totales con IVA por categoría
+  const totalCombustibleConIVA = gastosCombustible.reduce((sum, g) => sum + (g.total || 0), 0);
+  const totalMaterialesConIVA = gastosMateriales.reduce((sum, g) => sum + (g.total || 0), 0);
+  const totalRHConIVA = gastosRH.reduce((sum, g) => sum + (g.total || 0), 0);
+  const totalSPsConIVA = gastosSPs.reduce((sum, g) => sum + (g.total || 0), 0);
 
-  // IVA 16%
-  const IVA_RATE = 0.16;
-  const getSubtotalIVA = (total: number) => ({
-    subtotal: total / (1 + IVA_RATE),
-    iva: total - (total / (1 + IVA_RATE))
-  });
+  // Totales según showIVA
+  const totalCombustible = showIVA ? totalCombustibleConIVA : (totalCombustibleConIVA / 1.16);
+  const totalMateriales = showIVA ? totalMaterialesConIVA : (totalMaterialesConIVA / 1.16);
+  const totalRH = showIVA ? totalRHConIVA : (totalRHConIVA / 1.16);
+  const totalSPs = showIVA ? totalSPsConIVA : (totalSPsConIVA / 1.16);
 
   // Obtener total de la categoría activa
   const getCategoryTotal = () => {
@@ -1426,7 +1481,6 @@ const GastosTab: React.FC<{
   };
 
   const categoryTotal = getCategoryTotal();
-  const { subtotal: catSubtotal, iva: catIVA } = getSubtotalIVA(categoryTotal);
 
   return (
     <motion.div
@@ -1690,10 +1744,11 @@ const GastosTab: React.FC<{
 const ProvisionesTab: React.FC<{
   provisiones: any[];
   evento: any;
+  showIVA?: boolean;
   onRefresh: () => void;
   onCreateProvision: () => void;
   onEditProvision: (provision: any) => void;
-}> = ({ provisiones, evento, onRefresh, onCreateProvision, onEditProvision }) => {
+}> = ({ provisiones, evento, showIVA = false, onRefresh, onCreateProvision, onEditProvision }) => {
   const { canCreate, canUpdate, canDelete } = usePermissions();
   const { paletteConfig } = useTheme();
   const [activeSubTab, setActiveSubTab] = useState<'todos' | 'combustible' | 'materiales' | 'rh' | 'sps'>('todos');
@@ -1728,7 +1783,10 @@ const ProvisionesTab: React.FC<{
   };
 
   // Calcular totales
-  const totalProvisiones = provisiones.reduce((sum, p) => sum + (p.total || 0), 0);
+  const totalProvisionesConIVA = provisiones.reduce((sum, p) => sum + (p.total || 0), 0);
+  const subtotalProvisiones = evento.provisiones_subtotal || (totalProvisionesConIVA / 1.16);
+  const ivaProvisiones = totalProvisionesConIVA - subtotalProvisiones;
+  const totalProvisiones = showIVA ? totalProvisionesConIVA : subtotalProvisiones;
 
   // SubTabs por categoría (igual que Gastos)
   const subTabs = [
@@ -1759,17 +1817,17 @@ const ProvisionesTab: React.FC<{
   const provRH = provisiones.filter(p => p.categoria?.nombre === 'Recursos Humanos' || p.categoria?.clave === 'rh');
   const provSPs = provisiones.filter(p => p.categoria?.nombre === 'Solicitudes de Pago' || p.categoria?.clave === 'sps');
 
-  const totalProvCombustible = provCombustible.reduce((sum, p) => sum + (p.total || 0), 0);
-  const totalProvMateriales = provMateriales.reduce((sum, p) => sum + (p.total || 0), 0);
-  const totalProvRH = provRH.reduce((sum, p) => sum + (p.total || 0), 0);
-  const totalProvSPs = provSPs.reduce((sum, p) => sum + (p.total || 0), 0);
+  // Totales con IVA por categoría
+  const totalProvCombustibleConIVA = provCombustible.reduce((sum, p) => sum + (p.total || 0), 0);
+  const totalProvMaterialesConIVA = provMateriales.reduce((sum, p) => sum + (p.total || 0), 0);
+  const totalProvRHConIVA = provRH.reduce((sum, p) => sum + (p.total || 0), 0);
+  const totalProvSPsConIVA = provSPs.reduce((sum, p) => sum + (p.total || 0), 0);
 
-  // IVA 16%
-  const IVA_RATE = 0.16;
-  const getSubtotalIVA = (total: number) => ({
-    subtotal: total / (1 + IVA_RATE),
-    iva: total - (total / (1 + IVA_RATE))
-  });
+  // Totales según showIVA
+  const totalProvCombustible = showIVA ? totalProvCombustibleConIVA : (totalProvCombustibleConIVA / 1.16);
+  const totalProvMateriales = showIVA ? totalProvMaterialesConIVA : (totalProvMaterialesConIVA / 1.16);
+  const totalProvRH = showIVA ? totalProvRHConIVA : (totalProvRHConIVA / 1.16);
+  const totalProvSPs = showIVA ? totalProvSPsConIVA : (totalProvSPsConIVA / 1.16);
 
   // Obtener total de la categoría activa
   const getCategoryTotal = () => {

@@ -51,8 +51,8 @@ export interface FiltrosKardex {
 export async function obtenerKardex(filtros: FiltrosKardex): Promise<KardexProducto | null> {
   // Obtener datos del producto
   const { data: producto, error: errorProd } = await supabase
-    .from('productos')
-    .select('id, nombre, sku, unidad_medida, costo_promedio')
+    .from('productos_erp')
+    .select('id, nombre, clave, unidad, costo')
     .eq('id', filtros.producto_id)
     .single();
 
@@ -62,30 +62,28 @@ export async function obtenerKardex(filtros: FiltrosKardex): Promise<KardexProdu
 
   // Query de movimientos
   let query = supabase
-    .from('movimientos_inventario')
+    .from('movimientos_inventario_erp')
     .select(`
       id,
-      fecha,
+      fecha_creacion,
       tipo,
       cantidad,
       costo_unitario,
-      documento_tipo,
-      documento_id,
-      notas,
-      almacen:almacenes(id, nombre)
+      referencia,
+      concepto,
+      almacen:almacenes_erp(id, nombre)
     `)
     .eq('producto_id', filtros.producto_id)
-    .order('fecha', { ascending: true })
-    .order('created_at', { ascending: true });
+    .order('fecha_creacion', { ascending: true });
 
   if (filtros.almacen_id) {
     query = query.eq('almacen_id', filtros.almacen_id);
   }
   if (filtros.fecha_desde) {
-    query = query.gte('fecha', filtros.fecha_desde);
+    query = query.gte('fecha_creacion', filtros.fecha_desde);
   }
   if (filtros.fecha_hasta) {
-    query = query.lte('fecha', filtros.fecha_hasta);
+    query = query.lte('fecha_creacion', filtros.fecha_hasta);
   }
   if (filtros.tipo) {
     query = query.eq('tipo', filtros.tipo);
@@ -105,10 +103,10 @@ export async function obtenerKardex(filtros: FiltrosKardex): Promise<KardexProdu
   let saldoInicial = 0;
   if (filtros.fecha_desde) {
     const { data: movPrevios } = await supabase
-      .from('movimientos_inventario')
+      .from('movimientos_inventario_erp')
       .select('tipo, cantidad')
       .eq('producto_id', filtros.producto_id)
-      .lt('fecha', filtros.fecha_desde);
+      .lt('fecha_creacion', filtros.fecha_desde);
 
     if (movPrevios) {
       for (const mov of movPrevios) {
@@ -123,9 +121,9 @@ export async function obtenerKardex(filtros: FiltrosKardex): Promise<KardexProdu
   }
 
   const movimientosKardex: MovimientoKardex[] = (movimientos || []).map(mov => {
-    const esEntrada = mov.tipo === 'entrada' || mov.tipo === 'ajuste_positivo';
+    const esEntrada = mov.tipo === 'entrada' || mov.tipo === 'ajuste_positivo' || mov.tipo === 'ajuste';
     const cantidad = mov.cantidad || 0;
-    const costoUnit = mov.costo_unitario || producto.costo_promedio || 0;
+    const costoUnit = mov.costo_unitario || producto.costo || 0;
 
     if (esEntrada) {
       saldoCantidad += cantidad;
@@ -139,22 +137,28 @@ export async function obtenerKardex(filtros: FiltrosKardex): Promise<KardexProdu
 
     return {
       id: mov.id,
-      fecha: mov.fecha,
-      tipo: mov.tipo,
-      documento_tipo: mov.documento_tipo,
-      documento_numero: mov.documento_id, // TODO: obtener número real del documento
+      fecha: mov.fecha_creacion,
+      tipo: mov.tipo as MovimientoKardex['tipo'],
+      documento_tipo: mov.referencia,
+      documento_numero: undefined,
       cantidad: cantidad,
       costo_unitario: costoUnit,
       costo_total: cantidad * costoUnit,
       saldo_cantidad: saldoCantidad,
       saldo_costo: saldoCosto,
       almacen: (mov.almacen as { nombre: string })?.nombre || 'N/A',
-      notas: mov.notas
+      notas: mov.concepto
     };
   });
 
   return {
-    producto,
+    producto: {
+      id: producto.id,
+      nombre: producto.nombre,
+      sku: producto.clave,
+      unidad_medida: producto.unidad,
+      costo_promedio: producto.costo
+    },
     saldo_inicial: saldoInicial,
     total_entradas: totalEntradas,
     total_salidas: totalSalidas,

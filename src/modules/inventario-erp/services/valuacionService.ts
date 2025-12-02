@@ -49,7 +49,7 @@ async function calcularStockProducto(
   fecha_corte?: string
 ): Promise<number> {
   let query = supabase
-    .from('movimientos_inventario')
+    .from('movimientos_inventario_erp')
     .select('tipo, cantidad')
     .eq('producto_id', producto_id);
 
@@ -85,10 +85,10 @@ async function calcularCostoPromedio(
   almacen_id?: string
 ): Promise<number> {
   let query = supabase
-    .from('movimientos_inventario')
+    .from('movimientos_inventario_erp')
     .select('tipo, cantidad, costo_unitario')
     .eq('producto_id', producto_id)
-    .in('tipo', ['entrada', 'ajuste_positivo']);
+    .in('tipo', ['entrada', 'ajuste']);
 
   if (almacen_id) {
     query = query.eq('almacen_id', almacen_id);
@@ -120,16 +120,16 @@ async function obtenerUltimaFechaMovimiento(
   almacen_id?: string
 ): Promise<string | undefined> {
   let query = supabase
-    .from('movimientos_inventario')
-    .select('fecha')
+    .from('movimientos_inventario_erp')
+    .select('fecha_creacion')
     .eq('producto_id', producto_id)
-    .order('fecha', { ascending: false })
+    .order('fecha_creacion', { ascending: false })
     .limit(1);
 
   if (tipo === 'entrada') {
-    query = query.in('tipo', ['entrada', 'ajuste_positivo']);
+    query = query.in('tipo', ['entrada', 'ajuste']);
   } else {
-    query = query.in('tipo', ['salida', 'ajuste_negativo']);
+    query = query.eq('tipo', 'salida');
   }
 
   if (almacen_id) {
@@ -137,7 +137,7 @@ async function obtenerUltimaFechaMovimiento(
   }
 
   const { data } = await query;
-  return data?.[0]?.fecha;
+  return data?.[0]?.fecha_creacion;
 }
 
 /**
@@ -149,16 +149,15 @@ export async function generarValuacion(filtros: FiltrosValuacion): Promise<Resum
 
   // Obtener productos
   let queryProductos = supabase
-    .from('productos')
+    .from('productos_erp')
     .select(`
       id,
       nombre,
-      sku,
-      unidad_medida,
-      costo_promedio,
-      categoria:categorias_producto(id, nombre)
+      clave,
+      unidad,
+      costo,
+      categoria
     `)
-    .eq('activo', true)
     .order('nombre');
 
   if (filtros.categoria_id) {
@@ -172,7 +171,7 @@ export async function generarValuacion(filtros: FiltrosValuacion): Promise<Resum
   let almacenInfo = undefined;
   if (filtros.almacen_id) {
     const { data } = await supabase
-      .from('almacenes')
+      .from('almacenes_erp')
       .select('id, nombre')
       .eq('id', filtros.almacen_id)
       .single();
@@ -194,25 +193,25 @@ export async function generarValuacion(filtros: FiltrosValuacion): Promise<Resum
     switch (metodo) {
       case 'promedio':
         costoUnitario = await calcularCostoPromedio(prod.id, filtros.almacen_id);
-        if (costoUnitario === 0) costoUnitario = prod.costo_promedio || 0;
+        if (costoUnitario === 0) costoUnitario = prod.costo || 0;
         break;
       case 'peps':
       case 'ueps':
         // Para PEPS/UEPS se necesitaría implementar lógica más compleja
         // Por ahora usar costo promedio
-        costoUnitario = prod.costo_promedio || 0;
+        costoUnitario = prod.costo || 0;
         break;
     }
 
     const valorTotal = cantidad * costoUnitario;
-    const categoriaNombre = (prod.categoria as { nombre: string })?.nombre || 'Sin Categoría';
+    const categoriaNombre = prod.categoria || 'Sin Categoría';
 
     items.push({
       producto_id: prod.id,
       producto_nombre: prod.nombre,
-      sku: prod.sku,
+      sku: prod.clave,
       categoria: categoriaNombre,
-      unidad_medida: prod.unidad_medida,
+      unidad_medida: prod.unidad,
       cantidad,
       costo_unitario: costoUnitario,
       valor_total: valorTotal,

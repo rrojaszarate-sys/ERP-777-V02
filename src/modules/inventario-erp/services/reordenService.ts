@@ -51,7 +51,7 @@ export interface RequisicionAutoGenerada {
  */
 async function calcularStockActual(producto_id: string, almacen_id: string): Promise<number> {
   const { data, error } = await supabase
-    .from('movimientos_inventario')
+    .from('movimientos_inventario_erp')
     .select('tipo, cantidad')
     .eq('producto_id', producto_id)
     .eq('almacen_id', almacen_id);
@@ -60,9 +60,9 @@ async function calcularStockActual(producto_id: string, almacen_id: string): Pro
 
   let stock = 0;
   for (const mov of data || []) {
-    if (mov.tipo === 'entrada' || mov.tipo === 'ajuste_positivo') {
+    if (mov.tipo === 'entrada' || mov.tipo === 'ajuste') {
       stock += mov.cantidad;
-    } else if (mov.tipo === 'salida' || mov.tipo === 'ajuste_negativo') {
+    } else if (mov.tipo === 'salida') {
       stock -= mov.cantidad;
     }
   }
@@ -78,12 +78,12 @@ async function calcularConsumoDiario(producto_id: string, almacen_id: string, di
   fechaInicio.setDate(fechaInicio.getDate() - dias);
 
   const { data, error } = await supabase
-    .from('movimientos_inventario')
+    .from('movimientos_inventario_erp')
     .select('cantidad')
     .eq('producto_id', producto_id)
     .eq('almacen_id', almacen_id)
-    .in('tipo', ['salida', 'ajuste_negativo'])
-    .gte('fecha', fechaInicio.toISOString().split('T')[0]);
+    .eq('tipo', 'salida')
+    .gte('fecha_creacion', fechaInicio.toISOString());
 
   if (error) throw error;
 
@@ -96,20 +96,15 @@ async function calcularConsumoDiario(producto_id: string, almacen_id: string, di
  */
 export async function obtenerProductosBajoReorden(almacen_id?: string): Promise<ProductoBajoStock[]> {
   // Obtener productos con configuración de stock
-  let query = supabase
-    .from('productos')
+  const query = supabase
+    .from('productos_erp')
     .select(`
       id,
       nombre,
-      sku,
-      unidad_medida,
-      stock_minimo,
-      stock_maximo,
-      punto_reorden,
-      proveedor_preferido_id,
-      proveedor:proveedores!productos_proveedor_preferido_id_fkey(id, nombre)
+      clave,
+      unidad,
+      stock_minimo
     `)
-    .eq('activo', true)
     .gt('stock_minimo', 0);
 
   const { data: productos, error } = await query;
@@ -117,9 +112,8 @@ export async function obtenerProductosBajoReorden(almacen_id?: string): Promise<
 
   // Obtener almacenes activos
   let queryAlmacenes = supabase
-    .from('almacenes')
-    .select('id, nombre')
-    .eq('activo', true);
+    .from('almacenes_erp')
+    .select('id, nombre');
 
   if (almacen_id) {
     queryAlmacenes = queryAlmacenes.eq('id', almacen_id);
@@ -132,28 +126,29 @@ export async function obtenerProductosBajoReorden(almacen_id?: string): Promise<
   for (const prod of productos || []) {
     for (const almacen of almacenes || []) {
       const stockActual = await calcularStockActual(prod.id, almacen.id);
-      const puntoReorden = prod.punto_reorden || prod.stock_minimo;
+      const puntoReorden = prod.stock_minimo;
+      const stockMaximo = prod.stock_minimo * 2;
 
       if (stockActual <= puntoReorden) {
         const consumoDiario = await calcularConsumoDiario(prod.id, almacen.id);
         const diasSinStock = consumoDiario > 0 ? Math.floor(stockActual / consumoDiario) : 999;
-        const cantidadSugerida = (prod.stock_maximo || prod.stock_minimo * 2) - stockActual;
+        const cantidadSugerida = stockMaximo - stockActual;
 
         productosBajos.push({
           producto_id: prod.id,
           producto_nombre: prod.nombre,
-          sku: prod.sku,
+          sku: prod.clave,
           almacen_id: almacen.id,
           almacen_nombre: almacen.nombre,
           stock_actual: stockActual,
           stock_minimo: prod.stock_minimo,
-          stock_maximo: prod.stock_maximo || prod.stock_minimo * 2,
+          stock_maximo: stockMaximo,
           punto_reorden: puntoReorden,
           cantidad_sugerida: Math.max(1, Math.ceil(cantidadSugerida)),
-          proveedor_preferido_id: prod.proveedor_preferido_id,
-          proveedor_preferido_nombre: (prod.proveedor as { nombre: string })?.nombre,
+          proveedor_preferido_id: undefined,
+          proveedor_preferido_nombre: undefined,
           dias_sin_stock_estimado: diasSinStock,
-          unidad_medida: prod.unidad_medida
+          unidad_medida: prod.unidad
         });
       }
     }
@@ -190,7 +185,7 @@ export async function generarRequisicionAutomatica(
   const mes = (fecha.getMonth() + 1).toString().padStart(2, '0');
   
   const { data: ultimaReq } = await supabase
-    .from('requisiciones')
+    .from('requisiciones_erp')
     .select('numero')
     .ilike('numero', `REQ${año}${mes}%`)
     .order('numero', { ascending: false })
@@ -210,7 +205,7 @@ export async function generarRequisicionAutomatica(
 
   // Crear requisición
   const { data: requisicion, error: errorReq } = await supabase
-    .from('requisiciones')
+    .from('requisiciones_erp')
     .insert({
       numero,
       fecha: fecha.toISOString().split('T')[0],
@@ -235,14 +230,14 @@ export async function generarRequisicionAutomatica(
   }));
 
   const { error: errorDet } = await supabase
-    .from('requisiciones_detalle')
+    .from('requisicion_detalle_erp')
     .insert(detalles);
 
   if (errorDet) throw errorDet;
 
   // Crear alerta para el usuario de compras
   await supabase
-    .from('alertas_inventario')
+    .from('alertas_inventario_erp')
     .insert({
       tipo: 'requisicion_automatica',
       titulo: `Requisición ${numero} generada automáticamente`,
@@ -264,12 +259,9 @@ export async function actualizarConfiguracionReorden(
   config: Partial<ConfiguracionReorden>
 ): Promise<void> {
   const { error } = await supabase
-    .from('productos')
+    .from('productos_erp')
     .update({
-      stock_minimo: config.stock_minimo,
-      stock_maximo: config.stock_maximo,
-      punto_reorden: config.punto_reorden,
-      proveedor_preferido_id: config.proveedor_preferido_id
+      stock_minimo: config.stock_minimo
     })
     .eq('id', producto_id);
 
@@ -289,11 +281,11 @@ export async function obtenerResumenReorden(): Promise<{
   
   // Obtener precios promedio
   const { data: precios } = await supabase
-    .from('productos')
-    .select('id, costo_promedio')
+    .from('productos_erp')
+    .select('id, costo')
     .in('id', productosBajos.map(p => p.producto_id));
 
-  const precioMap = new Map(precios?.map(p => [p.id, p.costo_promedio || 0]) || []);
+  const precioMap = new Map(precios?.map(p => [p.id, p.costo || 0]) || []);
 
   let valorSugerido = 0;
   let criticos = 0;
@@ -305,7 +297,7 @@ export async function obtenerResumenReorden(): Promise<{
 
   // Contar requisiciones pendientes
   const { count: reqPendientes } = await supabase
-    .from('requisiciones')
+    .from('requisiciones_erp')
     .select('id', { count: 'exact', head: true })
     .eq('estado', 'pendiente');
 
@@ -327,7 +319,7 @@ export async function verificarYGenerarAlertas(): Promise<number> {
   for (const prod of productosBajos) {
     // Verificar si ya existe alerta activa para este producto/almacén
     const { data: alertaExistente } = await supabase
-      .from('alertas_inventario')
+      .from('alertas_inventario_erp')
       .select('id')
       .eq('producto_id', prod.producto_id)
       .eq('almacen_id', prod.almacen_id)
@@ -339,7 +331,7 @@ export async function verificarYGenerarAlertas(): Promise<number> {
       const esCritico = prod.dias_sin_stock_estimado < 3;
       
       await supabase
-        .from('alertas_inventario')
+        .from('alertas_inventario_erp')
         .insert({
           tipo: esCritico ? 'stock_critico' : 'stock_bajo',
           titulo: `${esCritico ? '🚨 CRÍTICO' : '⚠️'} Stock bajo: ${prod.producto_nombre}`,

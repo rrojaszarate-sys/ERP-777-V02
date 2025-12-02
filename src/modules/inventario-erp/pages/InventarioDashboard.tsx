@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   Package, Warehouse, TrendingUp, AlertTriangle, HelpCircle, BookOpen, ArrowRight,
-  MapPin, Layers, ClipboardCheck, CalendarCheck, Box, Bell, CheckCircle
+  MapPin, Layers, ClipboardCheck, CalendarCheck, Box, Bell, CheckCircle, Settings
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -80,6 +80,14 @@ export const InventarioDashboard: React.FC = () => {
           <p className="mt-1" style={{ color: colors.textMuted }}>Control de almacenes, stock y eventos</p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={() => navigate('/inventario/configuracion')}
+            className="px-3 py-2 rounded-lg font-medium transition-colors hover:opacity-90"
+            style={{ backgroundColor: isDark ? '#374151' : '#e5e7eb', color: colors.textSecondary }}
+            title="Configuración de submódulos"
+          >
+            <Settings size={20} />
+          </button>
           <button
             onClick={() => navigate('/inventario/alertas')}
             className="relative px-3 py-2 rounded-lg font-medium transition-colors hover:opacity-90"
