@@ -723,6 +723,14 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
 const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, showIVA = false }) => {
   const { paletteConfig } = useTheme();
 
+  // Estado para controlar qué fichas están expandidas (por default colapsado)
+  const [expandedCards, setExpandedCards] = useState({
+    ingresos: false,
+    gastos: false,
+    provisiones: false,
+    utilidad: false
+  });
+
   // Colores dinámicos de la paleta
   const colors = {
     primary: paletteConfig.primary,
@@ -961,100 +969,150 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
           </div>
         </div>
 
-        {/* DATOS DEL RESUMEN DEL EVENTO - Replicando formato del renglón del listado */}
+        {/* DATOS DEL RESUMEN DEL EVENTO - Con desglose colapsable */}
         <div className="bg-white rounded-lg p-6 mb-6 shadow-lg border-2 border-blue-200">
           <div className="grid grid-cols-4 gap-6">
-            {/* INGRESOS - Replicando formato del listado */}
+            {/* INGRESOS */}
             <div className="border-r pr-4">
-              <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">Ingresos</h4>
-              <div className="font-bold text-blue-900 text-2xl mb-2">
-                {formatCurrency(ingresosTotales)}
-              </div>
-              {showIVA && (
-                <div className="text-[10px] text-gray-400 mb-1">
-                  +IVA: {formatCurrency(ivaIngresos)}
+              <button
+                onClick={() => setExpandedCards(prev => ({ ...prev, ingresos: !prev.ingresos }))}
+                className="w-full text-left"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase">Ingresos</h4>
+                  <span className="text-[10px] text-gray-400">{expandedCards.ingresos ? '▲' : '▼'}</span>
+                </div>
+                <div className="font-bold text-blue-900 text-2xl">
+                  {formatCurrency(ingresosTotales)}
+                </div>
+                <div className="text-[9px] text-gray-400">
+                  Sub: {formatCurrency(ingresosSubtotal)} | IVA: {formatCurrency(ivaIngresos)}
+                </div>
+              </button>
+              {expandedCards.ingresos && (
+                <div className="text-xs text-gray-500 border-t pt-2 mt-2 space-y-1">
+                  <div className="text-blue-600 flex items-center gap-1">
+                    <span className="text-green-500">✓</span> Facturado: {formatCurrency(ingresosTotales)}
+                  </div>
+                  <div className="text-gray-400">Ppto: {formatCurrency(ingresoEstimado)}</div>
                 </div>
               )}
-              <div className="text-xs text-gray-500 border-t pt-2 space-y-1">
-                <div className="text-blue-600 flex items-center gap-1">
-                  <span className="text-green-500">✓</span> Facturado: {formatCurrency(ingresosTotales)}
-                </div>
-                <div className="text-gray-400">Ppto: {formatCurrency(ingresoEstimado)}</div>
-              </div>
             </div>
 
-            {/* GASTOS - Desglose por categoría igual que listado */}
+            {/* GASTOS */}
             <div className="border-r pr-4">
-              <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">Gastos</h4>
-              <div className="font-bold text-red-900 text-2xl mb-2">
-                {formatCurrency(gastosTotales)}
-              </div>
-              {showIVA && (
-                <div className="text-[10px] text-gray-400 mb-1">
-                  +IVA: {formatCurrency(ivaGastos)}
+              <button
+                onClick={() => setExpandedCards(prev => ({ ...prev, gastos: !prev.gastos }))}
+                className="w-full text-left"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase">Gastos</h4>
+                  <span className="text-[10px] text-gray-400">{expandedCards.gastos ? '▲' : '▼'}</span>
+                </div>
+                <div className="font-bold text-red-900 text-2xl">
+                  {formatCurrency(gastosTotales)}
+                </div>
+                <div className="text-[9px] text-gray-400">
+                  Sub: {formatCurrency(gastosSubtotal)} | IVA: {formatCurrency(ivaGastos)}
+                </div>
+              </button>
+              {expandedCards.gastos && (
+                <div className="text-xs text-gray-500 border-t pt-2 mt-2 space-y-1">
+                  <div className="flex justify-between">
+                    <span>🚗⛽</span>
+                    <span className="font-medium">{formatCurrency((evento.gastos_combustible_pagados || 0) + (evento.gastos_combustible_pendientes || 0))}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>🛠️</span>
+                    <span className="font-medium">{formatCurrency((evento.gastos_materiales_pagados || 0) + (evento.gastos_materiales_pendientes || 0))}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>👥</span>
+                    <span className="font-medium">{formatCurrency((evento.gastos_rh_pagados || 0) + (evento.gastos_rh_pendientes || 0))}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>💳</span>
+                    <span className="font-medium">{formatCurrency((evento.gastos_sps_pagados || 0) + (evento.gastos_sps_pendientes || 0))}</span>
+                  </div>
                 </div>
               )}
-              <div className="text-xs text-gray-500 border-t pt-2 space-y-1">
-                <div className="flex justify-between">
-                  <span>🚗⛽</span>
-                  <span className="font-medium">{formatCurrency((evento.gastos_combustible_pagados || 0) + (evento.gastos_combustible_pendientes || 0))}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>🛠️</span>
-                  <span className="font-medium">{formatCurrency((evento.gastos_materiales_pagados || 0) + (evento.gastos_materiales_pendientes || 0))}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>👥</span>
-                  <span className="font-medium">{formatCurrency((evento.gastos_rh_pagados || 0) + (evento.gastos_rh_pendientes || 0))}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>💳</span>
-                  <span className="font-medium">{formatCurrency((evento.gastos_sps_pagados || 0) + (evento.gastos_sps_pendientes || 0))}</span>
-                </div>
-              </div>
             </div>
 
-            {/* PROVISIONES - Desglose por categoría igual que listado */}
+            {/* PROVISIONES */}
             <div className="border-r pr-4">
-              <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">Provisiones</h4>
-              <div className={`font-bold text-2xl mb-2 ${provisionesTotal > 0 ? 'text-amber-600' : 'text-gray-500'}`}>
-                {formatCurrency(provisionesTotal)}
-              </div>
-              <div className="text-xs text-gray-500 border-t pt-2 space-y-1">
-                <div className="flex justify-between">
-                  <span>🚗⛽</span>
-                  <span className="font-medium">{formatCurrency(evento.provision_combustible || 0)}</span>
+              <button
+                onClick={() => setExpandedCards(prev => ({ ...prev, provisiones: !prev.provisiones }))}
+                className="w-full text-left"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase">Provisiones</h4>
+                  <span className="text-[10px] text-gray-400">{expandedCards.provisiones ? '▲' : '▼'}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>🛠️</span>
-                  <span className="font-medium">{formatCurrency(evento.provision_materiales || 0)}</span>
+                <div className={`font-bold text-2xl ${provisionesTotal > 0 ? 'text-amber-600' : 'text-gray-500'}`}>
+                  {formatCurrency(provisionesTotal)}
                 </div>
-                <div className="flex justify-between">
-                  <span>👥</span>
-                  <span className="font-medium">{formatCurrency(evento.provision_rh || 0)}</span>
+                <div className="text-[9px] text-gray-400">
+                  Sub: {formatCurrency(provisionesSubtotal)} | IVA: {formatCurrency(provisionesTotal - provisionesSubtotal)}
                 </div>
-                <div className="flex justify-between">
-                  <span>💳</span>
-                  <span className="font-medium">{formatCurrency(evento.provision_sps || 0)}</span>
+              </button>
+              {expandedCards.provisiones && (
+                <div className="text-xs text-gray-500 border-t pt-2 mt-2 space-y-1">
+                  <div className="flex justify-between">
+                    <span>🚗⛽</span>
+                    <span className="font-medium">{formatCurrency(evento.provision_combustible || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>🛠️</span>
+                    <span className="font-medium">{formatCurrency(evento.provision_materiales || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>👥</span>
+                    <span className="font-medium">{formatCurrency(evento.provision_rh || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>💳</span>
+                    <span className="font-medium">{formatCurrency(evento.provision_sps || 0)}</span>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
-            {/* UTILIDAD BRUTA - Con velocímetro replicando formato del listado */}
-            <div className="flex flex-col items-center">
-              <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">Utilidad Bruta</h4>
-              <div className={`font-bold text-2xl mb-2 ${utilidadBruta >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                {formatCurrency(utilidadBruta)}
-              </div>
-              {/* Gauge Chart - Replicando el del listado */}
-              <GaugeChart
-                value={margenBrutoPct}
-                size="sm"
-                showLabel={true}
-              />
-              <div className="text-[10px] text-gray-400 mt-1">
-                Sin IVA ni retenciones
-              </div>
+            {/* UTILIDAD BRUTA */}
+            <div>
+              <button
+                onClick={() => setExpandedCards(prev => ({ ...prev, utilidad: !prev.utilidad }))}
+                className="w-full text-center"
+              >
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase">Utilidad Bruta</h4>
+                  <span className="text-[10px] text-gray-400">{expandedCards.utilidad ? '▲' : '▼'}</span>
+                </div>
+                <div className={`font-bold text-2xl ${utilidadBruta >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                  {formatCurrency(utilidadBruta)}
+                </div>
+                <div className="text-[9px] text-gray-400">
+                  Margen: {margenBrutoPct.toFixed(1)}% | Sin IVA
+                </div>
+              </button>
+              {expandedCards.utilidad && (
+                <div className="border-t pt-2 mt-2">
+                  <GaugeChart
+                    value={margenBrutoPct}
+                    size="sm"
+                    showLabel={true}
+                  />
+                  <div className="text-xs text-gray-500 mt-2 space-y-1">
+                    <div className="flex justify-between">
+                      <span>Util. Total (con IVA):</span>
+                      <span className="font-medium">{formatCurrency(utilidadReal)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Margen Total:</span>
+                      <span className="font-medium">{margenRealPct.toFixed(1)}%</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
