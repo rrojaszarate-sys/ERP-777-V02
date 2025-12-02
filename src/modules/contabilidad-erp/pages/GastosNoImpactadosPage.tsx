@@ -682,10 +682,10 @@ export const GastosNoImpactadosPage = () => {
       const key = c.clave;
       if (!gastosAgrupados[key]) {
         gastosAgrupados[key] = {
-          clave: c.clave,
-          concepto: c.cuenta,
-          subclave: c.clave,
-          subconcepto: c.subcuenta,
+          clave: c.clave,           // Código de la clave (ej: MDE2025-002A)
+          concepto: c.cuenta,       // Cuenta principal (ej: GASTOS FIJOS)
+          subclave: '',             // No aplica - cada clave es única
+          subconcepto: c.subcuenta, // Detalle/subcuenta (ej: AGUA EMBOTELLADA)
           presupuesto: c.presupuesto_anual || 0,
           meses: Array(12).fill(0),
           totalAcumulado: 0
@@ -700,7 +700,7 @@ export const GastosNoImpactadosPage = () => {
         gastosAgrupados[clave] = {
           clave: clave,
           concepto: g.cuenta || 'Sin cuenta',
-          subclave: clave,
+          subclave: '',               // No aplica
           subconcepto: g.subcuenta || 'Sin subcuenta',
           presupuesto: 0,
           meses: Array(12).fill(0),
@@ -716,16 +716,15 @@ export const GastosNoImpactadosPage = () => {
     // Crear datos para Excel
     const dataExcel: any[] = [];
 
-    // Header
+    // Header - Estructura: CLAVE (código) | CUENTA (categoría) | SUBCUENTA (detalle)
     dataExcel.push({
       'CLAVE': 'CLAVE',
-      'CONCEPTO': 'CONCEPTO',
-      'SUBCLAVE': 'SUBCLAVE',
-      'CONCEPTO_DET': 'CONCEPTO',
+      'CUENTA': 'CUENTA',
+      'SUBCUENTA': 'SUBCUENTA/DETALLE',
       'PRESUPUESTO': 'PRESUPUESTO',
       ...meses.reduce((acc, m) => ({ ...acc, [m]: m }), {}),
       'TOTAL ACUMULADO': 'TOTAL ACUMULADO',
-      'VARIACIÓN PRESUPUESTARIA': 'VARIACIÓN PRESUPUESTARIA'
+      'VARIACIÓN': 'VARIACIÓN PRESUPUESTARIA'
     });
 
     // Datos agrupados
@@ -733,17 +732,16 @@ export const GastosNoImpactadosPage = () => {
       .sort((a, b) => a.clave.localeCompare(b.clave))
       .forEach(item => {
         const row: any = {
-          'CLAVE': item.clave,
-          'CONCEPTO': item.concepto,
-          'SUBCLAVE': item.subclave,
-          'CONCEPTO_DET': item.subconcepto,
+          'CLAVE': item.clave,         // Código (MDE2025-002A)
+          'CUENTA': item.concepto,     // Categoría (GASTOS FIJOS)
+          'SUBCUENTA': item.subconcepto, // Detalle (AGUA EMBOTELLADA)
           'PRESUPUESTO': item.presupuesto,
         };
         meses.forEach((m, i) => {
           row[m] = item.meses[i];
         });
         row['TOTAL ACUMULADO'] = item.totalAcumulado;
-        row['VARIACIÓN PRESUPUESTARIA'] = item.presupuesto - item.totalAcumulado;
+        row['VARIACIÓN'] = item.presupuesto - item.totalAcumulado;
         dataExcel.push(row);
       });
 
@@ -752,16 +750,15 @@ export const GastosNoImpactadosPage = () => {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Reporte GNI');
 
-    // Anchos de columna
+    // Anchos de columna - Actualizado a 3 columnas principales
     ws['!cols'] = [
       { wch: 15 }, // CLAVE
-      { wch: 20 }, // CONCEPTO
-      { wch: 15 }, // SUBCLAVE
-      { wch: 30 }, // CONCEPTO_DET
-      { wch: 15 }, // PRESUPUESTO
+      { wch: 18 }, // CUENTA
+      { wch: 40 }, // SUBCUENTA (más ancha para el detalle)
+      { wch: 14 }, // PRESUPUESTO
       ...Array(12).fill({ wch: 12 }), // Meses
-      { wch: 18 }, // TOTAL ACUMULADO
-      { wch: 22 }, // VARIACIÓN
+      { wch: 16 }, // TOTAL ACUMULADO
+      { wch: 18 }, // VARIACIÓN
     ];
 
     XLSX.writeFile(wb, `GNI_Reporte_${anio}.xlsx`);

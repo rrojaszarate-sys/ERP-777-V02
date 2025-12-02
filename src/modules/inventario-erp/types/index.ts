@@ -43,6 +43,10 @@ export interface DocumentoInventario {
   created_at: string;
   updated_at: string;
   created_by: string | null;
+  // Campos para PDF firmado como evidencia
+  archivo_pdf_firmado: string | null;
+  archivo_pdf_nombre: string | null;
+  archivo_pdf_fecha: string | null;
   // Relaciones expandidas
   almacen?: Almacen;
   evento?: { id: number; nombre: string };
@@ -91,6 +95,9 @@ export interface DocumentoInventarioFormData {
   firma_recibe: string | null;
   observaciones: string;
   detalles: DetalleFormData[];
+  // Campos para PDF firmado como evidencia
+  archivo_pdf_firmado?: string | null;
+  archivo_pdf_nombre?: string | null;
 }
 
 export interface DetalleFormData {
@@ -119,6 +126,10 @@ export interface DocumentoInventarioResumen {
   updated_at: string;
   total_lineas: number;
   total_productos: number;
+  // Campos para PDF firmado como evidencia
+  archivo_pdf_firmado: string | null;
+  archivo_pdf_nombre: string | null;
+  archivo_pdf_fecha: string | null;
 }
 
 // Para generación de etiquetas QR

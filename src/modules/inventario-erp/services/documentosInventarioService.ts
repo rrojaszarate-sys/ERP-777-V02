@@ -74,7 +74,10 @@ export const fetchDocumentosInventario = async (
       nombre_entrega,
       nombre_recibe,
       created_at,
-      updated_at
+      updated_at,
+      archivo_pdf_firmado,
+      archivo_pdf_nombre,
+      archivo_pdf_fecha
     `, { count: 'exact' })
     .eq('company_id', companyId)
     .order('fecha', { ascending: false })
@@ -132,6 +135,9 @@ export const fetchDocumentosInventario = async (
     updated_at: doc.updated_at,
     total_lineas: 0,
     total_productos: 0,
+    archivo_pdf_firmado: doc.archivo_pdf_firmado,
+    archivo_pdf_nombre: doc.archivo_pdf_nombre,
+    archivo_pdf_fecha: doc.archivo_pdf_fecha,
   }));
   
   return { data: transformedData, count: count || 0 };
@@ -617,4 +623,126 @@ export const getEstadisticasDocumentos = async (companyId: string) => {
   };
 
   return stats;
+};
+
+// ============================================================================
+// SUBIDA DE PDF FIRMADO COMO EVIDENCIA
+// ============================================================================
+
+/**
+ * Subir PDF firmado como evidencia del documento
+ * @param documentoId - ID del documento de inventario
+ * @param file - Archivo PDF a subir
+ * @param companyId - ID de la empresa para organización de archivos
+ * @returns URL del archivo subido
+ */
+export const subirPDFDocumento = async (
+  documentoId: number,
+  file: File,
+  companyId: string
+): Promise<{ url: string; nombre: string }> => {
+  console.log('[InventarioService] Subiendo PDF para documento:', documentoId);
+  
+  // Validar que sea un PDF
+  if (!file.type.includes('pdf')) {
+    throw new Error('Solo se permiten archivos PDF');
+  }
+  
+  // Validar tamaño (máximo 10MB)
+  const MAX_SIZE = 10 * 1024 * 1024;
+  if (file.size > MAX_SIZE) {
+    throw new Error('El archivo es demasiado grande. Máximo 10MB.');
+  }
+  
+  // Generar nombre único para el archivo
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const nombreArchivo = `${companyId}/documentos/${documentoId}_${timestamp}.pdf`;
+  
+  // Subir a Supabase Storage
+  const { data: uploadData, error: uploadError } = await supabase
+    .storage
+    .from('documentos-inventario')
+    .upload(nombreArchivo, file, {
+      contentType: 'application/pdf',
+      upsert: false
+    });
+  
+  if (uploadError) {
+    console.error('[InventarioService] Error subiendo PDF:', uploadError);
+    throw new Error(`Error al subir archivo: ${uploadError.message}`);
+  }
+  
+  // Obtener URL pública o firmada
+  const { data: urlData } = supabase
+    .storage
+    .from('documentos-inventario')
+    .getPublicUrl(nombreArchivo);
+  
+  const archivoUrl = urlData?.publicUrl || '';
+  
+  // Actualizar el documento con la referencia al PDF
+  const { error: updateError } = await supabase
+    .from('documentos_inventario_erp')
+    .update({
+      archivo_pdf_firmado: archivoUrl,
+      archivo_pdf_nombre: file.name,
+      archivo_pdf_fecha: new Date().toISOString()
+    })
+    .eq('id', documentoId);
+  
+  if (updateError) {
+    console.error('[InventarioService] Error actualizando documento:', updateError);
+    // Intentar eliminar el archivo subido
+    await supabase.storage.from('documentos-inventario').remove([nombreArchivo]);
+    throw new Error(`Error al actualizar documento: ${updateError.message}`);
+  }
+  
+  console.log('[InventarioService] PDF subido correctamente:', archivoUrl);
+  
+  return {
+    url: archivoUrl,
+    nombre: file.name
+  };
+};
+
+/**
+ * Eliminar PDF firmado de un documento
+ */
+export const eliminarPDFDocumento = async (
+  documentoId: number,
+  archivoUrl: string
+): Promise<void> => {
+  console.log('[InventarioService] Eliminando PDF de documento:', documentoId);
+  
+  // Extraer el path del archivo de la URL
+  const urlParts = archivoUrl.split('/documentos-inventario/');
+  if (urlParts.length > 1) {
+    const filePath = urlParts[1];
+    
+    // Eliminar de Storage
+    const { error: deleteError } = await supabase
+      .storage
+      .from('documentos-inventario')
+      .remove([filePath]);
+    
+    if (deleteError) {
+      console.warn('[InventarioService] Error eliminando archivo:', deleteError);
+    }
+  }
+  
+  // Limpiar referencia en la base de datos
+  const { error: updateError } = await supabase
+    .from('documentos_inventario_erp')
+    .update({
+      archivo_pdf_firmado: null,
+      archivo_pdf_nombre: null,
+      archivo_pdf_fecha: null
+    })
+    .eq('id', documentoId);
+  
+  if (updateError) {
+    throw new Error(`Error al actualizar documento: ${updateError.message}`);
+  }
+  
+  console.log('[InventarioService] PDF eliminado correctamente');
 };

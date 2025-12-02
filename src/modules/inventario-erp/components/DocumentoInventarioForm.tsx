@@ -8,6 +8,8 @@ import {
   createDocumentoInventario,
   updateDocumentoInventario,
   buscarProductoPorQR,
+  subirPDFDocumento,
+  eliminarPDFDocumento,
 } from '../services/documentosInventarioService';
 import { fetchAlmacenes, fetchProductos } from '../services/inventarioService';
 import { DualSignaturePanel } from './SignatureCapture';
@@ -88,6 +90,11 @@ export const DocumentoInventarioForm: React.FC<DocumentoInventarioFormProps> = (
   // QR para escaneo móvil
   const [showMobileQR, setShowMobileQR] = useState(false);
   const [mobileSessionId] = useState(() => crypto.randomUUID());
+  
+  // PDF Firmado
+  const [uploadingPDF, setUploadingPDF] = useState(false);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   const themeColors = useMemo(() => ({
     primary: paletteConfig.primary,
@@ -379,6 +386,73 @@ export const DocumentoInventarioForm: React.FC<DocumentoInventarioFormProps> = (
       setError(err.message || 'Error al guardar el documento');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Manejar subida de PDF firmado
+  const handlePDFUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !documentoId || !companyId) return;
+    
+    // Validar que sea PDF
+    if (!file.type.includes('pdf')) {
+      alert('Solo se permiten archivos PDF');
+      return;
+    }
+    
+    // Validar tamaño (máximo 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('El archivo es demasiado grande. Máximo 10MB.');
+      return;
+    }
+    
+    setUploadingPDF(true);
+    try {
+      const result = await subirPDFDocumento(documentoId, file, companyId);
+      // Actualizar estado local del documento
+      setDocumento(prev => prev ? {
+        ...prev,
+        archivo_pdf_firmado: result.url,
+        archivo_pdf_nombre: result.nombre,
+        archivo_pdf_fecha: new Date().toISOString()
+      } : null);
+      setPdfFile(file);
+      alert('PDF subido correctamente');
+    } catch (err: any) {
+      console.error('Error subiendo PDF:', err);
+      alert(err.message || 'Error al subir el PDF');
+    } finally {
+      setUploadingPDF(false);
+      // Limpiar el input
+      if (pdfInputRef.current) {
+        pdfInputRef.current.value = '';
+      }
+    }
+  };
+
+  // Eliminar PDF firmado
+  const handleDeletePDF = async () => {
+    if (!documentoId || !documento?.archivo_pdf_firmado) return;
+    
+    if (!confirm('¿Estás seguro de eliminar el PDF firmado?')) return;
+    
+    setUploadingPDF(true);
+    try {
+      await eliminarPDFDocumento(documentoId, documento.archivo_pdf_firmado);
+      // Actualizar estado local
+      setDocumento(prev => prev ? {
+        ...prev,
+        archivo_pdf_firmado: null,
+        archivo_pdf_nombre: null,
+        archivo_pdf_fecha: null
+      } : null);
+      setPdfFile(null);
+      alert('PDF eliminado correctamente');
+    } catch (err: any) {
+      console.error('Error eliminando PDF:', err);
+      alert(err.message || 'Error al eliminar el PDF');
+    } finally {
+      setUploadingPDF(false);
     }
   };
 
@@ -850,6 +924,114 @@ export const DocumentoInventarioForm: React.FC<DocumentoInventarioFormProps> = (
               }}
             />
           </div>
+
+          {/* PDF Firmado como Evidencia */}
+          {documentoId && (
+            <div className="rounded-xl border p-4" style={{ borderColor: themeColors.border, backgroundColor: themeColors.cardBg }}>
+              <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: themeColors.text }}>
+                <svg className="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6zm2-6v-1h8v1H8zm0 2v-1h8v1H8zm0 2v-1h5v1H8z"/>
+                </svg>
+                📄 Documento PDF Firmado (Evidencia)
+              </h3>
+              
+              {documento?.archivo_pdf_firmado ? (
+                <div className="flex items-center gap-4 p-3 rounded-lg" style={{ backgroundColor: isDark ? '#1f2937' : '#f0fdf4' }}>
+                  <div className="flex-shrink-0">
+                    <div className="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center">
+                      <svg className="w-6 h-6 text-red-600" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/>
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate" style={{ color: themeColors.text }}>
+                      {documento.archivo_pdf_nombre || 'Documento firmado.pdf'}
+                    </p>
+                    <p className="text-xs" style={{ color: themeColors.textMuted }}>
+                      Subido el {documento.archivo_pdf_fecha 
+                        ? new Date(documento.archivo_pdf_fecha).toLocaleDateString('es-MX', { 
+                            day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' 
+                          })
+                        : 'fecha desconocida'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={documento.archivo_pdf_firmado}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 rounded-lg text-sm font-medium transition-all hover:opacity-80"
+                      style={{ backgroundColor: '#3b82f6', color: 'white' }}
+                    >
+                      Ver PDF
+                    </a>
+                    {!isViewing && (
+                      <button
+                        onClick={handleDeletePDF}
+                        disabled={uploadingPDF}
+                        className="px-3 py-1.5 rounded-lg text-sm font-medium transition-all hover:opacity-80 disabled:opacity-50"
+                        style={{ backgroundColor: '#fee2e2', color: '#991b1b' }}
+                      >
+                        {uploadingPDF ? 'Eliminando...' : 'Eliminar'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center p-6 border-2 border-dashed rounded-lg" style={{ borderColor: themeColors.border }}>
+                  {isViewing ? (
+                    <div style={{ color: themeColors.textMuted }}>
+                      <svg className="w-12 h-12 mx-auto mb-2 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <p>No hay PDF firmado adjunto</p>
+                    </div>
+                  ) : (
+                    <>
+                      <input
+                        ref={pdfInputRef}
+                        type="file"
+                        accept=".pdf,application/pdf"
+                        onChange={handlePDFUpload}
+                        disabled={uploadingPDF}
+                        className="hidden"
+                        id="pdf-upload"
+                      />
+                      <label 
+                        htmlFor="pdf-upload"
+                        className={`cursor-pointer ${uploadingPDF ? 'opacity-50 pointer-events-none' : ''}`}
+                      >
+                        <div className="flex flex-col items-center gap-2">
+                          {uploadingPDF ? (
+                            <svg className="w-12 h-12 animate-spin" style={{ color: themeColors.primary }} fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                          ) : (
+                            <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: `${themeColors.primary}20` }}>
+                              <svg className="w-8 h-8" style={{ color: themeColors.primary }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                              </svg>
+                            </div>
+                          )}
+                          <p className="font-medium" style={{ color: themeColors.text }}>
+                            {uploadingPDF ? 'Subiendo PDF...' : 'Subir documento firmado'}
+                          </p>
+                          <p className="text-xs" style={{ color: themeColors.textMuted }}>
+                            PDF escaneado con firmas físicas (máx. 10MB)
+                          </p>
+                        </div>
+                      </label>
+                      <p className="mt-3 text-xs" style={{ color: themeColors.textMuted }}>
+                        💡 Imprime el documento, obtén las firmas físicas, escanéalo y súbelo aquí como evidencia
+                      </p>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Firmas */}
           <DualSignaturePanel

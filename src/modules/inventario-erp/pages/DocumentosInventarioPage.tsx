@@ -472,6 +472,9 @@ export const DocumentosInventarioPage: React.FC = () => {
                     <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: themeColors.textMuted }}>
                       Estado
                     </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider" style={{ color: themeColors.textMuted }}>
+                      📄 PDF
+                    </th>
                     <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider" style={{ color: themeColors.textMuted }}>
                       Acciones
                     </th>
@@ -504,6 +507,28 @@ export const DocumentosInventarioPage: React.FC = () => {
                       </td>
                       <td className="px-4 py-3">
                         {getEstadoBadge(doc.estado)}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {doc.archivo_pdf_firmado ? (
+                          <a
+                            href={doc.archivo_pdf_firmado}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:opacity-80 transition-all"
+                            style={{ backgroundColor: '#dcfce7', color: '#166534' }}
+                            title={`Ver PDF: ${doc.archivo_pdf_nombre || 'documento firmado'}`}
+                          >
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/>
+                            </svg>
+                          </a>
+                        ) : (
+                          <span className="inline-flex items-center justify-center w-8 h-8 rounded-full" style={{ backgroundColor: isDark ? '#374151' : '#f3f4f6', color: themeColors.textMuted }} title="Sin PDF firmado">
+                            <svg className="w-4 h-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">
