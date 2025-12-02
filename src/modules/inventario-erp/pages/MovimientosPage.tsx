@@ -430,14 +430,15 @@ export const MovimientosPage: React.FC = () => {
               {/* Producto y Almacén */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium mb-1" style={{ color: colors.textSecondary }}>
                     Producto *
                   </label>
                   <select
                     required
                     value={formData.producto_id}
                     onChange={(e) => setFormData({ ...formData, producto_id: Number(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent"
+                    style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}
                   >
                     <option value={0}>Seleccionar producto...</option>
                     {productos.map((prod: any) => (
@@ -449,14 +450,15 @@ export const MovimientosPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium mb-1" style={{ color: colors.textSecondary }}>
                     Almacén *
                   </label>
                   <select
                     required
                     value={formData.almacen_id}
                     onChange={(e) => setFormData({ ...formData, almacen_id: Number(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent"
+                    style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}
                   >
                     <option value={0}>Seleccionar almacén...</option>
                     {almacenes.map((alm: any) => (
@@ -471,7 +473,7 @@ export const MovimientosPage: React.FC = () => {
               {/* Cantidad y Costo */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium mb-1" style={{ color: colors.textSecondary }}>
                     Cantidad *
                   </label>
                   <input
@@ -481,25 +483,27 @@ export const MovimientosPage: React.FC = () => {
                     step="0.01"
                     value={formData.cantidad}
                     onChange={(e) => setFormData({ ...formData, cantidad: Number(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent"
+                    style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}
                     placeholder="0.00"
                   />
                 </div>
 
                 {formData.tipo === 'entrada' && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium mb-1" style={{ color: colors.textSecondary }}>
                       Costo Unitario
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3 top-2 text-gray-500">$</span>
+                      <span className="absolute left-3 top-2" style={{ color: colors.textMuted }}>$</span>
                       <input
                         type="number"
                         min="0"
                         step="0.01"
                         value={formData.costo_unitario}
                         onChange={(e) => setFormData({ ...formData, costo_unitario: Number(e.target.value) })}
-                        className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full pl-7 pr-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent"
+                        style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}
                         placeholder="0.00"
                       />
                     </div>
@@ -510,7 +514,7 @@ export const MovimientosPage: React.FC = () => {
               {/* Fecha y Referencia */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium mb-1" style={{ color: colors.textSecondary }}>
                     Fecha *
                   </label>
                   <input
@@ -518,19 +522,21 @@ export const MovimientosPage: React.FC = () => {
                     required
                     value={formData.fecha}
                     onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent"
+                    style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium mb-1" style={{ color: colors.textSecondary }}>
                     Referencia / No. Documento
                   </label>
                   <input
                     type="text"
                     value={formData.referencia}
                     onChange={(e) => setFormData({ ...formData, referencia: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent"
+                    style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}
                     placeholder="Ej: OC-001, FC-123"
                   />
                 </div>
@@ -538,31 +544,34 @@ export const MovimientosPage: React.FC = () => {
 
               {/* Notas */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium mb-1" style={{ color: colors.textSecondary }}>
                   Notas
                 </label>
                 <textarea
                   rows={3}
                   value={formData.notas}
                   onChange={(e) => setFormData({ ...formData, notas: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent"
+                  style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}
                   placeholder="Notas adicionales sobre el movimiento..."
                 />
               </div>
 
               {/* Botones */}
-              <div className="flex justify-end space-x-3 pt-4 border-t">
+              <div className="flex justify-end space-x-3 pt-4 border-t" style={{ borderColor: colors.border }}>
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  className="px-4 py-2 border rounded-lg hover:opacity-80 transition-colors"
+                  style={{ borderColor: colors.border, color: colors.textSecondary }}
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={createMutation.isPending}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+                  className="flex items-center space-x-2 px-4 py-2 text-white rounded-lg hover:opacity-90 disabled:opacity-50"
+                  style={{ backgroundColor: colors.primary }}
                 >
                   <FileText className="w-5 h-5" />
                   <span>Registrar Movimiento</span>

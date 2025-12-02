@@ -417,19 +417,21 @@ export const DocumentosInventarioPage: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Error al cargar documentos</h3>
+            <h3 className="text-lg font-semibold mb-2" style={{ color: themeColors.text }}>Error al cargar documentos</h3>
             <p className="text-red-600 mb-2">{error}</p>
-            <p className="text-gray-500 text-sm mb-4">Revisa la consola del navegador (F12) para más detalles</p>
+            <p className="text-sm mb-4" style={{ color: themeColors.textMuted }}>Revisa la consola del navegador (F12) para más detalles</p>
             <div className="flex gap-3 justify-center">
               <button 
                 onClick={loadData} 
-                className="px-6 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                className="px-6 py-2 rounded-lg text-white hover:opacity-90 transition-colors"
+                style={{ backgroundColor: themeColors.primary }}
               >
                 Reintentar
               </button>
               <button 
                 onClick={() => window.location.reload()} 
-                className="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                className="px-6 py-2 rounded-lg border hover:opacity-80 transition-colors"
+                style={{ borderColor: themeColors.border, color: themeColors.text }}
               >
                 Recargar página
               </button>
