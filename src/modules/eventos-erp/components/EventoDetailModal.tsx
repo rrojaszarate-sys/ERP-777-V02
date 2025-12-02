@@ -780,194 +780,104 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
       exit={{ opacity: 0, y: -20 }}
       className="p-6 space-y-6"
     >
-      {/* ANÁLISIS FINANCIERO COMPARATIVO - PRIMERO */}
-      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-6">
-        <h3 className="text-xl font-bold text-blue-900 mb-6 flex items-center">
-          <TrendingUp className="w-6 h-6 mr-2" />
-          Análisis Financiero del Evento
+      {/* ANÁLISIS FINANCIERO - DISEÑO LIMPIO Y SOBRIO */}
+      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+        <h3 className="text-lg font-semibold text-gray-800 mb-6 flex items-center">
+          <TrendingUp className="w-5 h-5 mr-2" style={{ color: colors.primary }} />
+          Análisis Financiero
         </h3>
 
-        {/* GRÁFICA COMPARATIVA - CONCEPTOS DEL CLIENTE */}
-        <div className="bg-white rounded-lg p-6 mb-6 shadow-lg">
-          <h4 className="text-sm font-semibold text-gray-700 mb-4">📊 Presupuesto vs Ejercido</h4>
-          <div className="space-y-4">
-            {/* Ingresos Bar */}
+        {/* GRÁFICA DE BARRAS - FLUJO DE DINERO */}
+        <div className="space-y-5">
+          {/* INGRESOS */}
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium text-gray-700">Ingresos</span>
+              <span className="text-lg font-bold" style={{ color: colors.primary }}>{formatCurrency(ingresosTotales)}</span>
+            </div>
+            <div className="relative h-8 bg-gray-100 rounded overflow-hidden">
+              <div
+                className="h-full transition-all duration-500 rounded"
+                style={{
+                  width: `${ingresosTotales > 0 ? 100 : 0}%`,
+                  backgroundColor: colors.primary
+                }}
+              />
+            </div>
+          </div>
+
+          {/* GASTOS - Color gris sobrio */}
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium text-gray-700">Gastos</span>
+              <span className="text-lg font-bold text-gray-600">{formatCurrency(gastosTotales)}</span>
+            </div>
+            <div className="relative h-8 bg-gray-100 rounded overflow-hidden">
+              <div
+                className="h-full transition-all duration-500 rounded bg-gray-500"
+                style={{
+                  width: `${ingresosTotales > 0 ? Math.min((gastosTotales / ingresosTotales) * 100, 100) : 0}%`
+                }}
+              />
+            </div>
+          </div>
+
+          {/* PROVISIONES - Color verde sobrio */}
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium text-gray-700">Provisiones</span>
+              <span className="text-lg font-bold text-emerald-600">{formatCurrency(provisionesTotal)}</span>
+            </div>
+            <div className="relative h-8 bg-gray-100 rounded overflow-hidden">
+              <div
+                className="h-full transition-all duration-500 rounded bg-emerald-500"
+                style={{
+                  width: `${ingresosTotales > 0 ? Math.min((provisionesTotal / ingresosTotales) * 100, 100) : 0}%`
+                }}
+              />
+            </div>
+          </div>
+
+          {/* LÍNEA DIVISORIA */}
+          <div className="border-t border-gray-200 pt-4">
+            {/* FÓRMULA VISUAL: Ingresos - Gastos - Provisiones = Utilidad */}
+            <div className="flex items-center justify-center gap-2 text-sm text-gray-500 mb-4">
+              <span style={{ color: colors.primary }}>{formatCurrency(ingresosTotales)}</span>
+              <span>−</span>
+              <span className="text-gray-600">{formatCurrency(gastosTotales)}</span>
+              <span>−</span>
+              <span className="text-emerald-600">{formatCurrency(provisionesTotal)}</span>
+              <span>=</span>
+              <span className={`font-bold ${utilidadBruta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {formatCurrency(utilidadBruta)}
+              </span>
+            </div>
+
+            {/* UTILIDAD - Barra con indicador de resultado */}
             <div>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-medium" style={{ color: colors.primaryDark }}>💰 INGRESOS</span>
-                <div className="flex gap-4 text-xs">
-                  <span className="text-gray-500">Presupuesto: {formatCurrency(ingresoEstimado)}</span>
-                  <span className="font-bold" style={{ color: colors.primary }}>Facturado: {formatCurrency(ingresosTotales)}</span>
-                </div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-semibold text-gray-800">Utilidad</span>
+                <span className={`text-xl font-bold ${utilidadBruta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {formatCurrency(utilidadBruta)}
+                </span>
               </div>
-              <div className="relative h-10 bg-gray-100 rounded-lg overflow-hidden">
-                {/* Fondo: Presupuesto */}
-                <div className="absolute inset-0 flex items-center justify-end px-3">
-                  <span className="text-xs font-medium text-gray-400">
-                    Ppto: {formatCurrency(ingresoEstimado)}
-                  </span>
-                </div>
-                {/* Barra: Facturado - COLOR PRIMARIO */}
+              <div className="relative h-10 bg-gray-100 rounded overflow-hidden">
                 <div
-                  className="absolute h-full transition-all duration-500 flex items-center"
+                  className={`h-full transition-all duration-500 rounded ${utilidadBruta >= 0 ? 'bg-green-500' : 'bg-red-500'}`}
                   style={{
-                    width: `${Math.min((ingresosTotales / Math.max(ingresoEstimado, ingresosTotales, 1)) * 100, 100)}%`,
-                    backgroundColor: colors.primary
+                    width: `${ingresosTotales > 0 ? Math.min(Math.abs(utilidadBruta / ingresosTotales) * 100, 100) : 0}%`
                   }}
-                >
-                  <span className="text-xs font-bold text-white px-3 whitespace-nowrap">
-                    Facturado: {formatCurrency(ingresosTotales)}
-                  </span>
-                </div>
-                {/* Porcentaje centrado */}
+                />
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-xs font-bold text-white drop-shadow-md">
-                    {ingresoEstimado > 0 ? ((ingresosTotales / ingresoEstimado) * 100).toFixed(0) : 0}%
+                  <span className="text-sm font-semibold text-gray-700">
+                    {ingresosTotales > 0 ? ((utilidadBruta / ingresosTotales) * 100).toFixed(1) : 0}% del ingreso
                   </span>
                 </div>
-              </div>
-            </div>
-
-            {/* Gastos Bar */}
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-medium" style={{ color: colors.secondary }}>📉 GASTOS</span>
-                <div className="flex gap-4 text-xs">
-                  <span className="text-gray-500">Provisionado: {formatCurrency(provisionesTotal)}</span>
-                  <span className="font-bold" style={{ color: colors.secondary }}>Ejercido: {formatCurrency(gastosTotales)}</span>
-                </div>
-              </div>
-              <div className="relative h-10 bg-gray-100 rounded-lg overflow-hidden">
-                {/* Fondo: Provisionado */}
-                <div className="absolute inset-0 flex items-center justify-end px-3">
-                  <span className="text-xs font-medium text-gray-400">
-                    Prov: {formatCurrency(provisionesTotal)}
-                  </span>
-                </div>
-                {/* Barra: Ejercido - COLOR SECUNDARIO */}
-                <div
-                  className="absolute h-full transition-all duration-500 flex items-center"
-                  style={{
-                    width: `${Math.min((gastosTotales / Math.max(provisionesTotal, gastosTotales, 1)) * 100, 100)}%`,
-                    backgroundColor: colors.secondary
-                  }}
-                >
-                  <span className="text-xs font-bold text-white px-3 whitespace-nowrap">
-                    Ejercido: {formatCurrency(gastosTotales)}
-                  </span>
-                </div>
-                {/* Porcentaje e indicador */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-xs font-bold text-white drop-shadow-md">
-                    {provisionesTotal > 0 ? ((gastosTotales / provisionesTotal) * 100).toFixed(0) : 0}%
-                    {gastosTotales > provisionesTotal && ' ⚠️'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Provisiones Bar - Gastos pendientes de pago */}
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-medium" style={{ color: colors.primaryDark }}>💼 PROVISIONES (Gastos por pagar)</span>
-                <div className="flex gap-4 text-xs">
-                  <span className="font-bold" style={{ color: colors.primary }}>Total: {formatCurrency(provisionesTotal)}</span>
-                  <span style={{ color: colors.secondary }}>% del Total Egresos: {totalEgresos > 0 ? ((provisionesTotal / totalEgresos) * 100).toFixed(0) : 0}%</span>
-                </div>
-              </div>
-              <div className="relative h-10 bg-slate-200 rounded-lg overflow-hidden flex">
-                {/* Barra: Provisiones - COLOR AMBER */}
-                <div
-                  className="h-full transition-all duration-500 flex items-center justify-center bg-amber-500"
-                  style={{
-                    width: `${totalEgresos > 0 ? Math.min((provisionesTotal / totalEgresos) * 100, 100) : 0}%`
-                  }}
-                >
-                  {provisionesTotal > 0 && (
-                    <span className="text-xs font-bold text-white px-2 whitespace-nowrap">
-                      {formatCurrency(provisionesTotal)}
-                    </span>
-                  )}
-                </div>
-                {/* Barra: Gastos ya registrados - COLOR SECONDARY */}
-                <div
-                  className="h-full transition-all duration-500 flex items-center justify-center"
-                  style={{
-                    width: `${totalEgresos > 0 ? Math.min((gastosTotales / totalEgresos) * 100, 100) : 0}%`,
-                    backgroundColor: colors.secondary
-                  }}
-                >
-                  {gastosTotales > 0 && (
-                    <span className="text-xs font-bold text-white px-2 whitespace-nowrap">
-                      {formatCurrency(gastosTotales)}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="text-xs text-center mt-1" style={{ color: colors.primaryDark }}>
-                Total Egresos: {formatCurrency(totalEgresos)}
-              </div>
-            </div>
-
-            {/* Utilidad Bruta Bar */}
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-medium text-blue-900">🎯 UTILIDAD BRUTA (sin IVA)</span>
-                <div className="flex gap-4 text-xs">
-                  <span className="text-gray-500">Margen: {margenBrutoPct.toFixed(1)}%</span>
-                  <span className={`font-bold ${utilidadBruta >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                    {formatCurrency(utilidadBruta)}
-                  </span>
-                </div>
-              </div>
-              <div className="relative h-10 bg-gray-100 rounded-lg overflow-hidden">
-                {/* Barra: Utilidad Bruta - COLOR SEGÚN MARGEN */}
-                <div
-                  className={`absolute h-full transition-all duration-500 flex items-center ${
-                    margenBrutoPct >= 35 ? 'bg-green-600' :
-                    margenBrutoPct >= 25 ? 'bg-amber-500' :
-                    margenBrutoPct > 0 ? 'bg-red-500' : 'bg-gray-400'
-                  }`}
-                  style={{ width: `${Math.min(Math.max(margenBrutoPct, 0), 100)}%` }}
-                >
-                  <span className="text-xs font-bold text-white px-3 whitespace-nowrap">
-                    {formatCurrency(utilidadBruta)}
-                  </span>
-                </div>
-                {/* Indicadores de semáforo */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-xs font-bold text-white drop-shadow-md">
-                    {margenBrutoPct >= 35 ? '🟢' : margenBrutoPct >= 25 ? '🟡' : margenBrutoPct > 0 ? '🔴' : '⚫'} {margenBrutoPct.toFixed(1)}%
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Leyenda simplificada */}
-            <div className="flex justify-center gap-6 pt-2 text-xs border-t mt-2">
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded bg-blue-600" />
-                <span>Ejercido/Real</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded bg-emerald-600" />
-                <span>Provisión</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded bg-green-600" />
-                <span>≥35% Excelente</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded bg-amber-500" />
-                <span>25-34% Regular</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded bg-red-500" />
-                <span>&lt;25% Bajo</span>
               </div>
             </div>
           </div>
         </div>
+      </div>
 
         {/* DATOS DEL RESUMEN DEL EVENTO - Con desglose colapsable */}
         <div className="bg-white rounded-lg p-6 mb-6 shadow-lg border-2 border-blue-200">
@@ -1116,8 +1026,6 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
             </div>
           </div>
         </div>
-
-      </div>
 
       {/* Notas - Solo si existen */}
       {evento.notas && (
