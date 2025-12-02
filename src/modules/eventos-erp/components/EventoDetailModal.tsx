@@ -1396,7 +1396,7 @@ const GastosTab: React.FC<{
 }> = ({ gastos, evento, showIVA = false, onRefresh, onCreateGasto, onEditGasto, onCreateRetorno, onEditRetorno, onCreateIngresoMaterial, onCreateRetornoMaterial, onEditMaterialAlmacen }) => {
   const { canCreate, canUpdate, canDelete } = usePermissions();
   const { paletteConfig } = useTheme();
-  const [activeSubTab, setActiveSubTab] = useState<'todos' | 'combustible' | 'materiales' | 'rh' | 'sps'>('todos');
+  const [activeSubTab, setActiveSubTab] = useState<'todos' | 'combustible' | 'materiales' | 'rh' | 'sps' | 'otros'>('todos');
 
   // Colores dinámicos de la paleta
   const colors = {
@@ -1431,43 +1431,55 @@ const GastosTab: React.FC<{
   const ivaGastos = totalGastosConIVA - subtotalGastos;
   const totalGastos = showIVA ? totalGastosConIVA : subtotalGastos;
 
+  // Funciones helper para filtrar por categoría (incluye variantes de nombre)
+  const esCombustible = (g: any) => g.categoria?.nombre === 'Combustible/Peaje';
+  const esMateriales = (g: any) => g.categoria?.nombre === 'Materiales';
+  const esRH = (g: any) => g.categoria?.nombre === 'RH (Recursos Humanos)' || g.categoria?.nombre === 'Recursos Humanos';
+  const esSPs = (g: any) => g.categoria?.nombre === 'SPs (Solicitudes de Pago)' || g.categoria?.nombre === 'Solicitudes de Pago';
+  const esOtros = (g: any) => !g.categoria || (!esCombustible(g) && !esMateriales(g) && !esRH(g) && !esSPs(g));
+
   const subTabs = [
     { id: 'todos', label: 'Todos', count: gastos.length },
-    { id: 'combustible', label: '⛽ Combustible/Peaje', count: gastos.filter(g => g.categoria?.nombre === 'Combustible/Peaje').length },
-    { id: 'materiales', label: '🛠️ Materiales', count: gastos.filter(g => g.categoria?.nombre === 'Materiales').length },
-    { id: 'rh', label: '👥 Recursos Humanos', count: gastos.filter(g => g.categoria?.nombre === 'Recursos Humanos').length },
-    { id: 'sps', label: '💳 Solicitudes de Pago', count: gastos.filter(g => g.categoria?.nombre === 'Solicitudes de Pago').length }
+    { id: 'combustible', label: '⛽ Combustible/Peaje', count: gastos.filter(esCombustible).length },
+    { id: 'materiales', label: '🛠️ Materiales', count: gastos.filter(esMateriales).length },
+    { id: 'rh', label: '👥 Recursos Humanos', count: gastos.filter(esRH).length },
+    { id: 'sps', label: '💳 Solicitudes de Pago', count: gastos.filter(esSPs).length },
+    { id: 'otros', label: '📋 Otros', count: gastos.filter(esOtros).length }
   ];
 
   const gastosFilter = activeSubTab === 'todos'
     ? gastos
     : gastos.filter(g => {
-        const categoryMap: Record<string, string> = {
-          'combustible': 'Combustible/Peaje',
-          'materiales': 'Materiales',
-          'rh': 'Recursos Humanos',
-          'sps': 'Solicitudes de Pago'
-        };
-        return g.categoria?.nombre === categoryMap[activeSubTab];
+        switch (activeSubTab) {
+          case 'combustible': return esCombustible(g);
+          case 'materiales': return esMateriales(g);
+          case 'rh': return esRH(g);
+          case 'sps': return esSPs(g);
+          case 'otros': return esOtros(g);
+          default: return true;
+        }
       });
 
   // Calcular totales por categoría
-  const gastosCombustible = gastos.filter(g => g.categoria?.nombre === 'Combustible/Peaje');
-  const gastosMateriales = gastos.filter(g => g.categoria?.nombre === 'Materiales');
-  const gastosRH = gastos.filter(g => g.categoria?.nombre === 'Recursos Humanos');
-  const gastosSPs = gastos.filter(g => g.categoria?.nombre === 'Solicitudes de Pago');
+  const gastosCombustible = gastos.filter(esCombustible);
+  const gastosMateriales = gastos.filter(esMateriales);
+  const gastosRH = gastos.filter(esRH);
+  const gastosSPs = gastos.filter(esSPs);
+  const gastosOtros = gastos.filter(esOtros);
 
   // Totales con IVA por categoría
   const totalCombustibleConIVA = gastosCombustible.reduce((sum, g) => sum + (g.total || 0), 0);
   const totalMaterialesConIVA = gastosMateriales.reduce((sum, g) => sum + (g.total || 0), 0);
   const totalRHConIVA = gastosRH.reduce((sum, g) => sum + (g.total || 0), 0);
   const totalSPsConIVA = gastosSPs.reduce((sum, g) => sum + (g.total || 0), 0);
+  const totalOtrosConIVA = gastosOtros.reduce((sum, g) => sum + (g.total || 0), 0);
 
   // Totales según showIVA
   const totalCombustible = showIVA ? totalCombustibleConIVA : (totalCombustibleConIVA / 1.16);
   const totalMateriales = showIVA ? totalMaterialesConIVA : (totalMaterialesConIVA / 1.16);
   const totalRH = showIVA ? totalRHConIVA : (totalRHConIVA / 1.16);
   const totalSPs = showIVA ? totalSPsConIVA : (totalSPsConIVA / 1.16);
+  const totalOtros = showIVA ? totalOtrosConIVA : (totalOtrosConIVA / 1.16);
 
   // Obtener total de la categoría activa
   const getCategoryTotal = () => {
@@ -1476,6 +1488,7 @@ const GastosTab: React.FC<{
       case 'materiales': return totalMateriales;
       case 'rh': return totalRH;
       case 'sps': return totalSPs;
+      case 'otros': return totalOtros;
       default: return totalGastos;
     }
   };
@@ -1562,6 +1575,22 @@ const GastosTab: React.FC<{
             <div className="text-[9px] text-gray-400">Sub: {formatCurrency(getSubtotalIVA(totalSPs).subtotal)} | IVA: {formatCurrency(getSubtotalIVA(totalSPs).iva)}</div>
             <div className="text-[10px] text-gray-500 mt-0.5">💳 ({gastosSPs.length})</div>
           </button>
+
+          {/* Tab Otros (sin categoría) */}
+          {gastosOtros.length > 0 && (
+            <button
+              onClick={() => setActiveSubTab('otros')}
+              className={`flex-1 px-2 py-2 text-center border-b-2 transition-colors ${activeSubTab === 'otros' ? 'border-b-2' : 'border-transparent'}`}
+              style={{
+                borderBottomColor: activeSubTab === 'otros' ? '#6B7280' : 'transparent',
+                backgroundColor: activeSubTab === 'otros' ? '#F3F4F610' : 'transparent'
+              }}
+            >
+              <div className="text-base font-bold text-gray-700">{formatCurrency(totalOtros)}</div>
+              <div className="text-[9px] text-gray-400">Sub: {formatCurrency(getSubtotalIVA(totalOtros).subtotal)} | IVA: {formatCurrency(getSubtotalIVA(totalOtros).iva)}</div>
+              <div className="text-[10px] text-gray-500 mt-0.5">📋 Otros ({gastosOtros.length})</div>
+            </button>
+          )}
         </div>
 
         <div className="space-y-3">
@@ -1751,7 +1780,7 @@ const ProvisionesTab: React.FC<{
 }> = ({ provisiones, evento, showIVA = false, onRefresh, onCreateProvision, onEditProvision }) => {
   const { canCreate, canUpdate, canDelete } = usePermissions();
   const { paletteConfig } = useTheme();
-  const [activeSubTab, setActiveSubTab] = useState<'todos' | 'combustible' | 'materiales' | 'rh' | 'sps'>('todos');
+  const [activeSubTab, setActiveSubTab] = useState<'todos' | 'combustible' | 'materiales' | 'rh' | 'sps' | 'otros'>('todos');
 
   // Colores dinámicos de la paleta
   const colors = {
