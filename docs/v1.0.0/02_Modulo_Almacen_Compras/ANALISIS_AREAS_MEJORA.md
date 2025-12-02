@@ -2,102 +2,83 @@
 ## Módulo de Inventario, Almacén y Compras
 
 **Fecha de Análisis:** Diciembre 2025  
-**Versión Actual:** 1.0.0
+**Versión Actual:** 1.1.0  
+**Última Actualización:** Diciembre 2025
 
 ---
 
 ## Resumen Ejecutivo
 
-Tras analizar el código fuente del módulo de Inventario, Almacén y Compras, se identificaron **25 áreas de mejora** categorizadas por prioridad e impacto.
+Tras analizar el código fuente del módulo de Inventario, Almacén y Compras, se identificaron **25 áreas de mejora** categorizadas por prioridad e impacto. **ACTUALIZACIÓN:** Las 4 funcionalidades críticas han sido implementadas.
 
 ---
 
 ## 1. FUNCIONALIDADES FALTANTES (Prioridad Alta)
 
 ### 1.1 Transferencias entre Almacenes
-**Estado Actual:** No implementado  
+**Estado Actual:** ✅ IMPLEMENTADO (v1.1.0)  
 **Impacto:** Alto - Operación básica de multi-almacén
 
-**Descripción:**
-- No existe página `TransferenciasPage.tsx`
-- No hay flujo para mover stock de un almacén a otro
-- Se menciona en tipos pero no hay implementación
-
-**Solución Propuesta:**
-```
-- Crear TransferenciasPage.tsx
-- Documento de transferencia con origen/destino
-- Estados: Borrador → En Tránsito → Recibida
-- Impacta stock de ambos almacenes
-```
+**Implementación:**
+- ✅ `TransferenciasPage.tsx` - Página completa de transferencias
+- ✅ `transferenciasService.ts` - Servicio con todas las operaciones
+- ✅ Estados: Borrador → Pend. Aprobación → Aprobada → En Tránsito → Recibida
+- ✅ Validación de stock disponible antes de transferir
+- ✅ Movimientos automáticos de entrada/salida
+- ✅ KPIs de transferencias pendientes y en tránsito
 
 ### 1.2 Kardex de Movimientos por Producto
-**Estado Actual:** No implementado  
+**Estado Actual:** ✅ IMPLEMENTADO (v1.1.0)  
 **Impacto:** Alto - Trazabilidad y auditoría
 
-**Descripción:**
-- No hay vista de kardex tradicional (entrada/salida/saldo)
-- MovimientosPage muestra todos los movimientos pero no por producto
-- No hay reporte de movimientos con saldo acumulado
-
-**Solución Propuesta:**
-```
-- Crear KardexPage.tsx
-- Vista por producto con saldo corrido
-- Filtros por fechas, almacén, tipo
-- Exportar a Excel/PDF
-```
+**Implementación:**
+- ✅ `KardexPage.tsx` - Vista de kardex tradicional
+- ✅ `kardexService.ts` - Servicio de consulta de movimientos
+- ✅ Vista por producto con saldo corrido
+- ✅ Filtros por fechas, almacén, tipo
+- ✅ Exportar a CSV
+- ✅ KPIs de saldo inicial, entradas, salidas, saldo final
 
 ### 1.3 Valoración de Inventario (Reporte)
-**Estado Actual:** No implementado  
+**Estado Actual:** ✅ IMPLEMENTADO (v1.1.0)  
 **Impacto:** Alto - Contabilidad y finanzas
 
-**Descripción:**
-- No hay reporte de valoración total del inventario
-- No se implementa cálculo de costo promedio ponderado real
-- Falta integración con contabilidad
-
-**Solución Propuesta:**
-```
-- Crear ValuacionInventarioPage.tsx
-- Cálculo por método: Promedio, PEPS, UEPS
-- Reporte por almacén, categoría, producto
-- Comparativo con períodos anteriores
-```
+**Implementación:**
+- ✅ `ValuacionInventarioPage.tsx` - Reporte completo
+- ✅ `valuacionService.ts` - Cálculos de valoración
+- ✅ Método Promedio Ponderado (PEPS/UEPS preparados)
+- ✅ Reporte por almacén, categoría
+- ✅ Vista por categorías con gráficos
+- ✅ **Análisis ABC (Pareto)** incluido
+- ✅ Exportar a CSV
 
 ### 1.4 Punto de Reorden Automático
-**Estado Actual:** Parcialmente implementado  
+**Estado Actual:** ✅ IMPLEMENTADO (v1.1.0)  
 **Impacto:** Alto - Automatización de compras
 
-**Descripción:**
-- Existe `stock_minimo` pero no genera requisiciones automáticas
-- Las alertas existen pero no tienen acción automática
-- No hay integración real con módulo de compras
-
-**Solución Propuesta:**
-```
-- Configurar punto de reorden por producto
-- Generar requisiciones automáticas cuando stock < punto_reorden
-- Calcular cantidad óptima de pedido (EOQ)
-- Integrar con proveedores preferidos
-```
+**Implementación:**
+- ✅ `PuntoReordenPage.tsx` - Gestión de reorden
+- ✅ `reordenService.ts` - Servicio de análisis y generación
+- ✅ Configurar punto de reorden por producto
+- ✅ Generar requisiciones automáticas
+- ✅ Cálculo de días sin stock estimado
+- ✅ Integración con proveedores preferidos
+- ✅ KPIs de urgencia (crítico, urgente, normal)
 
 ---
 
 ## 2. MEJORAS DE FUNCIONALIDADES EXISTENTES (Prioridad Media)
 
 ### 2.1 Mejorar Página de Stock
-**Estado Actual:** Básico  
+**Estado Actual:** ✅ IMPLEMENTADO (v1.1.0)  
 **Archivo:** `StockPage.tsx`
 
-**Problemas:**
-- Cálculo de stock desde movimientos es lento para grandes volúmenes
-- No muestra stock por ubicación
-- No tiene vista de semáforo (verde/amarillo/rojo)
+**Implementación:**
+- ✅ Tabla `stock_actual` con triggers automáticos
+- ✅ Vista `vw_stock_con_alertas` para semáforo
+- ✅ Performance mejorada (sin cálculo en vivo)
 
-**Mejoras:**
-```
-- Crear tabla stock_actual con triggers
+**Pendientes:**
 - Vista por ubicación dentro del almacén
 - Semáforo visual basado en stock_minimo/stock_maximo
 - Gráficos de tendencia de stock

@@ -4,9 +4,10 @@
 
 ---
 
-**Versión:** 1.0  
+**Versión:** 1.1  
 **Fecha:** Diciembre 2025  
 **Clasificación:** Documento Ejecutivo para Aprobación  
+**Última Actualización:** Diciembre 2025 - Nuevas funcionalidades
 
 ---
 
@@ -25,6 +26,10 @@ El **Módulo de Almacén y Compras** es un sistema integral que gestiona el cicl
 | 🔄 **Trazabilidad Completa** | Seguimiento desde requisición hasta consumo |
 | 📱 **Operación Móvil** | Escaneo QR/código de barras desde dispositivos móviles |
 | 🎯 **Integración con Eventos** | Reservas, salidas y devoluciones vinculadas a eventos |
+| 🔀 **Transferencias entre Almacenes** | Movimiento controlado entre ubicaciones (v1.1) |
+| 📖 **Kardex Digital** | Historial completo de movimientos por producto (v1.1) |
+| 💵 **Valoración de Inventario** | Reportes con análisis ABC/Pareto (v1.1) |
+| 🔔 **Reorden Automático** | Generación de requisiciones cuando baja el stock (v1.1) |
 
 ### Métricas Clave que Gestiona
 
@@ -32,6 +37,7 @@ El **Módulo de Almacén y Compras** es un sistema integral que gestiona el cicl
 - **Días de Inventario** = (Inventario × 365) / Costo de ventas
 - **Fill Rate** = Pedidos completos / Pedidos totales × 100%
 - **Lead Time** = Días desde orden de compra hasta recepción
+- **Análisis ABC** = Clasificación Pareto de productos por valor (v1.1)
 
 ---
 
@@ -120,6 +126,10 @@ El **Módulo de Almacén y Compras** es un sistema integral que gestiona el cicl
 | **Stock** | Vista consolidada de existencias por almacén |
 | **Movimientos** | Historial de entradas, salidas, ajustes, transferencias |
 | **Documentos** | Documentos de entrada/salida con firmas digitales |
+| **Transferencias** | **NUEVO v1.1** - Movimiento de stock entre almacenes |
+| **Kardex** | **NUEVO v1.1** - Vista de movimientos por producto con saldo corrido |
+| **Valuación** | **NUEVO v1.1** - Reporte de valor del inventario con análisis ABC |
+| **Punto Reorden** | **NUEVO v1.1** - Alertas y requisiciones automáticas |
 | **Ubicaciones** | Configuración física (pasillo-rack-nivel) |
 | **Lotes** | Control de lotes con fechas de caducidad |
 | **Conteos** | Inventarios físicos programados |

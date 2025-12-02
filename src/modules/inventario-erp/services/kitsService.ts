@@ -1,9 +1,13 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from '../../../core/config/supabase';
 import type {
   KitEvento,
   KitEventoDetalle,
   KitEventoFormData,
 } from '../types';
+
+// Usar supabase sin tipos estrictos para tablas no definidas en el schema
+const db = supabase as any;
 
 // ============================================================================
 // KITS DE MATERIALES PARA EVENTOS
@@ -20,7 +24,7 @@ export const fetchKits = async (
     activo?: boolean;
   }
 ): Promise<KitEvento[]> => {
-  let query = supabase
+  let query = db
     .from('kits_evento_erp')
     .select(`
       *,
@@ -44,14 +48,14 @@ export const fetchKits = async (
 
   const { data, error } = await query;
   if (error) throw error;
-  return data || [];
+  return (data || []) as KitEvento[];
 };
 
 /**
  * Obtener un kit por ID con sus detalles
  */
 export const fetchKitById = async (id: number): Promise<KitEvento | null> => {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('kits_evento_erp')
     .select(`
       *,
@@ -67,7 +71,7 @@ export const fetchKitById = async (id: number): Promise<KitEvento | null> => {
     if (error.code === 'PGRST116') return null;
     throw error;
   }
-  return data;
+  return data as KitEvento;
 };
 
 // Alias para compatibilidad
@@ -82,7 +86,7 @@ export const createKit = async (
   userId?: string
 ): Promise<KitEvento> => {
   // Crear kit principal
-  const { data: kitData, error: kitError } = await supabase
+  const { data: kitData, error: kitError } = await db
     .from('kits_evento_erp')
     .insert([{
       codigo: kit.codigo,
@@ -113,13 +117,13 @@ export const createKit = async (
       notas: d.notas,
     }));
 
-    const { error: detError } = await supabase
+    const { error: detError } = await db
       .from('kits_evento_detalle_erp')
       .insert(detallesData);
 
     if (detError) {
       // Rollback: eliminar kit si falla
-      await supabase.from('kits_evento_erp').delete().eq('id', kitData.id);
+      await db.from('kits_evento_erp').delete().eq('id', kitData.id);
       throw detError;
     }
   }
@@ -147,7 +151,7 @@ export const updateKit = async (
 
   if (Object.keys(updateData).length > 0) {
     updateData.updated_at = new Date().toISOString();
-    const { error } = await supabase
+    const { error } = await db
       .from('kits_evento_erp')
       .update(updateData)
       .eq('id', id);
@@ -158,7 +162,7 @@ export const updateKit = async (
   // Actualizar detalles si se proporcionan
   if (kit.detalles !== undefined) {
     // Eliminar detalles existentes
-    await supabase
+    await db
       .from('kits_evento_detalle_erp')
       .delete()
       .eq('kit_id', id);
@@ -174,7 +178,7 @@ export const updateKit = async (
         notas: d.notas,
       }));
 
-      const { error: detError } = await supabase
+      const { error: detError } = await db
         .from('kits_evento_detalle_erp')
         .insert(detallesData);
 
@@ -190,7 +194,7 @@ export const updateKit = async (
  */
 export const deleteKit = async (id: number): Promise<void> => {
   // Los detalles se eliminan por CASCADE
-  const { error } = await supabase
+  const { error } = await db
     .from('kits_evento_erp')
     .delete()
     .eq('id', id);
@@ -202,7 +206,7 @@ export const deleteKit = async (id: number): Promise<void> => {
  * Activar/Desactivar kit
  */
 export const toggleKitActivo = async (id: number, activo: boolean): Promise<KitEvento> => {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('kits_evento_erp')
     .update({ activo, updated_at: new Date().toISOString() })
     .eq('id', id)
@@ -210,7 +214,7 @@ export const toggleKitActivo = async (id: number, activo: boolean): Promise<KitE
     .single();
 
   if (error) throw error;
-  return data;
+  return data as KitEvento;
 };
 
 /**
@@ -265,20 +269,19 @@ export const calcularMaterialesKit = async (
   const kit = await fetchKitById(kitId);
   if (!kit) throw new Error('Kit no encontrado');
 
-  const factor = kit.es_escalable ? numPersonas / kit.personas_base : 1;
-
   return (kit.detalles || []).map(d => {
     const cantidadCalculada = Math.ceil(
       d.cantidad_fija + (d.cantidad_por_persona * (kit.es_escalable ? numPersonas : kit.personas_base))
     );
 
+    const producto = d.producto as any;
     return {
       producto_id: d.producto_id,
-      producto_nombre: d.producto?.nombre || '',
-      producto_clave: d.producto?.clave || '',
+      producto_nombre: producto?.nombre || '',
+      producto_clave: producto?.clave || '',
       cantidad_calculada: cantidadCalculada,
-      costo_unitario: d.producto?.costo || 0,
-      costo_total: cantidadCalculada * (d.producto?.costo || 0),
+      costo_unitario: producto?.costo || 0,
+      costo_total: cantidadCalculada * (producto?.costo || 0),
       es_obligatorio: d.es_obligatorio,
     };
   });
@@ -291,8 +294,8 @@ export const verificarDisponibilidadKit = async (
   kitId: number,
   numPersonas: number,
   almacenId: number,
-  companyId: string,
-  fechaEvento?: string
+  _companyId: string,
+  _fechaEvento?: string
 ): Promise<{
   disponible: boolean;
   productos: {
@@ -306,18 +309,18 @@ export const verificarDisponibilidadKit = async (
   }[];
 }> => {
   const materiales = await calcularMaterialesKit(kitId, numPersonas);
-  
+
   const productos = await Promise.all(
     materiales.map(async (m) => {
       // Obtener stock actual
-      const { data: movimientos } = await supabase
+      const { data: movimientos } = await db
         .from('movimientos_inventario_erp')
         .select('tipo, cantidad')
         .eq('producto_id', m.producto_id)
         .eq('almacen_id', almacenId);
 
       let stockActual = 0;
-      (movimientos || []).forEach(mov => {
+      ((movimientos || []) as any[]).forEach((mov: any) => {
         if (mov.tipo === 'entrada' || mov.tipo === 'ajuste') {
           stockActual += mov.cantidad;
         } else if (mov.tipo === 'salida') {
@@ -326,15 +329,15 @@ export const verificarDisponibilidadKit = async (
       });
 
       // Obtener reservas activas
-      const { data: reservas } = await supabase
+      const { data: reservas } = await db
         .from('reservas_stock_erp')
         .select('cantidad_reservada, cantidad_entregada')
         .eq('producto_id', m.producto_id)
         .eq('almacen_id', almacenId)
         .in('estado', ['activa', 'parcial']);
 
-      const stockReservado = (reservas || []).reduce(
-        (sum, r) => sum + (r.cantidad_reservada - r.cantidad_entregada),
+      const stockReservado = ((reservas || []) as any[]).reduce(
+        (sum: number, r: any) => sum + (r.cantidad_reservada - r.cantidad_entregada),
         0
       );
 
@@ -363,7 +366,7 @@ export const verificarDisponibilidadKit = async (
  * Obtener tipos de evento únicos
  */
 export const fetchTiposEvento = async (companyId: string): Promise<string[]> => {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('kits_evento_erp')
     .select('tipo_evento')
     .eq('company_id', companyId)
@@ -371,7 +374,7 @@ export const fetchTiposEvento = async (companyId: string): Promise<string[]> => 
 
   if (error) throw error;
 
-  const tipos = [...new Set((data || []).map(k => k.tipo_evento).filter(Boolean))];
+  const tipos = [...new Set(((data || []) as any[]).map((k: any) => k.tipo_evento).filter(Boolean))];
   return tipos.sort();
 };
 
@@ -379,7 +382,7 @@ export const fetchTiposEvento = async (companyId: string): Promise<string[]> => 
  * Obtener categorías únicas
  */
 export const fetchCategoriasKit = async (companyId: string): Promise<string[]> => {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('kits_evento_erp')
     .select('categoria')
     .eq('company_id', companyId)
@@ -387,7 +390,7 @@ export const fetchCategoriasKit = async (companyId: string): Promise<string[]> =
 
   if (error) throw error;
 
-  const categorias = [...new Set((data || []).map(k => k.categoria).filter(Boolean))];
+  const categorias = [...new Set(((data || []) as any[]).map((k: any) => k.categoria).filter(Boolean))];
   return categorias.sort();
 };
 
@@ -395,19 +398,111 @@ export const fetchCategoriasKit = async (companyId: string): Promise<string[]> =
  * Estadísticas de kits
  */
 export const getEstadisticasKits = async (companyId: string) => {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('kits_evento_erp')
     .select('activo, tipo_evento')
     .eq('company_id', companyId);
 
   if (error) throw error;
 
-  const tiposEvento = [...new Set((data || []).map(k => k.tipo_evento).filter(Boolean))];
+  const dataTyped = (data || []) as any[];
+  const tiposEvento = [...new Set(dataTyped.map((k: any) => k.tipo_evento).filter(Boolean))];
 
   return {
-    total: data?.length || 0,
-    activos: data?.filter(k => k.activo).length || 0,
-    inactivos: data?.filter(k => !k.activo).length || 0,
+    total: dataTyped.length,
+    activos: dataTyped.filter((k: any) => k.activo).length,
+    inactivos: dataTyped.filter((k: any) => !k.activo).length,
     tipos_evento: tiposEvento.length,
   };
+};
+
+// ============================================================================
+// OPERACIONES DE DETALLE DE KIT
+// ============================================================================
+
+/**
+ * Agregar producto a un kit existente
+ */
+export const agregarProductoAKit = async (
+  kitId: number,
+  detalle: {
+    producto_id: number;
+    cantidad_fija?: number;
+    cantidad_por_persona?: number;
+    es_obligatorio?: boolean;
+    notas?: string;
+  }
+): Promise<KitEventoDetalle> => {
+  const insertData = {
+    kit_id: kitId,
+    producto_id: detalle.producto_id,
+    cantidad_fija: detalle.cantidad_fija || 0,
+    cantidad_por_persona: detalle.cantidad_por_persona || 0,
+    es_obligatorio: detalle.es_obligatorio ?? true,
+    notas: detalle.notas || null,
+  };
+
+  const { data, error } = await db
+    .from('kits_evento_detalle_erp')
+    .insert(insertData)
+    .select(`
+      *,
+      producto:productos_erp(id, nombre, clave, unidad, costo, precio_venta)
+    `)
+    .single();
+
+  if (error) throw error;
+  return data as KitEventoDetalle;
+};
+
+/**
+ * Actualizar producto en un kit
+ */
+export const actualizarProductoKit = async (
+  detalleId: number,
+  detalle: {
+    cantidad_fija?: number;
+    cantidad_por_persona?: number;
+    es_obligatorio?: boolean;
+    notas?: string;
+  }
+): Promise<KitEventoDetalle> => {
+  const updatePayload: Record<string, number | boolean | string | null> = {};
+  if (detalle.cantidad_fija !== undefined) updatePayload.cantidad_fija = detalle.cantidad_fija;
+  if (detalle.cantidad_por_persona !== undefined) updatePayload.cantidad_por_persona = detalle.cantidad_por_persona;
+  if (detalle.es_obligatorio !== undefined) updatePayload.es_obligatorio = detalle.es_obligatorio;
+  if (detalle.notas !== undefined) updatePayload.notas = detalle.notas;
+
+  // Primero actualizamos
+  const { error: updateError } = await db
+    .from('kits_evento_detalle_erp')
+    .update(updatePayload)
+    .eq('id', detalleId);
+
+  if (updateError) throw updateError;
+
+  // Luego obtenemos el registro con relaciones
+  const { data, error } = await db
+    .from('kits_evento_detalle_erp')
+    .select(`
+      *,
+      producto:productos_erp(id, nombre, clave, unidad, costo, precio_venta)
+    `)
+    .eq('id', detalleId)
+    .single();
+
+  if (error) throw error;
+  return data as KitEventoDetalle;
+};
+
+/**
+ * Eliminar producto de un kit
+ */
+export const eliminarProductoDeKit = async (detalleId: number): Promise<void> => {
+  const { error } = await db
+    .from('kits_evento_detalle_erp')
+    .delete()
+    .eq('id', detalleId);
+
+  if (error) throw error;
 };

@@ -5,6 +5,83 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [1.1.0] - 2025-12-02
+
+### Nuevas Funcionalidades del Módulo de Inventario y Compras
+
+#### ✨ Nuevas Páginas
+
+**Transferencias entre Almacenes**
+- Nueva página `TransferenciasPage.tsx` para mover stock entre almacenes
+- Flujo completo: Borrador → Pendiente Aprobación → Aprobada → En Tránsito → Recibida
+- Validación automática de stock disponible antes de transferir
+- Movimientos de inventario automáticos (salida origen, entrada destino)
+- KPIs de transferencias pendientes y en tránsito
+- Servicio `transferenciasService.ts` con todas las operaciones CRUD
+
+**Kardex de Inventario**
+- Nueva página `KardexPage.tsx` con vista tradicional de kardex
+- Consulta de movimientos por producto con saldo corrido
+- Filtros por fechas, almacén, tipo de movimiento
+- KPIs: saldo inicial, total entradas, total salidas, saldo final
+- Exportación a CSV
+- Servicio `kardexService.ts` para consultas de historial
+
+**Valoración de Inventario**
+- Nueva página `ValuacionInventarioPage.tsx` para reportes financieros
+- Cálculo por método: Promedio Ponderado (PEPS/UEPS preparados)
+- Vista de tabla, por categorías y **Análisis ABC (Pareto)**
+- Clasificación automática A/B/C según valor del inventario
+- Filtros por almacén, categoría, fecha de corte
+- Exportación a CSV
+- Servicio `valuacionService.ts` con cálculos y análisis ABC
+
+**Punto de Reorden Automático**
+- Nueva página `PuntoReordenPage.tsx` para gestión de compras
+- Identificación de productos bajo stock mínimo
+- Cálculo de días sin stock estimado (consumo promedio)
+- Indicadores de urgencia: Crítico, Urgente, Normal
+- Generación automática de requisiciones de compra
+- Integración con proveedores preferidos
+- Verificación y generación de alertas automáticas
+- Servicio `reordenService.ts` con lógica de reorden
+
+#### 🗄️ Migraciones de Base de Datos
+
+**Migración 026: Transferencias y Mejoras**
+- Tabla `transferencias_almacen` con estados y fechas
+- Tabla `transferencias_almacen_detalle` para productos
+- Tabla `stock_actual` materializada para performance
+- Trigger automático para actualizar `stock_actual` en cada movimiento
+- Vista `vw_stock_con_alertas` con semáforo de estado
+- Nuevos campos en productos: `punto_reorden`, `proveedor_preferido_id`, `codigo_barras_fabrica`
+- Campo `origen` en requisiciones para identificar automáticas
+- Índices optimizados para consultas frecuentes
+
+#### 📚 Documentación Actualizada
+
+- Actualizado `ANALISIS_AREAS_MEJORA.md` con estado de implementación
+- Actualizado `DOCUMENTACION_EJECUTIVA_MODULO_ALMACEN_COMPRAS.md` v1.1
+- Nuevas rutas agregadas a `App.tsx`
+
+#### 🛣️ Nuevas Rutas
+
+| Ruta | Página |
+|------|--------|
+| `/inventario/transferencias` | TransferenciasPage |
+| `/inventario/kardex` | KardexPage |
+| `/inventario/valuacion` | ValuacionInventarioPage |
+| `/inventario/reorden` | PuntoReordenPage |
+| `/inventario/ubicaciones` | UbicacionesPage (habilitada) |
+| `/inventario/lotes` | LotesPage (habilitada) |
+| `/inventario/conteos` | ConteosPage (habilitada) |
+| `/inventario/reservas` | ReservasPage (habilitada) |
+| `/inventario/kits` | KitsEventoPage (habilitada) |
+| `/inventario/checklists` | ChecklistEventoPage (habilitada) |
+| `/inventario/alertas` | AlertasInventarioPage (habilitada) |
+
+---
+
 ## [1.0.0] - 2025-10-27
 
 ### Versión Inicial - Sistema Completo Funcional

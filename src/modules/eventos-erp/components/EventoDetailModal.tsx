@@ -17,6 +17,7 @@ import { SimpleExpenseForm } from './finances/SimpleExpenseForm';
 import { IncomeForm } from './finances/IncomeForm';
 import { RetornoMaterialForm } from './finances/RetornoMaterialForm';
 import { MaterialAlmacenForm } from './finances/MaterialAlmacenForm';
+import { MaterialConsolidadoCard } from './finances/MaterialConsolidadoCard';
 import { GaugeChart } from './GaugeChart';
 import { useTheme } from '../../../shared/components/theme';
 
@@ -1509,87 +1510,135 @@ const GastosTab: React.FC<{
           </button>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           {gastosFilter.length === 0 ? (
             <div className="text-center py-12">
               <TrendingDown className="w-12 h-12 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500">No hay gastos registrados</p>
             </div>
           ) : (
-            gastosFilter.map(gasto => (
-              <div key={gasto.id} className={`border rounded-lg p-3 hover:bg-gray-50 transition-colors ${gasto.tipo_movimiento === 'retorno' ? 'bg-emerald-50 border-emerald-200' : 'bg-white'}`}>
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-5 gap-x-3 gap-y-1 items-center">
-                    <div className="col-span-2 md:col-span-1 flex items-center gap-2">
-                      {gasto.tipo_movimiento === 'retorno' && (
-                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-semibold rounded-full whitespace-nowrap">
-                          RETORNO
-                        </span>
-                      )}
-                      <h4 className="font-medium text-gray-900 text-base">{gasto.concepto}</h4>
+            gastosFilter.map(gasto => {
+              // Detectar si es un material consolidado (tiene detalle_retorno con datos)
+              const tieneDetalle = gasto.detalle_retorno && (
+                typeof gasto.detalle_retorno === 'string'
+                  ? gasto.detalle_retorno.startsWith('[')
+                  : Array.isArray(gasto.detalle_retorno)
+              );
+
+              // Usar tarjeta colapsable para materiales consolidados
+              if (tieneDetalle) {
+                return (
+                  <MaterialConsolidadoCard
+                    key={gasto.id}
+                    gasto={{
+                      id: gasto.id,
+                      concepto: gasto.concepto,
+                      descripcion: gasto.descripcion,
+                      total: gasto.total,
+                      subtotal: gasto.subtotal,
+                      iva: gasto.iva,
+                      fecha_gasto: gasto.fecha_gasto,
+                      tipo_movimiento: gasto.tipo_movimiento || 'gasto',
+                      detalle_retorno: gasto.detalle_retorno,
+                      notas: gasto.notas,
+                      categoria: gasto.categoria
+                    }}
+                    onEdit={() => {
+                      if (gasto.tipo_movimiento === 'retorno' && onEditMaterialAlmacen) {
+                        onEditMaterialAlmacen(gasto);
+                      } else if (onEditMaterialAlmacen) {
+                        onEditMaterialAlmacen(gasto);
+                      } else {
+                        onEditGasto(gasto);
+                      }
+                    }}
+                    onDelete={() => handleDelete(gasto)}
+                    canEdit={canUpdate('gastos')}
+                    canDelete={canDelete('gastos')}
+                  />
+                );
+              }
+
+              // Tarjeta simple para gastos normales
+              return (
+                <div
+                  key={gasto.id}
+                  className={`border rounded-lg p-3 hover:bg-gray-50 transition-colors ${
+                    gasto.tipo_movimiento === 'retorno' ? 'bg-emerald-50 border-emerald-200' : 'bg-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {gasto.tipo_movimiento === 'retorno' && (
+                          <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-semibold rounded-full whitespace-nowrap">
+                            RETORNO
+                          </span>
+                        )}
+                        <h4 className="font-medium text-gray-900 text-sm truncate">{gasto.concepto}</h4>
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 flex-wrap">
+                        {gasto.categoria && (
+                          <Badge
+                            variant="default"
+                            className="text-xs py-0.5"
+                            style={{ backgroundColor: gasto.categoria.color + '20', color: gasto.categoria.color }}
+                          >
+                            {gasto.categoria.nombre}
+                          </Badge>
+                        )}
+                        <span className="text-xs text-gray-500">{formatDate(gasto.fecha_gasto)}</span>
+                        {gasto.descripcion && (
+                          <span className="text-xs text-gray-400 truncate max-w-[200px]">{gasto.descripcion}</span>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <span className={`text-base font-bold ${gasto.tipo_movimiento === 'retorno' ? 'text-emerald-600' : ''}`} style={{ color: gasto.tipo_movimiento !== 'retorno' ? colors.secondary : undefined }}>
+
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span
+                        className={`text-lg font-bold ${gasto.tipo_movimiento === 'retorno' ? 'text-emerald-600' : ''}`}
+                        style={{ color: gasto.tipo_movimiento !== 'retorno' ? colors.secondary : undefined }}
+                      >
                         {gasto.tipo_movimiento === 'retorno' ? '-' : ''}{formatCurrency(gasto.total)}
                       </span>
-                    </div>
-                    <div>
-                      {gasto.categoria && (
-                        <Badge
-                          variant="default"
-                          className="text-xs py-0.5"
-                          style={{ backgroundColor: gasto.categoria.color + '20', color: gasto.categoria.color }}
-                        >
-                          {gasto.categoria.nombre}
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {formatDate(gasto.fecha_gasto)}
-                    </div>
-                    <div className="col-span-2 md:col-span-5 text-sm text-gray-400 truncate">
-                      {gasto.proveedor && <span className="mr-3">🏢 {gasto.proveedor}</span>}
-                      {gasto.descripcion && <span className="mr-3">📝 {gasto.descripcion}</span>}
-                      {gasto.referencia && <span>🏷️ {gasto.referencia}</span>}
-                    </div>
-                  </div>
 
-                  <div className="flex gap-2 flex-shrink-0">
-                    {canUpdate('gastos') && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          // Si es un retorno y existe la función, usar formulario de retornos
-                          if (gasto.tipo_movimiento === 'retorno' && onEditRetorno) {
-                            onEditRetorno(gasto);
-                          } else {
-                            onEditGasto(gasto);
-                          }
-                        }}
-                        className="p-2 rounded-lg transition-colors border"
-                        style={{
-                          backgroundColor: gasto.tipo_movimiento === 'retorno' ? '#10B98115' : `${colors.primary}15`,
-                          borderColor: gasto.tipo_movimiento === 'retorno' ? '#10B98130' : `${colors.primary}30`,
-                          color: gasto.tipo_movimiento === 'retorno' ? '#10B981' : colors.primary
-                        }}
-                        title="Editar gasto"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                    )}
-                    {canDelete('gastos') && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDelete(gasto); }}
-                        className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-600 transition-colors border border-red-200"
-                        title="Eliminar gasto"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
+                      <div className="flex gap-1">
+                        {canUpdate('gastos') && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (gasto.tipo_movimiento === 'retorno' && onEditRetorno) {
+                                onEditRetorno(gasto);
+                              } else {
+                                onEditGasto(gasto);
+                              }
+                            }}
+                            className="p-1.5 rounded-lg transition-colors border"
+                            style={{
+                              backgroundColor: gasto.tipo_movimiento === 'retorno' ? '#10B98115' : `${colors.primary}15`,
+                              borderColor: gasto.tipo_movimiento === 'retorno' ? '#10B98130' : `${colors.primary}30`,
+                              color: gasto.tipo_movimiento === 'retorno' ? '#10B981' : colors.primary
+                            }}
+                            title="Editar gasto"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        )}
+                        {canDelete('gastos') && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDelete(gasto); }}
+                            className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-600 transition-colors border border-red-200"
+                            title="Eliminar gasto"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 

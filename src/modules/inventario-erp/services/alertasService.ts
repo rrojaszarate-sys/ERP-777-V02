@@ -384,3 +384,19 @@ export const limpiarAlertasAntiguas = async (
   if (error) throw error;
   return data?.length || 0;
 };
+
+// ============================================================================
+// ALIAS PARA COMPATIBILIDAD CON PÁGINAS
+// ============================================================================
+
+/** Alias de marcarAlertaLeida */
+export const marcarAlertaComoLeida = marcarAlertaLeida;
+
+/** Alias de resolverAlerta */
+export const marcarAlertaResuelta = resolverAlerta;
+
+/** Alias de ignorarAlerta */
+export const descartarAlerta = ignorarAlerta;
+
+/** Alias de ejecutarGeneracionAlertas */
+export const generarAlertasAutomaticas = ejecutarGeneracionAlertas;

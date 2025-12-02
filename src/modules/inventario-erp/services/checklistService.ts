@@ -4,6 +4,7 @@ import type {
   ChecklistEventoDetalle,
   TipoChecklist,
   EstadoChecklist,
+  EstadoItemChecklist,
   FotoChecklist,
 } from '../types';
 
@@ -472,4 +473,72 @@ export const getEstadisticasChecklists = async (companyId: string) => {
     con_daños: data?.filter(c => (c.total_con_daño || 0) > 0).length || 0,
     con_faltantes: data?.filter(c => (c.total_faltantes || 0) > 0).length || 0,
   };
+};
+
+/**
+ * Obtener checklist con detalles (alias de fetchChecklistById para compatibilidad)
+ */
+export const fetchChecklistConDetalle = fetchChecklistById;
+
+/**
+ * Actualizar estado de un checklist
+ */
+export const actualizarEstadoChecklist = async (
+  checklistId: number,
+  nuevoEstado: EstadoChecklist,
+  userId?: string
+): Promise<ChecklistEventoInventario> => {
+  const updateData: Record<string, unknown> = {
+    estado: nuevoEstado,
+  };
+
+  // Agregar timestamps según el estado
+  if (nuevoEstado === 'en_proceso') {
+    updateData.fecha_inicio = new Date().toISOString();
+  } else if (nuevoEstado === 'completado') {
+    updateData.fecha_completado = new Date().toISOString();
+    if (userId) {
+      updateData.completado_por = userId;
+    }
+  }
+
+  const { data, error } = await supabase
+    .from('checklist_evento_inventario_erp')
+    .update(updateData)
+    .eq('id', checklistId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+/**
+ * Actualizar item de checklist
+ */
+export const actualizarItemChecklist = async (
+  detalleId: number,
+  datos: {
+    estado?: EstadoItemChecklist;
+    cantidad_verificada?: number;
+    cantidad_dañada?: number;
+    tipo_daño?: string;
+    descripcion_daño?: string;
+    notas?: string;
+    verificado_por?: string;
+    fecha_verificacion?: string;
+  }
+): Promise<ChecklistEventoDetalle> => {
+  const { data, error } = await supabase
+    .from('checklist_evento_detalle_erp')
+    .update({
+      ...datos,
+      fecha_verificacion: datos.fecha_verificacion || new Date().toISOString(),
+    })
+    .eq('id', detalleId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
 };

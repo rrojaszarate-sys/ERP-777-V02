@@ -44,14 +44,18 @@ const DocumentosInventarioPage = lazy(() => import('./modules/inventario-erp/pag
 const MobileScannerPage = lazy(() => import('./modules/inventario-erp/pages/MobileScannerPage').then(m => ({ default: m.MobileScannerPage })));
 const SesionesMovilPage = lazy(() => import('./modules/inventario-erp/pages/SesionesMovilPage').then(m => ({ default: m.SesionesMovilPage })));
 const EtiquetasPage = lazy(() => import('./modules/inventario-erp/pages/EtiquetasPage').then(m => ({ default: m.EtiquetasPage })));
-// Nuevas páginas de inventario avanzado - DESHABILITADAS TEMPORALMENTE (imports incompletos)
-// const UbicacionesPage = lazy(() => import('./modules/inventario-erp/pages/UbicacionesPage').then(m => ({ default: m.UbicacionesPage })));
-// const LotesPage = lazy(() => import('./modules/inventario-erp/pages/LotesPage').then(m => ({ default: m.LotesPage })));
-// const ConteosPage = lazy(() => import('./modules/inventario-erp/pages/ConteosPage').then(m => ({ default: m.ConteosPage })));
-// const ReservasPage = lazy(() => import('./modules/inventario-erp/pages/ReservasPage').then(m => ({ default: m.ReservasPage })));
-// const KitsEventoPage = lazy(() => import('./modules/inventario-erp/pages/KitsEventoPage').then(m => ({ default: m.KitsEventoPage })));
-// const ChecklistEventoPage = lazy(() => import('./modules/inventario-erp/pages/ChecklistEventoPage').then(m => ({ default: m.ChecklistEventoPage })));
-// const AlertasInventarioPage = lazy(() => import('./modules/inventario-erp/pages/AlertasInventarioPage').then(m => ({ default: m.AlertasInventarioPage })));
+// Nuevas páginas de inventario avanzado
+const TransferenciasPage = lazy(() => import('./modules/inventario-erp/pages/TransferenciasPage').then(m => ({ default: m.default })));
+const KardexPage = lazy(() => import('./modules/inventario-erp/pages/KardexPage').then(m => ({ default: m.default })));
+const ValuacionInventarioPage = lazy(() => import('./modules/inventario-erp/pages/ValuacionInventarioPage').then(m => ({ default: m.default })));
+const PuntoReordenPage = lazy(() => import('./modules/inventario-erp/pages/PuntoReordenPage').then(m => ({ default: m.default })));
+const UbicacionesPage = lazy(() => import('./modules/inventario-erp/pages/UbicacionesPage').then(m => ({ default: m.default })));
+const LotesPage = lazy(() => import('./modules/inventario-erp/pages/LotesPage').then(m => ({ default: m.default })));
+const ConteosPage = lazy(() => import('./modules/inventario-erp/pages/ConteosPage').then(m => ({ default: m.default })));
+const ReservasPage = lazy(() => import('./modules/inventario-erp/pages/ReservasPage').then(m => ({ default: m.default })));
+const KitsEventoPage = lazy(() => import('./modules/inventario-erp/pages/KitsEventoPage').then(m => ({ default: m.default })));
+const ChecklistEventoPage = lazy(() => import('./modules/inventario-erp/pages/ChecklistEventoPage').then(m => ({ default: m.default })));
+const AlertasInventarioPage = lazy(() => import('./modules/inventario-erp/pages/AlertasInventarioPage').then(m => ({ default: m.default })));
 
 // MÓDULO DE RRHH Y NÓMINA
 const RRHHDashboard = lazy(() => import('./modules/rrhh-erp/pages/RRHHDashboard').then(m => ({ default: m.RRHHDashboard })));
@@ -173,14 +177,18 @@ function App() {
                 <Route path="inventario/etiquetas" element={<EtiquetasPage />} />
                 <Route path="inventario/sesiones" element={<SesionesMovilPage />} />
                 <Route path="inventario/mobile-scanner" element={<MobileScannerPage />} />
-                {/* Nuevas rutas de inventario avanzado - DESHABILITADAS TEMPORALMENTE */}
-                {/* <Route path="inventario/ubicaciones" element={<UbicacionesPage />} />
+                {/* Nuevas rutas de inventario avanzado */}
+                <Route path="inventario/transferencias" element={<TransferenciasPage />} />
+                <Route path="inventario/kardex" element={<KardexPage />} />
+                <Route path="inventario/valuacion" element={<ValuacionInventarioPage />} />
+                <Route path="inventario/reorden" element={<PuntoReordenPage />} />
+                <Route path="inventario/ubicaciones" element={<UbicacionesPage />} />
                 <Route path="inventario/lotes" element={<LotesPage />} />
                 <Route path="inventario/conteos" element={<ConteosPage />} />
                 <Route path="inventario/reservas" element={<ReservasPage />} />
                 <Route path="inventario/kits" element={<KitsEventoPage />} />
                 <Route path="inventario/checklists" element={<ChecklistEventoPage />} />
-                <Route path="inventario/alertas" element={<AlertasInventarioPage />} /> */}
+                <Route path="inventario/alertas" element={<AlertasInventarioPage />} />
 
                 {/* Rutas de RRHH y Nómina */}
                 <Route path="rrhh" element={<RRHHDashboard />} />

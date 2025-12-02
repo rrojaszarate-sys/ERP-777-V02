@@ -437,8 +437,8 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
         tipo_movimiento: tipoMovimiento,
         notas: notas + (documentoInventarioId ? `\n[Doc. Inventario #${documentoInventarioId}]` : ''),
         detalle_retorno: JSON.stringify(lineas), // Usamos el mismo campo para ambos tipos
-        forma_pago: 'transferencia',
-        status_aprobacion: 'aprobado',
+        metodo_pago: 'transferencia',
+        status: 'aprobado',
         fecha_actualizacion: new Date().toISOString()
       };
 
