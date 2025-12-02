@@ -848,7 +848,7 @@ export const EventosListPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Provisiones */}
+            {/* Provisiones - Gastos pendientes de pago */}
             <div className="flex-1 p-4">
               <div className="flex flex-col">
                 <div className="flex items-center justify-between mb-2">
@@ -856,34 +856,27 @@ export const EventosListPage: React.FC = () => {
                   <span className="text-xs" style={{ color: themeColors.primary }}>{showAllCardDetails ? '▲' : '▼'}</span>
                 </div>
                 {(() => {
-                  const disponible = dashboard.total_provisiones - dashboard.total_gastos_totales;
-                  const disponibleCombustible = dashboard.total_provision_combustible -
-                    (dashboard.total_gastos_combustible_pagados + dashboard.total_gastos_combustible_pendientes);
-                  const disponibleMateriales = dashboard.total_provision_materiales -
-                    (dashboard.total_gastos_materiales_pagados + dashboard.total_gastos_materiales_pendientes);
-                  const disponibleRH = dashboard.total_provision_rh -
-                    (dashboard.total_gastos_rh_pagados + dashboard.total_gastos_rh_pendientes);
-                  const disponibleSPs = dashboard.total_provision_sps -
-                    (dashboard.total_gastos_sps_pagados + dashboard.total_gastos_sps_pendientes);
+                  // Provisiones = Gastos pendientes de pago (sin concepto de disponible)
+                  const provisionesTotal = dashboard.total_provisiones || 0;
 
                   return (
                     <>
-                      <p className="text-xl font-bold" style={{ color: disponible >= 0 ? themeColors.shades[700] : themeColors.accent }}>
-                        ${formatMoney(Math.max(0, disponible))}
+                      <p className="text-xl font-bold" style={{ color: themeColors.shades[700] }}>
+                        ${formatMoney(provisionesTotal)}
                       </p>
                       {showAllCardDetails && (
                         <div className="text-xs mt-2 pt-2 border-t space-y-1" style={{ color: themeColors.textSecondary }}>
-                          <div className="flex justify-between" style={{ color: disponibleCombustible >= 0 ? 'inherit' : themeColors.accent }}>
-                            <span>🚗⛽ Combustible:</span><span>${formatMoney(Math.max(0, disponibleCombustible))}</span>
+                          <div className="flex justify-between">
+                            <span>🚗⛽ Comb:</span><span>${formatMoney(dashboard.total_provision_combustible || 0)}</span>
                           </div>
-                          <div className="flex justify-between" style={{ color: disponibleMateriales >= 0 ? 'inherit' : themeColors.accent }}>
-                            <span>🛠️ Materiales:</span><span>${formatMoney(Math.max(0, disponibleMateriales))}</span>
+                          <div className="flex justify-between">
+                            <span>🛠️ Mat:</span><span>${formatMoney(dashboard.total_provision_materiales || 0)}</span>
                           </div>
-                          <div className="flex justify-between" style={{ color: disponibleRH >= 0 ? 'inherit' : themeColors.accent }}>
-                            <span>👥 RH:</span><span>${formatMoney(Math.max(0, disponibleRH))}</span>
+                          <div className="flex justify-between">
+                            <span>👥 RH:</span><span>${formatMoney(dashboard.total_provision_rh || 0)}</span>
                           </div>
-                          <div className="flex justify-between" style={{ color: disponibleSPs >= 0 ? 'inherit' : themeColors.accent }}>
-                            <span>💳 Solicitudes:</span><span>${formatMoney(Math.max(0, disponibleSPs))}</span>
+                          <div className="flex justify-between">
+                            <span>💳 SPs:</span><span>${formatMoney(dashboard.total_provision_sps || 0)}</span>
                           </div>
                         </div>
                       )}
@@ -897,9 +890,10 @@ export const EventosListPage: React.FC = () => {
             <div className="flex-1 p-4">
               <div className="flex flex-col">
                 {(() => {
-                  // FÓRMULA DEL CLIENTE: Utilidad = Ingresos - Gastos - Provisiones Disponibles
-                  const provisionesDisponibles = Math.max(0, dashboard.total_provisiones - dashboard.total_gastos_totales);
-                  const utilidad = dashboard.total_ingresos_reales - dashboard.total_gastos_totales - provisionesDisponibles;
+                  // FÓRMULA CORRECTA: Utilidad = Ingresos - (Gastos + Provisiones)
+                  // Provisiones son gastos pendientes de pago
+                  const totalEgresos = dashboard.total_gastos_totales + dashboard.total_provisiones;
+                  const utilidad = dashboard.total_ingresos_reales - totalEgresos;
                   const margenUtilidad = dashboard.total_ingresos_reales > 0
                     ? (utilidad / dashboard.total_ingresos_reales) * 100
                     : 0;

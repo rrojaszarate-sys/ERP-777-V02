@@ -317,26 +317,23 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
   }
 
   // ============================================================================
-  // CÁLCULOS FINANCIEROS - FÓRMULA DEL CLIENTE
+  // CÁLCULOS FINANCIEROS - FÓRMULA CORRECTA
   // ============================================================================
-  // UTILIDAD = INGRESOS - GASTOS - PROVISIONES_DISPONIBLES
-  // PROVISIONES_DISPONIBLES = MAX(0, PROVISIONES - GASTOS)
+  // PROVISIONES = Gastos pendientes de pago (compromisos futuros)
+  // TOTAL EGRESOS = Gastos + Provisiones
+  // UTILIDAD = Ingresos - Total Egresos
+  // MARGEN = (Utilidad / Ingresos) × 100
 
   // Usar campos directamente de la vista vw_eventos_analisis_financiero_erp
-  // Provisiones totales
   const provisionesTotal = evento.provisiones_total || 0;
-
-  // Ingresos totales (cobrados + pendientes)
   const ingresosTotales = evento.ingresos_totales || 0;
-
-  // Gastos totales
   const gastosTotales = evento.gastos_totales || 0;
 
-  // FÓRMULA: Provisiones disponibles nunca negativas
-  const provisionesDisponibles = Math.max(0, provisionesTotal - gastosTotales);
+  // Total Egresos = Gastos + Provisiones (provisiones son gastos antes de pagarse)
+  const totalEgresos = gastosTotales + provisionesTotal;
 
-  // Usar utilidad_real y margen_real_pct de la vista (ya calculados correctamente)
-  const utilidadReal = evento.utilidad_real ?? (ingresosTotales - gastosTotales - provisionesDisponibles);
+  // Utilidad = Ingresos - Total Egresos
+  const utilidadReal = evento.utilidad_real ?? (ingresosTotales - totalEgresos);
 
   // Margen de utilidad
   const margenUtilidad = evento.margen_real_pct ?? (ingresosTotales > 0 ? (utilidadReal / ingresosTotales) * 100 : 0);
@@ -345,7 +342,7 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
   const IVA_RATE = 0.16;
   const ivaIngresos = ingresosTotales * IVA_RATE;
   const ivaGastos = gastosTotales * IVA_RATE;
-  const ivaPorEjercer = provisionesDisponibles * IVA_RATE;
+  const ivaProvisiones = provisionesTotal * IVA_RATE;
 
   const tabs = [
     { id: 'overview', label: 'Resumen', icon: Eye },
@@ -487,12 +484,12 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
                   </div>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Provisión:</span>
+                  <span className="text-gray-600">Provisiones:</span>
                   <div className="text-right">
-                    <span className={`font-bold ${provisionesDisponibles > 0 ? 'text-amber-600' : 'text-gray-500'}`}>
-                      {formatCurrency(provisionesDisponibles)}
+                    <span className={`font-bold ${provisionesTotal > 0 ? 'text-amber-600' : 'text-gray-500'}`}>
+                      {formatCurrency(provisionesTotal)}
                     </span>
-                    {showIVA && provisionesDisponibles > 0 && <span className="text-gray-400 text-[10px] ml-1">(+IVA {formatCurrency(ivaPorEjercer)})</span>}
+                    {showIVA && provisionesTotal > 0 && <span className="text-gray-400 text-[10px] ml-1">(+IVA {formatCurrency(ivaProvisiones)})</span>}
                   </div>
                 </div>
                 <div className="flex justify-between pt-1 border-t border-gray-300">
@@ -717,10 +714,12 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
     secondary: paletteConfig.secondary,
   };
   // ============================================================================
-  // CÁLCULOS FINANCIEROS - Usar datos de la vista vw_eventos_analisis_financiero_erp
+  // CÁLCULOS FINANCIEROS - FÓRMULA CORRECTA
   // ============================================================================
-  // UTILIDAD = INGRESOS - GASTOS - PROVISIONES_DISPONIBLES
-  // PROVISIONES_DISPONIBLES = MAX(0, PROVISIONES - GASTOS)
+  // PROVISIONES = Gastos pendientes de pago (compromisos futuros)
+  // TOTAL EGRESOS = Gastos + Provisiones
+  // UTILIDAD = Ingresos - Total Egresos
+  // MARGEN = (Utilidad / Ingresos) × 100
 
   // Usar campos directamente de la vista vw_eventos_analisis_financiero_erp
   const provisionesTotal = evento.provisiones_total || 0;
@@ -728,11 +727,11 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
   const ingresosTotales = evento.ingresos_totales || 0;
   const gastosTotales = evento.gastos_totales || 0;
 
-  // Provisiones disponibles = MAX(0, Provisiones - Gastos)
-  const provisionesDisponibles = Math.max(0, provisionesTotal - gastosTotales);
+  // Total Egresos = Gastos + Provisiones (provisiones son gastos antes de pagarse)
+  const totalEgresos = gastosTotales + provisionesTotal;
 
-  // Utilidad = Ingresos - Gastos - Provisiones
-  const utilidadReal = evento.utilidad_real ?? (ingresosTotales - gastosTotales - provisionesTotal);
+  // Utilidad = Ingresos - Total Egresos
+  const utilidadReal = evento.utilidad_real ?? (ingresosTotales - totalEgresos);
   const margenRealPct = evento.margen_real_pct ?? (ingresosTotales > 0 ? (utilidadReal / ingresosTotales) * 100 : 0);
 
   // Cálculos de IVA (16%)
@@ -833,35 +832,34 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
               </div>
             </div>
 
-            {/* Provisión Bar - INVERTIDA: Provisión izquierda, Gastado derecha */}
+            {/* Provisiones Bar - Gastos pendientes de pago */}
             <div>
               <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-medium" style={{ color: colors.primaryDark }}>💼 PROVISIÓN vs GASTADO</span>
+                <span className="text-xs font-medium" style={{ color: colors.primaryDark }}>💼 PROVISIONES (Gastos por pagar)</span>
                 <div className="flex gap-4 text-xs">
-                  <span className="font-bold" style={{ color: colors.primary }}>Provisión: {formatCurrency(provisionesDisponibles)}</span>
-                  <span style={{ color: colors.secondary }}>Gastado: {formatCurrency(gastosTotales)}</span>
+                  <span className="font-bold" style={{ color: colors.primary }}>Total: {formatCurrency(provisionesTotal)}</span>
+                  <span style={{ color: colors.secondary }}>% del Total Egresos: {totalEgresos > 0 ? ((provisionesTotal / totalEgresos) * 100).toFixed(0) : 0}%</span>
                 </div>
               </div>
               <div className="relative h-10 bg-slate-200 rounded-lg overflow-hidden flex">
-                {/* Barra izquierda: Provisión restante - COLOR PRIMARIO */}
+                {/* Barra: Provisiones - COLOR AMBER */}
                 <div
-                  className="h-full transition-all duration-500 flex items-center justify-start"
+                  className="h-full transition-all duration-500 flex items-center justify-center bg-amber-500"
                   style={{
-                    width: `${provisionesTotal > 0 ? Math.min((provisionesDisponibles / provisionesTotal) * 100, 100) : 0}%`,
-                    backgroundColor: colors.primary
+                    width: `${totalEgresos > 0 ? Math.min((provisionesTotal / totalEgresos) * 100, 100) : 0}%`
                   }}
                 >
-                  {provisionesDisponibles > 0 && (
+                  {provisionesTotal > 0 && (
                     <span className="text-xs font-bold text-white px-2 whitespace-nowrap">
-                      {formatCurrency(provisionesDisponibles)}
+                      {formatCurrency(provisionesTotal)}
                     </span>
                   )}
                 </div>
-                {/* Barra derecha: Gastado - COLOR SECUNDARIO */}
+                {/* Barra: Gastos ya registrados - COLOR SECONDARY */}
                 <div
-                  className="h-full transition-all duration-500 flex items-center justify-end"
+                  className="h-full transition-all duration-500 flex items-center justify-center"
                   style={{
-                    width: `${provisionesTotal > 0 ? Math.min((gastosTotales / provisionesTotal) * 100, 100) : 0}%`,
+                    width: `${totalEgresos > 0 ? Math.min((gastosTotales / totalEgresos) * 100, 100) : 0}%`,
                     backgroundColor: colors.secondary
                   }}
                 >
@@ -871,12 +869,9 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
                     </span>
                   )}
                 </div>
-                {/* Porcentaje centrado */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <span className="text-xs font-bold text-white drop-shadow-md bg-black/30 px-2 py-0.5 rounded">
-                    {provisionesTotal > 0 ? ((provisionesDisponibles / provisionesTotal) * 100).toFixed(0) : 0}% disponible
-                  </span>
-                </div>
+              </div>
+              <div className="text-xs text-center mt-1" style={{ color: colors.primaryDark }}>
+                Total Egresos: {formatCurrency(totalEgresos)}
               </div>
             </div>
 
@@ -985,24 +980,24 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
               </div>
             </div>
 
-            {/* PROVISIÓN - Fórmula del cliente: MAX(0, Provisionado - Gastos) */}
+            {/* PROVISIONES - Gastos pendientes de pago */}
             <div className="border-r pr-4">
-              <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">Provisión Disp.</h4>
-              <div className={`font-bold text-2xl mb-2 ${provisionesDisponibles > 0 ? 'text-amber-600' : 'text-gray-500'}`}>
-                {formatCurrency(provisionesDisponibles)}
+              <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">Provisiones</h4>
+              <div className={`font-bold text-2xl mb-2 ${provisionesTotal > 0 ? 'text-amber-600' : 'text-gray-500'}`}>
+                {formatCurrency(provisionesTotal)}
               </div>
               <div className="text-xs text-gray-500 border-t pt-2 space-y-1">
                 <div className="flex justify-between">
-                  <span>Total Prov.:</span>
-                  <span className="font-medium">{formatCurrency(provisionesTotal)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>- Gastos:</span>
+                  <span>Gastos:</span>
                   <span className="font-medium">{formatCurrency(gastosTotales)}</span>
                 </div>
-                <div className={`flex justify-between font-bold ${provisionesDisponibles > 0 ? 'text-amber-600' : 'text-gray-400'}`}>
-                  <span>= Disp.:</span>
-                  <span>{formatCurrency(provisionesDisponibles)}</span>
+                <div className="flex justify-between">
+                  <span>Provisiones:</span>
+                  <span className="font-medium">{formatCurrency(provisionesTotal)}</span>
+                </div>
+                <div className="flex justify-between font-bold text-blue-700">
+                  <span>Total Egresos:</span>
+                  <span>{formatCurrency(totalEgresos)}</span>
                 </div>
               </div>
             </div>
