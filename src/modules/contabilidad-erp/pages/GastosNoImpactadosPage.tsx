@@ -917,7 +917,7 @@ export const GastosNoImpactadosPage = () => {
           <div className="relative">
             <button
               onClick={() => setShowCatalogosDropdown(!showCatalogosDropdown)}
-              className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+              className="px-4 py-2 bg-violet-50 border border-violet-300 text-violet-700 rounded-lg hover:bg-violet-100 flex items-center gap-2 font-medium"
             >
               <Settings className="w-4 h-4" />
               Catálogos
