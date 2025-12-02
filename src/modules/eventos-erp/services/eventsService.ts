@@ -306,22 +306,25 @@ export class EventsService {
         .select(`
           categoria_id,
           total,
-          categorias_gastos_erp!inner(
+          categoria:evt_categorias_gastos_erp(
             nombre,
             color
           )
         `)
-        .eq('activo', true);
+        .is('deleted_at', null)
+        .not('categoria_id', 'is', null);
 
       if (error) throw error;
-      
+
       // Aggregate data by category
       const categoryMap = new Map();
-      
+
       data?.forEach(expense => {
         const categoryId = expense.categoria_id;
-        const categoryName = expense.categorias_gastos_erp.nombre;
-        const categoryColor = expense.categorias_gastos_erp.color;
+        const categoria = expense.categoria as any;
+        if (!categoria) return; // Skip if no category
+        const categoryName = categoria.nombre;
+        const categoryColor = categoria.color;
         const total = parseFloat(expense.total) || 0;
         
         if (categoryMap.has(categoryId)) {
