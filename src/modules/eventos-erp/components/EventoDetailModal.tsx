@@ -329,20 +329,31 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
   const ingresosTotales = evento.ingresos_totales || 0;
   const gastosTotales = evento.gastos_totales || 0;
 
+  // Subtotales (sin IVA ni retenciones) - para utilidad bruta
+  const ingresosSubtotal = evento.ingresos_subtotal || (ingresosTotales / 1.16);
+  const gastosSubtotal = evento.gastos_subtotal || (gastosTotales / 1.16);
+  const provisionesSubtotal = evento.provisiones_subtotal || (provisionesTotal / 1.16);
+
   // Total Egresos = Gastos + Provisiones (provisiones son gastos antes de pagarse)
   const totalEgresos = gastosTotales + provisionesTotal;
 
-  // Utilidad = Ingresos - Total Egresos
+  // Utilidad Real = Ingresos - Total Egresos (con IVA)
   const utilidadReal = evento.utilidad_real ?? (ingresosTotales - totalEgresos);
 
-  // Margen de utilidad
+  // Utilidad Bruta = Subtotales (sin IVA ni retenciones) - para análisis financiero
+  const utilidadBruta = evento.utilidad_bruta ?? (ingresosSubtotal - gastosSubtotal - provisionesSubtotal);
+
+  // Margen de utilidad (con IVA)
   const margenUtilidad = evento.margen_real_pct ?? (ingresosTotales > 0 ? (utilidadReal / ingresosTotales) * 100 : 0);
+
+  // Margen bruto (sin IVA - para análisis financiero)
+  const margenBruto = evento.margen_bruto_pct ?? (ingresosSubtotal > 0 ? (utilidadBruta / ingresosSubtotal) * 100 : 0);
 
   // Cálculos de IVA (16%)
   const IVA_RATE = 0.16;
-  const ivaIngresos = ingresosTotales * IVA_RATE;
-  const ivaGastos = gastosTotales * IVA_RATE;
-  const ivaProvisiones = provisionesTotal * IVA_RATE;
+  const ivaIngresos = evento.ingresos_iva || (ingresosTotales - ingresosSubtotal);
+  const ivaGastos = evento.gastos_iva || (gastosTotales - gastosSubtotal);
+  const ivaProvisiones = evento.provisiones_iva || (provisionesTotal - provisionesSubtotal);
 
   const tabs = [
     { id: 'overview', label: 'Resumen', icon: Eye },
@@ -493,11 +504,17 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
                   </div>
                 </div>
                 <div className="flex justify-between pt-1 border-t border-gray-300">
-                  <span className="text-gray-900 font-semibold">Utilidad ({margenUtilidad.toFixed(1)}%):</span>
-                  <span className={`font-bold ${utilidadReal >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                    {formatCurrency(utilidadReal)}
+                  <span className="text-gray-900 font-semibold">Utilidad Bruta ({margenBruto.toFixed(1)}%):</span>
+                  <span className={`font-bold ${utilidadBruta >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                    {formatCurrency(utilidadBruta)}
                   </span>
                 </div>
+                {showIVA && (
+                  <div className="flex justify-between text-[10px] text-gray-400">
+                    <span>Util. con IVA ({margenUtilidad.toFixed(1)}%):</span>
+                    <span>{formatCurrency(utilidadReal)}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -718,8 +735,8 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
   // ============================================================================
   // PROVISIONES = Gastos pendientes de pago (compromisos futuros)
   // TOTAL EGRESOS = Gastos + Provisiones
-  // UTILIDAD = Ingresos - Total Egresos
-  // MARGEN = (Utilidad / Ingresos) × 100
+  // UTILIDAD BRUTA = Ingresos Subtotal - Gastos Subtotal - Provisiones Subtotal
+  // MARGEN BRUTO = (Utilidad Bruta / Ingresos Subtotal) × 100
 
   // Usar campos directamente de la vista vw_eventos_analisis_financiero_erp
   const provisionesTotal = evento.provisiones_total || 0;
@@ -727,17 +744,26 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
   const ingresosTotales = evento.ingresos_totales || 0;
   const gastosTotales = evento.gastos_totales || 0;
 
+  // Subtotales (sin IVA ni retenciones) - para utilidad bruta
+  const ingresosSubtotal = evento.ingresos_subtotal || (ingresosTotales / 1.16);
+  const gastosSubtotal = evento.gastos_subtotal || (gastosTotales / 1.16);
+  const provisionesSubtotal = evento.provisiones_subtotal || (provisionesTotal / 1.16);
+
   // Total Egresos = Gastos + Provisiones (provisiones son gastos antes de pagarse)
   const totalEgresos = gastosTotales + provisionesTotal;
 
-  // Utilidad = Ingresos - Total Egresos
+  // Utilidad Real (con IVA) - para compatibilidad
   const utilidadReal = evento.utilidad_real ?? (ingresosTotales - totalEgresos);
   const margenRealPct = evento.margen_real_pct ?? (ingresosTotales > 0 ? (utilidadReal / ingresosTotales) * 100 : 0);
 
+  // Utilidad Bruta (sin IVA ni retenciones) - para análisis financiero
+  const utilidadBruta = evento.utilidad_bruta ?? (ingresosSubtotal - gastosSubtotal - provisionesSubtotal);
+  const margenBrutoPct = evento.margen_bruto_pct ?? (ingresosSubtotal > 0 ? (utilidadBruta / ingresosSubtotal) * 100 : 0);
+
   // Cálculos de IVA (16%)
   const IVA_RATE = 0.16;
-  const ivaIngresos = ingresosTotales * IVA_RATE;
-  const ivaGastos = gastosTotales * IVA_RATE;
+  const ivaIngresos = evento.ingresos_iva || (ingresosTotales - ingresosSubtotal);
+  const ivaGastos = evento.gastos_iva || (gastosTotales - gastosSubtotal);
 
   return (
     <motion.div
@@ -875,35 +901,35 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
               </div>
             </div>
 
-            {/* Utilidad Bar */}
+            {/* Utilidad Bruta Bar */}
             <div>
               <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-medium text-blue-900">🎯 UTILIDAD</span>
+                <span className="text-xs font-medium text-blue-900">🎯 UTILIDAD BRUTA (sin IVA)</span>
                 <div className="flex gap-4 text-xs">
-                  <span className="text-gray-500">Margen: {margenRealPct.toFixed(1)}%</span>
-                  <span className={`font-bold ${utilidadReal >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                    {formatCurrency(utilidadReal)}
+                  <span className="text-gray-500">Margen: {margenBrutoPct.toFixed(1)}%</span>
+                  <span className={`font-bold ${utilidadBruta >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                    {formatCurrency(utilidadBruta)}
                   </span>
                 </div>
               </div>
               <div className="relative h-10 bg-gray-100 rounded-lg overflow-hidden">
-                {/* Barra: Utilidad - COLOR SEGÚN MARGEN */}
+                {/* Barra: Utilidad Bruta - COLOR SEGÚN MARGEN */}
                 <div
                   className={`absolute h-full transition-all duration-500 flex items-center ${
-                    margenRealPct >= 35 ? 'bg-green-600' :
-                    margenRealPct >= 25 ? 'bg-amber-500' :
-                    margenRealPct > 0 ? 'bg-red-500' : 'bg-gray-400'
+                    margenBrutoPct >= 35 ? 'bg-green-600' :
+                    margenBrutoPct >= 25 ? 'bg-amber-500' :
+                    margenBrutoPct > 0 ? 'bg-red-500' : 'bg-gray-400'
                   }`}
-                  style={{ width: `${Math.min(Math.max(margenRealPct, 0), 100)}%` }}
+                  style={{ width: `${Math.min(Math.max(margenBrutoPct, 0), 100)}%` }}
                 >
                   <span className="text-xs font-bold text-white px-3 whitespace-nowrap">
-                    {formatCurrency(utilidadReal)}
+                    {formatCurrency(utilidadBruta)}
                   </span>
                 </div>
                 {/* Indicadores de semáforo */}
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span className="text-xs font-bold text-white drop-shadow-md">
-                    {margenRealPct >= 35 ? '🟢' : margenRealPct >= 25 ? '🟡' : margenRealPct > 0 ? '🔴' : '⚫'} {margenRealPct.toFixed(1)}%
+                    {margenBrutoPct >= 35 ? '🟢' : margenBrutoPct >= 25 ? '🟡' : margenBrutoPct > 0 ? '🔴' : '⚫'} {margenBrutoPct.toFixed(1)}%
                   </span>
                 </div>
               </div>
@@ -1014,18 +1040,21 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
               </div>
             </div>
 
-            {/* UTILIDAD - Con velocímetro replicando formato del listado */}
+            {/* UTILIDAD BRUTA - Con velocímetro replicando formato del listado */}
             <div className="flex flex-col items-center">
-              <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">Utilidad</h4>
-              <div className={`font-bold text-2xl mb-2 ${utilidadReal >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                {formatCurrency(utilidadReal)}
+              <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">Utilidad Bruta</h4>
+              <div className={`font-bold text-2xl mb-2 ${utilidadBruta >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                {formatCurrency(utilidadBruta)}
               </div>
               {/* Gauge Chart - Replicando el del listado */}
               <GaugeChart
-                value={margenRealPct}
+                value={margenBrutoPct}
                 size="sm"
                 showLabel={true}
               />
+              <div className="text-[10px] text-gray-400 mt-1">
+                Sin IVA ni retenciones
+              </div>
             </div>
           </div>
         </div>
