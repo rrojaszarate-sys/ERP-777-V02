@@ -101,6 +101,48 @@ async function importarGastos(workbook) {
   }
 }
 
+// Cache de proveedores
+const proveedoresCache = new Map();
+
+async function obtenerOCrearProveedor(nombreProveedor) {
+  if (!nombreProveedor) return 47; // ID por defecto
+
+  const nombre = String(nombreProveedor).trim().toUpperCase();
+  if (proveedoresCache.has(nombre)) {
+    return proveedoresCache.get(nombre);
+  }
+
+  // Buscar proveedor existente
+  const { data: existente } = await supabase
+    .from('cat_proveedores')
+    .select('id')
+    .ilike('razon_social', nombre)
+    .limit(1);
+
+  if (existente && existente[0]) {
+    proveedoresCache.set(nombre, existente[0].id);
+    return existente[0].id;
+  }
+
+  // Crear nuevo proveedor
+  const { data: nuevo, error } = await supabase
+    .from('cat_proveedores')
+    .insert({
+      razon_social: nombre,
+      nombre_comercial: nombre,
+      rfc: 'XAXX010101000',
+      activo: true
+    })
+    .select('id');
+
+  if (nuevo && nuevo[0]) {
+    proveedoresCache.set(nombre, nuevo[0].id);
+    return nuevo[0].id;
+  }
+
+  return 47; // ID por defecto si falla
+}
+
 async function importarProvisiones(workbook) {
   console.log('\n📦 IMPORTANDO PROVISIONES...\n');
 
@@ -134,16 +176,21 @@ async function importarProvisiones(workbook) {
     }
 
     const conceptoFinal = concepto || proveedor || 'Provisión';
+    const proveedorId = await obtenerOCrearProveedor(proveedor);
+    const subtotal = montoNum / 1.16;
+    const iva = montoNum - subtotal;
 
     const { error } = await supabase
       .from('evt_provisiones_erp')
       .insert({
         company_id: COMPANY_ID,
         evento_id: EVENTO_ID,
+        proveedor_id: proveedorId,
         categoria_id: 1,
         concepto: String(conceptoFinal).substring(0, 200),
-        subtotal: montoNum / 1.16,
-        iva: montoNum - (montoNum / 1.16),
+        subtotal: subtotal,
+        iva: iva,
+        iva_porcentaje: 16,
         total: montoNum,
         activo: true,
         estado: 'pendiente',
@@ -153,6 +200,8 @@ async function importarProvisiones(workbook) {
     if (!error) {
       insertados++;
       sumaMonto += montoNum;
+    } else {
+      console.log('   Error fila ' + fila + ':', error.message);
     }
     fila++;
   }

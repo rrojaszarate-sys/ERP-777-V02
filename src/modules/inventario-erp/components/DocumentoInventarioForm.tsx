@@ -81,6 +81,8 @@ export const DocumentoInventarioForm: React.FC<DocumentoInventarioFormProps> = (
   const [scannerInput, setScannerInput] = useState('');
   const [scannerStatus, setScannerStatus] = useState<'idle' | 'scanning' | 'success' | 'error'>('idle');
   const [scannerMessage, setScannerMessage] = useState('');
+  const [scannerType, setScannerType] = useState<'usb' | 'wireless' | 'camera'>('usb');
+  const [showScannerOptions, setShowScannerOptions] = useState(false);
   const scannerInputRef = useRef<HTMLInputElement>(null);
   
   // QR para escaneo móvil
@@ -620,13 +622,74 @@ export const DocumentoInventarioForm: React.FC<DocumentoInventarioFormProps> = (
 
             {/* Campo de entrada para lector USB/Inalámbrico */}
             {!isViewing && (
-              <div className="mb-4">
+              <div className="mb-4 p-3 rounded-lg border-2 border-dashed" style={{ borderColor: themeColors.border, backgroundColor: isDark ? 'rgba(59, 130, 246, 0.05)' : 'rgba(59, 130, 246, 0.03)' }}>
+                {/* Selector de tipo de lector */}
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-sm font-medium" style={{ color: themeColors.text }}>🔌 Tipo de lector:</span>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => { setScannerType('usb'); scannerInputRef.current?.focus(); }}
+                      className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${scannerType === 'usb' ? 'text-white' : ''}`}
+                      style={{ 
+                        backgroundColor: scannerType === 'usb' ? '#3b82f6' : themeColors.cardBg,
+                        color: scannerType === 'usb' ? 'white' : themeColors.text,
+                        border: `1px solid ${scannerType === 'usb' ? '#3b82f6' : themeColors.border}`
+                      }}
+                      title="Lector conectado por cable USB"
+                    >
+                      🔗 USB Cable
+                    </button>
+                    <button
+                      onClick={() => { setScannerType('wireless'); scannerInputRef.current?.focus(); }}
+                      className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${scannerType === 'wireless' ? 'text-white' : ''}`}
+                      style={{ 
+                        backgroundColor: scannerType === 'wireless' ? '#8b5cf6' : themeColors.cardBg,
+                        color: scannerType === 'wireless' ? 'white' : themeColors.text,
+                        border: `1px solid ${scannerType === 'wireless' ? '#8b5cf6' : themeColors.border}`
+                      }}
+                      title="Lector inalámbrico USB (2.4GHz/Bluetooth)"
+                    >
+                      📶 Inalámbrico
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => setShowScannerOptions(!showScannerOptions)}
+                    className="ml-auto text-xs underline"
+                    style={{ color: themeColors.textMuted }}
+                  >
+                    {showScannerOptions ? 'Ocultar ayuda' : '❓ Ayuda'}
+                  </button>
+                </div>
+
+                {/* Panel de ayuda expandible */}
+                {showScannerOptions && (
+                  <div className="mb-3 p-3 rounded-lg text-xs space-y-2" style={{ backgroundColor: themeColors.cardBg }}>
+                    <p className="font-semibold" style={{ color: themeColors.text }}>📚 Guía de lectores compatibles:</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <div className="p-2 rounded border" style={{ borderColor: themeColors.border }}>
+                        <p className="font-medium text-blue-600">🔗 USB Cable</p>
+                        <p style={{ color: themeColors.textMuted }}>Conecta el lector por cable USB. Funciona como teclado, escribe el código automáticamente.</p>
+                      </div>
+                      <div className="p-2 rounded border" style={{ borderColor: themeColors.border }}>
+                        <p className="font-medium text-purple-600">📶 USB Inalámbrico</p>
+                        <p style={{ color: themeColors.textMuted }}>Conecta el receptor USB. Lectores como Netum C750, Tera 1D/2D, Symcode. Alcance 10-50m.</p>
+                      </div>
+                    </div>
+                    <p style={{ color: themeColors.textMuted }}>
+                      💡 <strong>Recomendados:</strong> Netum C750 (~$30), Tera HW0002 (~$35), Eyoyo EY-001 (~$25)
+                    </p>
+                  </div>
+                )}
+
+                {/* Campo de entrada */}
                 <div className="flex items-center gap-2">
                   <div className="flex-1 relative">
                     <div className="absolute left-3 top-1/2 -translate-y-1/2">
-                      <svg className="w-5 h-5" style={{ color: scannerStatus === 'success' ? '#10b981' : scannerStatus === 'error' ? '#ef4444' : themeColors.textMuted }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                      </svg>
+                      {scannerType === 'usb' ? (
+                        <span className="text-lg">🔗</span>
+                      ) : (
+                        <span className="text-lg">📶</span>
+                      )}
                     </div>
                     <input
                       ref={scannerInputRef}
@@ -634,12 +697,16 @@ export const DocumentoInventarioForm: React.FC<DocumentoInventarioFormProps> = (
                       value={scannerInput}
                       onChange={(e) => setScannerInput(e.target.value)}
                       onKeyDown={handleScannerKeyDown}
-                      placeholder="📟 Escanea con lector USB o escribe código..."
+                      placeholder={scannerType === 'usb' 
+                        ? "Escanea con lector USB (cable)..." 
+                        : "Escanea con lector inalámbrico..."
+                      }
                       autoComplete="off"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-lg border-2 focus:ring-2 transition-all text-sm"
+                      autoFocus
+                      className="w-full pl-10 pr-4 py-3 rounded-lg border-2 focus:ring-2 transition-all text-sm font-medium"
                       style={{
                         backgroundColor: themeColors.background,
-                        borderColor: scannerStatus === 'success' ? '#10b981' : scannerStatus === 'error' ? '#ef4444' : scannerStatus === 'scanning' ? themeColors.primary : themeColors.border,
+                        borderColor: scannerStatus === 'success' ? '#10b981' : scannerStatus === 'error' ? '#ef4444' : scannerStatus === 'scanning' ? themeColors.primary : (scannerType === 'usb' ? '#3b82f6' : '#8b5cf6'),
                         color: themeColors.text,
                       }}
                     />
@@ -655,20 +722,34 @@ export const DocumentoInventarioForm: React.FC<DocumentoInventarioFormProps> = (
                   <button
                     onClick={() => handleScannerInput(scannerInput)}
                     disabled={!scannerInput.trim() || scannerStatus === 'scanning'}
-                    className="px-4 py-2.5 rounded-lg text-white font-medium text-sm disabled:opacity-50 transition-all"
-                    style={{ backgroundColor: themeColors.primary }}
+                    className="px-4 py-3 rounded-lg text-white font-medium text-sm disabled:opacity-50 transition-all"
+                    style={{ backgroundColor: scannerType === 'usb' ? '#3b82f6' : '#8b5cf6' }}
                   >
                     Buscar
                   </button>
                 </div>
+                
+                {/* Mensaje de estado */}
                 {scannerMessage && (
-                  <p className={`mt-1 text-sm font-medium ${scannerStatus === 'success' ? 'text-green-600' : scannerStatus === 'error' ? 'text-red-500' : ''}`}>
+                  <p className={`mt-2 text-sm font-medium ${scannerStatus === 'success' ? 'text-green-600' : scannerStatus === 'error' ? 'text-red-500' : ''}`}>
                     {scannerMessage}
                   </p>
                 )}
-                <p className="mt-1 text-xs" style={{ color: themeColors.textMuted }}>
-                  💡 Conecta tu lector USB/Bluetooth y escanea. El código se agregará automáticamente.
-                </p>
+                
+                {/* Instrucción según tipo */}
+                <div className="mt-2 flex items-center gap-2 text-xs" style={{ color: themeColors.textMuted }}>
+                  {scannerType === 'usb' ? (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                      <span>Lector USB conectado por cable. Apunta al código y escanea → se agrega automáticamente.</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></span>
+                      <span>Lector inalámbrico con receptor USB. Alcance hasta 50m. Escanea desde cualquier parte del almacén.</span>
+                    </>
+                  )}
+                </div>
               </div>
             )}
 
