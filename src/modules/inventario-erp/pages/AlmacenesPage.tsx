@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   Warehouse, Plus, Search, Edit, Trash2, X, Save,
   MapPin, Building2, Package
 } from 'lucide-react';
 import { useAlmacenes, useCreateAlmacen, useUpdateAlmacen, useDeleteAlmacen } from '../hooks/useInventario';
+import { useTheme } from '../../../shared/components/theme';
 
 interface Almacen {
   id?: number;
@@ -27,6 +28,20 @@ export const AlmacenesPage: React.FC = () => {
   const createMutation = useCreateAlmacen();
   const updateMutation = useUpdateAlmacen();
   const deleteMutation = useDeleteAlmacen();
+  const { paletteConfig, isDark } = useTheme();
+  
+  // Colores dinámicos
+  const colors = useMemo(() => ({
+    primary: paletteConfig.primary,
+    secondary: paletteConfig.secondary,
+    bg: isDark ? '#111827' : '#f9fafb',
+    card: isDark ? '#1f2937' : '#ffffff',
+    cardHover: isDark ? '#374151' : '#f3f4f6',
+    border: isDark ? '#374151' : '#e5e7eb',
+    text: isDark ? '#f9fafb' : '#111827',
+    textMuted: isDark ? '#9ca3af' : '#6b7280',
+    textSecondary: isDark ? '#d1d5db' : '#4b5563',
+  }), [paletteConfig, isDark]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -145,21 +160,22 @@ export const AlmacenesPage: React.FC = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 min-h-screen" style={{ backgroundColor: colors.bg }}>
       {/* Encabezado */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="p-3 bg-teal-100 rounded-lg">
-            <Warehouse className="w-8 h-8 text-teal-600" />
+          <div className="p-3 rounded-lg" style={{ backgroundColor: `${colors.primary}20` }}>
+            <Warehouse className="w-8 h-8" style={{ color: colors.primary }} />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Almacenes</h1>
-            <p className="text-gray-500">Gestión de almacenes y bodegas</p>
+            <h1 className="text-3xl font-bold" style={{ color: colors.text }}>Almacenes</h1>
+            <p style={{ color: colors.textMuted }}>Gestión de almacenes y bodegas</p>
           </div>
         </div>
         <button
           onClick={() => openModal()}
-          className="flex items-center space-x-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+          className="flex items-center space-x-2 px-4 py-2 text-white rounded-lg transition-colors hover:opacity-90"
+          style={{ backgroundColor: colors.primary }}
         >
           <Plus className="w-5 h-5" />
           <span>Nuevo Almacén</span>
@@ -171,14 +187,15 @@ export const AlmacenesPage: React.FC = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-lg shadow p-6"
+          className="rounded-lg shadow p-6"
+          style={{ backgroundColor: colors.card }}
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Total Almacenes</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+              <p className="text-sm" style={{ color: colors.textMuted }}>Total Almacenes</p>
+              <p className="text-2xl font-bold" style={{ color: colors.text }}>{stats.total}</p>
             </div>
-            <Building2 className="w-10 h-10 text-teal-500" />
+            <Building2 className="w-10 h-10" style={{ color: colors.primary }} />
           </div>
         </motion.div>
 
@@ -186,11 +203,12 @@ export const AlmacenesPage: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white rounded-lg shadow p-6"
+          className="rounded-lg shadow p-6"
+          style={{ backgroundColor: colors.card }}
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Almacenes Activos</p>
+              <p className="text-sm" style={{ color: colors.textMuted }}>Almacenes Activos</p>
               <p className="text-2xl font-bold text-green-600">{stats.activos}</p>
             </div>
             <Warehouse className="w-10 h-10 text-green-500" />
@@ -201,14 +219,15 @@ export const AlmacenesPage: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white rounded-lg shadow p-6"
+          className="rounded-lg shadow p-6"
+          style={{ backgroundColor: colors.card }}
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Capacidad Total</p>
-              <p className="text-2xl font-bold text-blue-600">{stats.capacidadTotal.toLocaleString()} m³</p>
+              <p className="text-sm" style={{ color: colors.textMuted }}>Capacidad Total</p>
+              <p className="text-2xl font-bold" style={{ color: colors.secondary }}>{stats.capacidadTotal.toLocaleString()} m³</p>
             </div>
-            <Package className="w-10 h-10 text-blue-500" />
+            <Package className="w-10 h-10" style={{ color: colors.secondary }} />
           </div>
         </motion.div>
 
@@ -216,11 +235,12 @@ export const AlmacenesPage: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white rounded-lg shadow p-6"
+          className="rounded-lg shadow p-6"
+          style={{ backgroundColor: colors.card }}
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Tipos de Almacén</p>
+              <p className="text-sm" style={{ color: colors.textMuted }}>Tipos de Almacén</p>
               <p className="text-2xl font-bold text-purple-600">{stats.tipos}</p>
             </div>
             <MapPin className="w-10 h-10 text-purple-500" />
@@ -229,62 +249,66 @@ export const AlmacenesPage: React.FC = () => {
       </div>
 
       {/* Barra de búsqueda */}
-      <div className="bg-white rounded-lg shadow p-4">
-        <div className="flex items-center space-x-2 text-gray-400">
+      <div className="rounded-lg shadow p-4" style={{ backgroundColor: colors.card }}>
+        <div className="flex items-center space-x-2" style={{ color: colors.textMuted }}>
           <Search className="w-5 h-5" />
           <input
             type="text"
             placeholder="Buscar por nombre, código o tipo..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="flex-1 outline-none text-gray-700"
+            className="flex-1 outline-none bg-transparent"
+            style={{ color: colors.text }}
           />
         </div>
       </div>
 
       {/* Tabla de almacenes */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="rounded-lg shadow overflow-hidden" style={{ backgroundColor: colors.card }}>
         {isLoading ? (
-          <div className="p-8 text-center text-gray-500">Cargando almacenes...</div>
+          <div className="p-8 text-center" style={{ color: colors.textMuted }}>Cargando almacenes...</div>
         ) : filteredAlmacenes.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">No se encontraron almacenes</div>
+          <div className="p-8 text-center" style={{ color: colors.textMuted }}>No se encontraron almacenes</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50">
+              <thead style={{ backgroundColor: isDark ? '#374151' : '#f9fafb' }}>
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ubicación</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Responsable</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capacidad</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Código</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Nombre</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Tipo</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Ubicación</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Responsable</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Capacidad</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Estado</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Acciones</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y" style={{ borderColor: colors.border }}>
                 {filteredAlmacenes.map((almacen: Almacen) => (
                   <motion.tr
                     key={almacen.id}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="hover:bg-gray-50"
+                    className="transition-colors"
+                    style={{ backgroundColor: 'transparent' }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.cardHover}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                   >
-                    <td className="px-6 py-4 font-mono text-sm text-gray-900">{almacen.codigo}</td>
+                    <td className="px-6 py-4 font-mono text-sm" style={{ color: colors.text }}>{almacen.codigo}</td>
                     <td className="px-6 py-4">
-                      <div className="font-semibold text-gray-900">{almacen.nombre}</div>
+                      <div className="font-semibold" style={{ color: colors.text }}>{almacen.nombre}</div>
                       {almacen.descripcion && (
-                        <div className="text-sm text-gray-500">{almacen.descripcion}</div>
+                        <div className="text-sm" style={{ color: colors.textMuted }}>{almacen.descripcion}</div>
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      <span className="px-2 py-1 text-xs font-semibold rounded-full bg-teal-100 text-teal-800">
+                      <span className="px-2 py-1 text-xs font-semibold rounded-full" style={{ backgroundColor: `${colors.primary}20`, color: colors.primary }}>
                         {tiposLabels[almacen.tipo] || almacen.tipo}
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-sm text-gray-600">
+                      <div className="text-sm" style={{ color: colors.textMuted }}>
                         {almacen.ciudad && almacen.estado ? (
                           <div className="flex items-center space-x-1">
                             <MapPin className="w-3 h-3" />
@@ -293,8 +317,8 @@ export const AlmacenesPage: React.FC = () => {
                         ) : '-'}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{almacen.responsable || '-'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
+                    <td className="px-6 py-4 text-sm" style={{ color: colors.text }}>{almacen.responsable || '-'}</td>
+                    <td className="px-6 py-4 text-sm" style={{ color: colors.text }}>
                       {almacen.capacidad_m3 > 0 ? `${almacen.capacidad_m3.toLocaleString()} m³` : '-'}
                     </td>
                     <td className="px-6 py-4">
@@ -310,7 +334,8 @@ export const AlmacenesPage: React.FC = () => {
                       <div className="flex items-center space-x-2">
                         <button
                           onClick={() => openModal(almacen)}
-                          className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                          className="p-1 rounded hover:opacity-80"
+                          style={{ color: colors.primary, backgroundColor: `${colors.primary}10` }}
                           title="Editar"
                         >
                           <Edit className="w-5 h-5" />

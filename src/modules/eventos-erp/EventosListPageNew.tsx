@@ -509,9 +509,8 @@ export const EventosListPage: React.FC = () => {
         };
         const colorInfo = getColorInfo(margenReal);
 
-        // Tooltip con fórmula
-        const provisionesDisponibles = Math.max(0, provisionesTotal - gastosTotales);
-        const tooltip = `Margen: ${margenReal.toFixed(1)}% (${colorInfo.label})\n\nIngresos: $${formatMoney(ingresosTotales)}\n- Gastos: $${formatMoney(gastosTotales)}\n- Provisión Disp.: $${formatMoney(provisionesDisponibles)}\n= Utilidad: $${formatMoney(utilidadReal)}`;
+        // Tooltip con fórmula: Utilidad = Ingresos - Gastos - Provisiones
+        const tooltip = `Margen: ${margenReal.toFixed(1)}% (${colorInfo.label})\n\nIngresos: $${formatMoney(ingresosTotales)}\n- Gastos: $${formatMoney(gastosTotales)}\n- Provisiones: $${formatMoney(provisionesTotal)}\n= Utilidad: $${formatMoney(utilidadReal)}`;
 
         return (
           <div className="text-center" title={tooltip}>
