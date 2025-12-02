@@ -425,19 +425,19 @@ export const EventosListPage: React.FC = () => {
             {isExpanded && (
               <div className="text-xs mt-1 space-y-0.5 border-t pt-1" style={{ color: themeColors.textSecondary }}>
                 <div className="flex justify-between gap-2">
-                  <span>Combustible:</span>
+                  <span>🚗⛽ Comb:</span>
                   <span className="font-medium">${formatMoney(combustible)}</span>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <span>Materiales:</span>
+                  <span>🛠️ Mat:</span>
                   <span className="font-medium">${formatMoney(materiales)}</span>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <span>RH:</span>
+                  <span>👥 RH:</span>
                   <span className="font-medium">${formatMoney(rh)}</span>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <span>Solicitudes:</span>
+                  <span>💳 SPs:</span>
                   <span className="font-medium">${formatMoney(sps)}</span>
                 </div>
               </div>
@@ -458,6 +458,12 @@ export const EventosListPage: React.FC = () => {
         const gastosTotales = row.gastos_totales || 0;
         const disponible = provisionesTotal - gastosTotales;
 
+        // Desglose por categoría (provisiones)
+        const provComb = row.provision_combustible || 0;
+        const provMat = row.provision_materiales || 0;
+        const provRH = row.provision_rh || 0;
+        const provSPs = row.provision_sps || 0;
+
         const getColor = (val: number) => val > 0 ? themeColors.shades[700] : val < 0 ? themeColors.accent : themeColors.textSecondary;
 
         return (
@@ -468,15 +474,23 @@ export const EventosListPage: React.FC = () => {
             {isExpanded && (
               <div className="text-xs mt-1 space-y-0.5 border-t pt-1" style={{ color: themeColors.textSecondary }}>
                 <div className="flex justify-between gap-2">
-                  <span>Total Provisiones:</span>
-                  <span className="font-medium">${formatMoney(provisionesTotal)}</span>
+                  <span>🚗⛽ Comb:</span>
+                  <span className="font-medium">${formatMoney(provComb)}</span>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <span>- Gastos Totales:</span>
-                  <span className="font-medium">${formatMoney(gastosTotales)}</span>
+                  <span>🛠️ Mat:</span>
+                  <span className="font-medium">${formatMoney(provMat)}</span>
                 </div>
-                <div className="flex justify-between gap-2 font-bold" style={{ color: getColor(disponible) }}>
-                  <span>= Disponible:</span>
+                <div className="flex justify-between gap-2">
+                  <span>👥 RH:</span>
+                  <span className="font-medium">${formatMoney(provRH)}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span>💳 SPs:</span>
+                  <span className="font-medium">${formatMoney(provSPs)}</span>
+                </div>
+                <div className="flex justify-between gap-2 font-bold border-t pt-1" style={{ color: getColor(disponible) }}>
+                  <span>💰 Disp:</span>
                   <span>${formatMoney(disponible)}</span>
                 </div>
               </div>
