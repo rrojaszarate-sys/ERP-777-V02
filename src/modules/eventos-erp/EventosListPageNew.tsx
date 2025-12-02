@@ -447,7 +447,7 @@ export const EventosListPage: React.FC = () => {
       }
     },
     {
-      key: 'disponible',
+      key: 'provisiones',
       label: 'Provisiones',
       filterType: 'number' as const,
       align: 'right' as const,
@@ -455,8 +455,6 @@ export const EventosListPage: React.FC = () => {
         const isExpanded = hoveredRow === row.id || expandedRows.has(row.id);
         // Usar campos directamente de la vista
         const provisionesTotal = row.provisiones_total || 0;
-        const gastosTotales = row.gastos_totales || 0;
-        const disponible = provisionesTotal - gastosTotales;
 
         // Desglose por categoría (provisiones)
         const provComb = row.provision_combustible || 0;
@@ -464,12 +462,10 @@ export const EventosListPage: React.FC = () => {
         const provRH = row.provision_rh || 0;
         const provSPs = row.provision_sps || 0;
 
-        const getColor = (val: number) => val > 0 ? themeColors.shades[700] : val < 0 ? themeColors.accent : themeColors.textSecondary;
-
         return (
           <div className="text-right">
-            <div className="font-bold text-base" style={{ color: getColor(disponible) }}>
-              ${formatMoney(Math.max(0, disponible))}
+            <div className="font-bold text-base" style={{ color: themeColors.shades[700] }}>
+              ${formatMoney(provisionesTotal)}
             </div>
             {isExpanded && (
               <div className="text-xs mt-1 space-y-0.5 border-t pt-1" style={{ color: themeColors.textSecondary }}>
@@ -488,10 +484,6 @@ export const EventosListPage: React.FC = () => {
                 <div className="flex justify-between gap-2">
                   <span>💳 SPs:</span>
                   <span className="font-medium">${formatMoney(provSPs)}</span>
-                </div>
-                <div className="flex justify-between gap-2 font-bold border-t pt-1" style={{ color: getColor(disponible) }}>
-                  <span>💰 Disp:</span>
-                  <span>${formatMoney(disponible)}</span>
                 </div>
               </div>
             )}
