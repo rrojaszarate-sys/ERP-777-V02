@@ -1372,22 +1372,93 @@ const GastosTab: React.FC<{
           ))}
         </div>
 
-        {/* TOTAL DE LA CATEGORÍA ACTIVA CON SUBTOTAL E IVA */}
-        <div className="mb-4 p-3 rounded-lg" style={{ backgroundColor: `${colors.secondary}10` }}>
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-sm font-medium text-gray-600">
-                {activeSubTab === 'todos' ? 'Total Gastos' : subTabs.find(t => t.id === activeSubTab)?.label}
-              </span>
-              <span className="text-xs text-gray-400 ml-2">({gastosFilter.length} items)</span>
+        {/* FICHAS DE TOTALES POR CATEGORÍA - SIEMPRE VISIBLES */}
+        <div className="grid grid-cols-4 gap-3 mb-4">
+          {/* Ficha Combustible */}
+          <div
+            className={`rounded-lg p-3 border cursor-pointer transition-all ${activeSubTab === 'combustible' ? 'ring-2' : ''}`}
+            style={{
+              backgroundColor: activeSubTab === 'combustible' ? `${colors.secondary}15` : '#FEF3C7',
+              borderColor: activeSubTab === 'combustible' ? colors.secondary : '#F59E0B',
+              ringColor: colors.secondary
+            }}
+            onClick={() => setActiveSubTab('combustible')}
+          >
+            <div className="text-center">
+              <span className="text-lg">🚗⛽</span>
+              <div className="text-[10px] text-gray-500 mt-1">Combustible</div>
+              <div className="text-base font-bold text-amber-700 mt-1">{formatCurrency(totalCombustible)}</div>
+              <div className="text-[9px] text-gray-400 mt-0.5">
+                <div>Sub: {formatCurrency(getSubtotalIVA(totalCombustible).subtotal)}</div>
+                <div>IVA: {formatCurrency(getSubtotalIVA(totalCombustible).iva)}</div>
+              </div>
+              <div className="text-[9px] text-gray-400 mt-1">({gastosCombustible.length})</div>
             </div>
-            <div className="text-right">
-              <div className="text-xl font-bold" style={{ color: colors.secondary }}>
-                {formatCurrency(categoryTotal)}
+          </div>
+
+          {/* Ficha Materiales */}
+          <div
+            className={`rounded-lg p-3 border cursor-pointer transition-all ${activeSubTab === 'materiales' ? 'ring-2' : ''}`}
+            style={{
+              backgroundColor: activeSubTab === 'materiales' ? `${colors.secondary}15` : '#DBEAFE',
+              borderColor: activeSubTab === 'materiales' ? colors.secondary : '#3B82F6',
+              ringColor: colors.secondary
+            }}
+            onClick={() => setActiveSubTab('materiales')}
+          >
+            <div className="text-center">
+              <span className="text-lg">🛠️</span>
+              <div className="text-[10px] text-gray-500 mt-1">Materiales</div>
+              <div className="text-base font-bold text-blue-700 mt-1">{formatCurrency(totalMateriales)}</div>
+              <div className="text-[9px] text-gray-400 mt-0.5">
+                <div>Sub: {formatCurrency(getSubtotalIVA(totalMateriales).subtotal)}</div>
+                <div>IVA: {formatCurrency(getSubtotalIVA(totalMateriales).iva)}</div>
               </div>
-              <div className="text-[10px] text-gray-400">
-                Subtotal: {formatCurrency(catSubtotal)} | IVA: {formatCurrency(catIVA)}
+              <div className="text-[9px] text-gray-400 mt-1">({gastosMateriales.length})</div>
+            </div>
+          </div>
+
+          {/* Ficha RH */}
+          <div
+            className={`rounded-lg p-3 border cursor-pointer transition-all ${activeSubTab === 'rh' ? 'ring-2' : ''}`}
+            style={{
+              backgroundColor: activeSubTab === 'rh' ? `${colors.secondary}15` : '#D1FAE5',
+              borderColor: activeSubTab === 'rh' ? colors.secondary : '#10B981',
+              ringColor: colors.secondary
+            }}
+            onClick={() => setActiveSubTab('rh')}
+          >
+            <div className="text-center">
+              <span className="text-lg">👥</span>
+              <div className="text-[10px] text-gray-500 mt-1">RH</div>
+              <div className="text-base font-bold text-emerald-700 mt-1">{formatCurrency(totalRH)}</div>
+              <div className="text-[9px] text-gray-400 mt-0.5">
+                <div>Sub: {formatCurrency(getSubtotalIVA(totalRH).subtotal)}</div>
+                <div>IVA: {formatCurrency(getSubtotalIVA(totalRH).iva)}</div>
               </div>
+              <div className="text-[9px] text-gray-400 mt-1">({gastosRH.length})</div>
+            </div>
+          </div>
+
+          {/* Ficha SPs */}
+          <div
+            className={`rounded-lg p-3 border cursor-pointer transition-all ${activeSubTab === 'sps' ? 'ring-2' : ''}`}
+            style={{
+              backgroundColor: activeSubTab === 'sps' ? `${colors.secondary}15` : '#EDE9FE',
+              borderColor: activeSubTab === 'sps' ? colors.secondary : '#8B5CF6',
+              ringColor: colors.secondary
+            }}
+            onClick={() => setActiveSubTab('sps')}
+          >
+            <div className="text-center">
+              <span className="text-lg">💳</span>
+              <div className="text-[10px] text-gray-500 mt-1">SPs</div>
+              <div className="text-base font-bold text-violet-700 mt-1">{formatCurrency(totalSPs)}</div>
+              <div className="text-[9px] text-gray-400 mt-0.5">
+                <div>Sub: {formatCurrency(getSubtotalIVA(totalSPs).subtotal)}</div>
+                <div>IVA: {formatCurrency(getSubtotalIVA(totalSPs).iva)}</div>
+              </div>
+              <div className="text-[9px] text-gray-400 mt-1">({gastosSPs.length})</div>
             </div>
           </div>
         </div>
@@ -1605,22 +1676,93 @@ const ProvisionesTab: React.FC<{
           ))}
         </div>
 
-        {/* TOTAL DE LA CATEGORÍA ACTIVA CON SUBTOTAL E IVA */}
-        <div className="mb-4 p-3 rounded-lg" style={{ backgroundColor: `${colors.primary}10` }}>
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-sm font-medium text-gray-600">
-                {activeSubTab === 'todos' ? 'Total Provisiones' : subTabs.find(t => t.id === activeSubTab)?.label}
-              </span>
-              <span className="text-xs text-gray-400 ml-2">({provisionesFiltered.length} items)</span>
+        {/* FICHAS DE TOTALES POR CATEGORÍA - SIEMPRE VISIBLES */}
+        <div className="grid grid-cols-4 gap-3 mb-4">
+          {/* Ficha Combustible */}
+          <div
+            className={`rounded-lg p-3 border cursor-pointer transition-all ${activeSubTab === 'combustible' ? 'ring-2' : ''}`}
+            style={{
+              backgroundColor: activeSubTab === 'combustible' ? `${colors.primary}15` : '#FEF3C7',
+              borderColor: activeSubTab === 'combustible' ? colors.primary : '#F59E0B',
+              ringColor: colors.primary
+            }}
+            onClick={() => setActiveSubTab('combustible')}
+          >
+            <div className="text-center">
+              <span className="text-lg">🚗⛽</span>
+              <div className="text-[10px] text-gray-500 mt-1">Combustible</div>
+              <div className="text-base font-bold text-amber-700 mt-1">{formatCurrency(totalProvCombustible)}</div>
+              <div className="text-[9px] text-gray-400 mt-0.5">
+                <div>Sub: {formatCurrency(getSubtotalIVA(totalProvCombustible).subtotal)}</div>
+                <div>IVA: {formatCurrency(getSubtotalIVA(totalProvCombustible).iva)}</div>
+              </div>
+              <div className="text-[9px] text-gray-400 mt-1">({provCombustible.length})</div>
             </div>
-            <div className="text-right">
-              <div className="text-xl font-bold" style={{ color: colors.primaryDark }}>
-                {formatCurrency(categoryTotal)}
+          </div>
+
+          {/* Ficha Materiales */}
+          <div
+            className={`rounded-lg p-3 border cursor-pointer transition-all ${activeSubTab === 'materiales' ? 'ring-2' : ''}`}
+            style={{
+              backgroundColor: activeSubTab === 'materiales' ? `${colors.primary}15` : '#DBEAFE',
+              borderColor: activeSubTab === 'materiales' ? colors.primary : '#3B82F6',
+              ringColor: colors.primary
+            }}
+            onClick={() => setActiveSubTab('materiales')}
+          >
+            <div className="text-center">
+              <span className="text-lg">🛠️</span>
+              <div className="text-[10px] text-gray-500 mt-1">Materiales</div>
+              <div className="text-base font-bold text-blue-700 mt-1">{formatCurrency(totalProvMateriales)}</div>
+              <div className="text-[9px] text-gray-400 mt-0.5">
+                <div>Sub: {formatCurrency(getSubtotalIVA(totalProvMateriales).subtotal)}</div>
+                <div>IVA: {formatCurrency(getSubtotalIVA(totalProvMateriales).iva)}</div>
               </div>
-              <div className="text-[10px] text-gray-400">
-                Subtotal: {formatCurrency(catSubtotal)} | IVA: {formatCurrency(catIVA)}
+              <div className="text-[9px] text-gray-400 mt-1">({provMateriales.length})</div>
+            </div>
+          </div>
+
+          {/* Ficha RH */}
+          <div
+            className={`rounded-lg p-3 border cursor-pointer transition-all ${activeSubTab === 'rh' ? 'ring-2' : ''}`}
+            style={{
+              backgroundColor: activeSubTab === 'rh' ? `${colors.primary}15` : '#D1FAE5',
+              borderColor: activeSubTab === 'rh' ? colors.primary : '#10B981',
+              ringColor: colors.primary
+            }}
+            onClick={() => setActiveSubTab('rh')}
+          >
+            <div className="text-center">
+              <span className="text-lg">👥</span>
+              <div className="text-[10px] text-gray-500 mt-1">RH</div>
+              <div className="text-base font-bold text-emerald-700 mt-1">{formatCurrency(totalProvRH)}</div>
+              <div className="text-[9px] text-gray-400 mt-0.5">
+                <div>Sub: {formatCurrency(getSubtotalIVA(totalProvRH).subtotal)}</div>
+                <div>IVA: {formatCurrency(getSubtotalIVA(totalProvRH).iva)}</div>
               </div>
+              <div className="text-[9px] text-gray-400 mt-1">({provRH.length})</div>
+            </div>
+          </div>
+
+          {/* Ficha SPs */}
+          <div
+            className={`rounded-lg p-3 border cursor-pointer transition-all ${activeSubTab === 'sps' ? 'ring-2' : ''}`}
+            style={{
+              backgroundColor: activeSubTab === 'sps' ? `${colors.primary}15` : '#EDE9FE',
+              borderColor: activeSubTab === 'sps' ? colors.primary : '#8B5CF6',
+              ringColor: colors.primary
+            }}
+            onClick={() => setActiveSubTab('sps')}
+          >
+            <div className="text-center">
+              <span className="text-lg">💳</span>
+              <div className="text-[10px] text-gray-500 mt-1">SPs</div>
+              <div className="text-base font-bold text-violet-700 mt-1">{formatCurrency(totalProvSPs)}</div>
+              <div className="text-[9px] text-gray-400 mt-0.5">
+                <div>Sub: {formatCurrency(getSubtotalIVA(totalProvSPs).subtotal)}</div>
+                <div>IVA: {formatCurrency(getSubtotalIVA(totalProvSPs).iva)}</div>
+              </div>
+              <div className="text-[9px] text-gray-400 mt-1">({provSPs.length})</div>
             </div>
           </div>
         </div>
