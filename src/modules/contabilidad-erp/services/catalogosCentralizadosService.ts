@@ -74,8 +74,9 @@ export async function createCuentaContable(
 // ============================================================================
 
 export async function getProveedores(companyId: string): Promise<ProveedorCentralizado[]> {
+  // Usar vista unificada que combina proveedores de todo el sistema (proveedores_erp)
   const { data, error } = await supabase
-    .from('cont_proveedores')
+    .from('v_proveedores_unificados')
     .select('*')
     .eq('company_id', companyId)
     .eq('activo', true)
@@ -87,7 +88,7 @@ export async function getProveedores(companyId: string): Promise<ProveedorCentra
 
 export async function getProveedorById(id: number): Promise<ProveedorCentralizado | null> {
   const { data, error } = await supabase
-    .from('cont_proveedores')
+    .from('v_proveedores_unificados')
     .select('*')
     .eq('id', id)
     .single();
@@ -103,19 +104,37 @@ export async function createProveedor(
   companyId: string,
   formData: ProveedorFormData
 ): Promise<ProveedorCentralizado> {
+  // Insertar en tabla unificada proveedores_erp
   const { data, error } = await supabase
-    .from('cont_proveedores')
+    .from('proveedores_erp')
     .insert({
       company_id: companyId,
-      ...formData,
-      datos_fiscales_completos: !!(formData.rfc && formData.razon_social),
-      requiere_actualizacion: !(formData.rfc && formData.razon_social)
+      nombre_comercial: formData.nombre,
+      razon_social: formData.razon_social || formData.nombre,
+      rfc: formData.rfc,
+      direccion: formData.direccion,
+      telefono: formData.telefono,
+      email: formData.email,
+      contacto_nombre: formData.contacto_nombre,
+      categoria: formData.categoria,
+      activo: true,
+      fecha_creacion: new Date().toISOString(),
+      fecha_actualizacion: new Date().toISOString()
     })
     .select()
     .single();
 
   if (error) throw error;
-  return data;
+
+  // Retornar en formato esperado
+  return {
+    ...data,
+    nombre: data.nombre_comercial || data.razon_social,
+    datos_fiscales_completos: !!(data.rfc && data.razon_social),
+    requiere_actualizacion: !(data.rfc && data.razon_social),
+    created_at: data.fecha_creacion,
+    updated_at: data.fecha_actualizacion
+  };
 }
 
 export async function updateProveedorDatosFiscales(
@@ -123,23 +142,29 @@ export async function updateProveedorDatosFiscales(
   datos: ActualizacionFiscalProveedor
 ): Promise<ProveedorCentralizado> {
   const { data, error } = await supabase
-    .from('cont_proveedores')
+    .from('proveedores_erp')
     .update({
       rfc: datos.rfc,
       razon_social: datos.razon_social,
-      regimen_fiscal: datos.regimen_fiscal,
       direccion: datos.direccion,
-      datos_fiscales_completos: true,
-      fecha_actualizacion_fiscal: new Date().toISOString(),
-      requiere_actualizacion: false,
-      updated_at: new Date().toISOString()
+      fecha_actualizacion: new Date().toISOString()
     })
     .eq('id', id)
     .select()
     .single();
 
   if (error) throw error;
-  return data;
+
+  return {
+    ...data,
+    nombre: data.nombre_comercial || data.razon_social,
+    datos_fiscales_completos: true,
+    requiere_actualizacion: false,
+    regimen_fiscal: datos.regimen_fiscal,
+    fecha_actualizacion_fiscal: new Date().toISOString(),
+    created_at: data.fecha_creacion,
+    updated_at: data.fecha_actualizacion
+  };
 }
 
 export async function buscarProveedorPorRFC(
@@ -147,7 +172,7 @@ export async function buscarProveedorPorRFC(
   rfc: string
 ): Promise<ProveedorCentralizado | null> {
   const { data, error } = await supabase
-    .from('cont_proveedores')
+    .from('proveedores_erp')
     .select('*')
     .eq('company_id', companyId)
     .eq('rfc', rfc.toUpperCase())
@@ -157,7 +182,15 @@ export async function buscarProveedorPorRFC(
     if (error.code === 'PGRST116') return null;
     throw error;
   }
-  return data;
+
+  return {
+    ...data,
+    nombre: data.nombre_comercial || data.razon_social,
+    datos_fiscales_completos: !!(data.rfc && data.razon_social),
+    requiere_actualizacion: !(data.rfc && data.razon_social),
+    created_at: data.fecha_creacion,
+    updated_at: data.fecha_actualizacion
+  };
 }
 
 // ============================================================================
