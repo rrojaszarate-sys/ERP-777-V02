@@ -97,6 +97,20 @@ export const Layout: React.FC = () => {
       ]
     },
     {
+      id: 'compras',
+      name: 'Compras',
+      icon: ShoppingCart,
+      active: true,
+      color: 'text-sky-600',
+      submenu: [
+        { name: 'Dashboard', path: '/compras', icon: Home },
+        { name: 'Órdenes de Compra', path: '/compras/ordenes', icon: ShoppingCart },
+        { name: 'Requisiciones', path: '/compras/requisiciones', icon: FileText },
+        { name: 'Recepciones', path: '/compras/recepciones', icon: Package },
+        { name: 'Tipos de Almacén', path: '/compras/tipos-almacen', icon: Settings }
+      ]
+    },
+    {
       id: 'inventario',
       name: 'Inventario',
       icon: Warehouse,
@@ -106,8 +120,15 @@ export const Layout: React.FC = () => {
         { name: 'Dashboard', path: '/inventario', icon: Home },
         { name: 'Productos', path: '/inventario/productos', icon: Package },
         { name: 'Almacenes', path: '/inventario/almacenes', icon: Warehouse },
+        { name: 'Ubicaciones', path: '/inventario/ubicaciones', icon: FolderOpen },
         { name: 'Movimientos', path: '/inventario/movimientos', icon: List },
         { name: 'Stock', path: '/inventario/stock', icon: BarChart3 },
+        { name: 'Lotes', path: '/inventario/lotes', icon: Package },
+        { name: 'Conteos', path: '/inventario/conteos', icon: CheckCircle },
+        { name: 'Reservas', path: '/inventario/reservas', icon: Calendar },
+        { name: 'Kits Evento', path: '/inventario/kits', icon: FolderKanban },
+        { name: 'Checklists', path: '/inventario/checklists', icon: CheckCircle },
+        { name: 'Alertas', path: '/inventario/alertas', icon: Bell },
         { name: 'Documentos', path: '/inventario/documentos', icon: FileText }
       ]
     },

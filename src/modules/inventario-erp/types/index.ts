@@ -311,23 +311,28 @@ export interface ReservaStock {
 // KITS DE MATERIALES PARA EVENTOS
 // ============================================================================
 
+export type TipoEvento = 'boda' | 'xv_años' | 'bautizo' | 'comunion' | 'graduacion' | 'corporativo' | 'cumpleaños' | 'otro';
+
 export interface KitEvento {
   id: number;
   codigo: string;
   nombre: string;
   descripcion: string | null;
-  tipo_evento: string | null;
+  tipo_evento: TipoEvento;
   categoria: string | null;
   personas_base: number;
+  capacidad_personas?: number;
   es_escalable: boolean;
   precio_renta_sugerido: number | null;
   activo: boolean;
+  empresa_id?: string;
   company_id: string;
   created_at: string;
   updated_at: string;
   created_by: string | null;
   // Relaciones expandidas
   detalles?: KitEventoDetalle[];
+  detalle?: KitEventoDetalle[];
 }
 
 export interface KitEventoDetalle {
@@ -371,8 +376,9 @@ export interface KitEventoDetalleFormData {
 // ============================================================================
 
 export type TipoChecklist = 'pre_evento' | 'post_evento';
-export type EstadoChecklist = 'pendiente' | 'en_proceso' | 'completado';
+export type EstadoChecklist = 'pendiente' | 'en_proceso' | 'completado' | 'con_problemas';
 export type EstadoChecklistItem = 'pendiente' | 'verificado' | 'con_novedad';
+export type EstadoItemChecklist = 'pendiente' | 'verificado' | 'faltante' | 'dañado' | 'devuelto';
 
 export interface FotoChecklist {
   url: string;
@@ -436,22 +442,25 @@ export interface ChecklistEventoDetalle {
 // ALERTAS DE INVENTARIO
 // ============================================================================
 
-export type TipoAlerta = 'stock_bajo' | 'lote_vencer' | 'conteo_pendiente' | 'reserva_vencida';
+export type TipoAlerta = 'stock_bajo' | 'stock_critico' | 'lote_por_vencer' | 'lote_vencido' | 'conteo_pendiente' | 'reserva_proxima' | 'sin_movimiento';
 export type PrioridadAlerta = 'baja' | 'media' | 'alta' | 'critica';
-export type EstadoAlerta = 'activa' | 'leida' | 'resuelta' | 'ignorada';
+export type EstadoAlerta = 'activa' | 'leida' | 'resuelta' | 'descartada';
 
 export interface AlertaInventario {
   id: number;
-  tipo: TipoAlerta;
+  tipo_alerta: TipoAlerta;
   producto_id: number | null;
   lote_id: number | null;
   conteo_id: number | null;
   reserva_id: number | null;
   titulo: string;
-  mensaje: string | null;
+  mensaje: string;
+  mensaje: string;
+  detalles?: string | null;
   prioridad: PrioridadAlerta;
   estado: EstadoAlerta;
   fecha_alerta: string;
+  url_accion?: string | null;
   fecha_vencimiento: string | null;
   fecha_lectura: string | null;
   fecha_resolucion: string | null;

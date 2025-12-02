@@ -25,6 +25,10 @@ export interface Producto {
   clave_unidad_sat: string | null;
   tipo: string;
   activo: boolean;
+  codigo_barras_fabrica?: string | null;
+  stock_actual?: number;
+  stock_minimo?: number;
+  stock_maximo?: number;
   fecha_creacion?: string;
   fecha_actualizacion?: string;
 }

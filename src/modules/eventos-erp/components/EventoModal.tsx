@@ -469,28 +469,43 @@ export const EventoModal: React.FC<EventoModalProps> = ({ evento, onClose, onSav
               <p className="text-gray-500 text-xs mt-1">Ingreso total esperado del evento</p>
             </div>
 
-            {/* UTILIDAD ESTIMADA - Velocímetro */}
+            {/* UTILIDAD BRUTA ESTIMADA - Velocímetro */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Utilidad Estimada <span className="text-gray-500 text-xs">[CALCULADO]</span>
+                Utilidad Bruta Estimada <span className="text-gray-500 text-xs">[sin IVA]</span>
               </label>
               <div className="w-full flex flex-col items-center justify-center">
                 {(() => {
-                  const ingreso = parseFloat(formData.ganancia_estimada.toString()) || 0;
-                  const provisiones = (
+                  // CÁLCULO CORRECTO: Basado en SUBTOTALES (sin IVA)
+                  // Fórmula: Utilidad Bruta = Ingreso Subtotal - Provisiones Subtotal
+                  // Las provisiones ya son subtotales (IVA = 0)
+
+                  const ingresoTotal = parseFloat(formData.ganancia_estimada.toString()) || 0;
+                  // Si el ingreso incluye IVA, calculamos subtotal
+                  const ingresoSubtotal = ingresoTotal / 1.16;
+
+                  // Las provisiones son subtotales (sin IVA)
+                  const provisionesSubtotal = (
                     (parseFloat(formData.provision_combustible_peaje.toString()) || 0) +
                     (parseFloat(formData.provision_materiales.toString()) || 0) +
                     (parseFloat(formData.provision_recursos_humanos.toString()) || 0) +
                     (parseFloat(formData.provision_solicitudes_pago.toString()) || 0)
                   );
-                  const utilidad = ingreso - provisiones;
-                  const porcentaje = ingreso > 0 ? ((utilidad / ingreso) * 100) : 0;
+
+                  // Utilidad Bruta = Ingresos Subtotal - Provisiones Subtotal
+                  const utilidadBruta = ingresoSubtotal - provisionesSubtotal;
+
+                  // Margen Bruto = (Utilidad Bruta / Ingresos Subtotal) * 100
+                  const margenBruto = ingresoSubtotal > 0 ? ((utilidadBruta / ingresoSubtotal) * 100) : 0;
 
                   return (
                     <>
-                      <GaugeChart value={porcentaje} size="md" showLabel={true} />
+                      <GaugeChart value={margenBruto} size="md" showLabel={true} />
                       <div className="text-gray-800 font-bold text-base mt-1">
-                        ${utilidad.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ${utilidadBruta.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Ing. Subtotal: ${ingresoSubtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                       </div>
                     </>
                   );
@@ -599,17 +614,45 @@ export const EventoModal: React.FC<EventoModalProps> = ({ evento, onClose, onSav
               </div>
             </div>
 
-            {/* Total de Provisiones */}
+            {/* Total de Provisiones y Fórmula de Margen */}
             <div className="mt-2 p-2 bg-white border-2 border-yellow-400 rounded-lg">
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-medium text-gray-700">Total Provisiones:</span>
-                <span className="text-base font-bold text-yellow-900">
-                  ${((parseFloat(formData.provision_combustible_peaje.toString()) || 0) +
-                     (parseFloat(formData.provision_materiales.toString()) || 0) +
-                     (parseFloat(formData.provision_recursos_humanos.toString()) || 0) +
-                     (parseFloat(formData.provision_solicitudes_pago.toString()) || 0)).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </div>
+              {(() => {
+                const ingresoTotal = parseFloat(formData.ganancia_estimada.toString()) || 0;
+                const ingresoSubtotal = ingresoTotal / 1.16;
+                const provisionesSubtotal = (
+                  (parseFloat(formData.provision_combustible_peaje.toString()) || 0) +
+                  (parseFloat(formData.provision_materiales.toString()) || 0) +
+                  (parseFloat(formData.provision_recursos_humanos.toString()) || 0) +
+                  (parseFloat(formData.provision_solicitudes_pago.toString()) || 0)
+                );
+                const utilidadBruta = ingresoSubtotal - provisionesSubtotal;
+                const margenBruto = ingresoSubtotal > 0 ? ((utilidadBruta / ingresoSubtotal) * 100) : 0;
+
+                return (
+                  <>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs font-medium text-gray-700">Total Provisiones (sin IVA):</span>
+                      <span className="text-base font-bold text-yellow-900">
+                        ${provisionesSubtotal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="border-t border-yellow-200 pt-2 text-xs text-gray-600">
+                      <div className="flex items-center justify-center gap-2 font-mono">
+                        <span className="text-purple-600">${ingresoSubtotal.toLocaleString('es-MX', { maximumFractionDigits: 0 })}</span>
+                        <span>−</span>
+                        <span className="text-yellow-700">${provisionesSubtotal.toLocaleString('es-MX', { maximumFractionDigits: 0 })}</span>
+                        <span>=</span>
+                        <span className={`font-bold ${utilidadBruta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          ${utilidadBruta.toLocaleString('es-MX', { maximumFractionDigits: 0 })}
+                        </span>
+                        <span className={`ml-1 px-1.5 py-0.5 rounded text-white text-[10px] ${margenBruto >= 25 ? 'bg-green-500' : margenBruto >= 15 ? 'bg-yellow-500' : 'bg-red-500'}`}>
+                          {margenBruto.toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>

@@ -24,6 +24,9 @@ interface ProductoFormData {
   iva: boolean;
   tipo: string;
   activo: boolean;
+  codigo_barras_fabrica: string;
+  stock_minimo: number;
+  stock_maximo: number;
 }
 
 export const ProductosPage: React.FC = () => {
@@ -64,7 +67,10 @@ export const ProductosPage: React.FC = () => {
     margen: 30,
     iva: true,
     tipo: 'producto',
-    activo: true
+    activo: true,
+    codigo_barras_fabrica: '',
+    stock_minimo: 0,
+    stock_maximo: 100
   });
 
   const categorias = [
@@ -165,7 +171,10 @@ export const ProductosPage: React.FC = () => {
       margen: producto.margen || 30,
       iva: producto.iva !== false,
       tipo: producto.tipo || 'producto',
-      activo: producto.activo !== false
+      activo: producto.activo !== false,
+      codigo_barras_fabrica: producto.codigo_barras_fabrica || '',
+      stock_minimo: producto.stock_minimo || 0,
+      stock_maximo: producto.stock_maximo || 100
     });
     setShowModal(true);
   };
@@ -195,7 +204,10 @@ export const ProductosPage: React.FC = () => {
       margen: 30,
       iva: true,
       tipo: 'producto',
-      activo: true
+      activo: true,
+      codigo_barras_fabrica: '',
+      stock_minimo: 0,
+      stock_maximo: 100
     });
   };
 
@@ -205,6 +217,63 @@ export const ProductosPage: React.FC = () => {
       return margen.toFixed(2);
     }
     return '0.00';
+  };
+
+  // Función para exportar productos a CSV
+  const exportarProductosCSV = () => {
+    if (!productos || productos.length === 0) {
+      alert('No hay productos para exportar');
+      return;
+    }
+
+    const headers = [
+      'clave',
+      'nombre',
+      'descripcion',
+      'categoria',
+      'unidad',
+      'precio_base',
+      'precio_venta',
+      'costo',
+      'margen',
+      'codigo_barras_fabrica',
+      'stock_minimo',
+      'stock_maximo',
+      'iva',
+      'tipo',
+      'activo'
+    ];
+
+    const csvContent = [
+      headers.join(','),
+      ...productos.map(p => [
+        `"${(p.clave || '').replace(/"/g, '""')}"`,
+        `"${(p.nombre || '').replace(/"/g, '""')}"`,
+        `"${(p.descripcion || '').replace(/"/g, '""')}"`,
+        `"${(p.categoria || '').replace(/"/g, '""')}"`,
+        `"${(p.unidad || 'PZA').replace(/"/g, '""')}"`,
+        p.precio_base || 0,
+        p.precio_venta || 0,
+        p.costo || 0,
+        p.margen || 0,
+        `"${(p.codigo_barras_fabrica || '').replace(/"/g, '""')}"`,
+        p.stock_minimo || 0,
+        p.stock_maximo || 100,
+        p.iva ? 'true' : 'false',
+        `"${(p.tipo || 'producto').replace(/"/g, '""')}"`,
+        p.activo ? 'true' : 'false'
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `productos_export_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -222,6 +291,15 @@ export const ProductosPage: React.FC = () => {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={exportarProductosCSV}
+              className="px-4 py-2 border rounded-lg font-medium transition-colors flex items-center gap-2 hover:opacity-80"
+              style={{ borderColor: colors.secondary, color: colors.secondary }}
+              title="Exportar todos los productos a CSV"
+            >
+              <Download className="w-5 h-5" />
+              Exportar CSV
+            </button>
             <button
               onClick={() => setShowImportModal(true)}
               className="px-4 py-2 border rounded-lg font-medium transition-colors flex items-center gap-2 hover:opacity-80"
@@ -773,6 +851,56 @@ export const ProductosPage: React.FC = () => {
                     <option value="servicio">Servicio</option>
                     <option value="materia_prima">Materia Prima</option>
                   </select>
+                </div>
+              </div>
+
+              {/* Código de Barras y Stock */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: colors.textSecondary }}>
+                    Código de Barras (UPC/EAN)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.codigo_barras_fabrica}
+                    onChange={(e) => setFormData({ ...formData, codigo_barras_fabrica: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:outline-none font-mono"
+                    style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}
+                    placeholder="7501234567890"
+                  />
+                  <p className="text-xs mt-1" style={{ color: colors.textMuted }}>
+                    Escanea o ingresa el código de fábrica
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: colors.textSecondary }}>
+                    Stock Mínimo
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.stock_minimo}
+                    onChange={(e) => setFormData({ ...formData, stock_minimo: parseInt(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:outline-none"
+                    style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}
+                    placeholder="0"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: colors.textSecondary }}>
+                    Stock Máximo
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.stock_maximo}
+                    onChange={(e) => setFormData({ ...formData, stock_maximo: parseInt(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:outline-none"
+                    style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}
+                    placeholder="100"
+                  />
                 </div>
               </div>
 

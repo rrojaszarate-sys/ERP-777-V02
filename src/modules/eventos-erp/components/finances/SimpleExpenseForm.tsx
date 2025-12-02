@@ -48,7 +48,12 @@ interface FormData {
   // Campos CFDI (ocultos por defecto)
   uuid_cfdi: string;
   folio_fiscal: string;
+  // Retornos de material
+  tipo_movimiento: 'gasto' | 'retorno';
 }
+
+// ID de categoría Materiales (para mostrar opción de retorno)
+const CATEGORIA_MATERIALES_ID = 8;
 
 export const SimpleExpenseForm: React.FC<SimpleExpenseFormProps> = ({
   mode,
@@ -85,6 +90,7 @@ export const SimpleExpenseForm: React.FC<SimpleExpenseFormProps> = ({
     notas: item?.notas || '',
     uuid_cfdi: item?.uuid_cfdi || '',
     folio_fiscal: item?.folio_fiscal || '',
+    tipo_movimiento: item?.tipo_movimiento || 'gasto',
   });
 
   // Colores del tema - SIEMPRE DINÁMICOS DE LA PALETA
@@ -268,6 +274,8 @@ export const SimpleExpenseForm: React.FC<SimpleExpenseFormProps> = ({
         dataToSave.archivo_nombre = archivoNombre;
         dataToSave.uuid_cfdi = formData.uuid_cfdi || null;
         dataToSave.folio_fiscal = formData.folio_fiscal || null;
+        // Tipo de movimiento (gasto/retorno) - solo para gastos de materiales
+        dataToSave.tipo_movimiento = formData.tipo_movimiento || 'gasto';
       } else {
         dataToSave.estado = formData.estado;
         dataToSave.comprobante_pago_url = archivoAdjunto;
@@ -613,6 +621,51 @@ export const SimpleExpenseForm: React.FC<SimpleExpenseFormProps> = ({
               </select>
             </div>
           </div>
+
+          {/* RETORNO DE MATERIAL - Solo visible para gastos de categoría Materiales */}
+          {mode === 'gasto' && formData.categoria_id === CATEGORIA_MATERIALES_ID && (
+            <div className="p-4 rounded-lg border-2" style={{
+              borderColor: formData.tipo_movimiento === 'retorno' ? '#10B981' : themeColors.border,
+              backgroundColor: formData.tipo_movimiento === 'retorno' ? '#ECFDF5' : 'transparent'
+            }}>
+              <label className="block text-sm font-semibold mb-2" style={{ color: themeColors.text }}>
+                Tipo de Movimiento
+              </label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="tipo_movimiento"
+                    value="gasto"
+                    checked={formData.tipo_movimiento === 'gasto'}
+                    onChange={() => setFormData({ ...formData, tipo_movimiento: 'gasto' })}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm font-medium" style={{ color: themeColors.text }}>
+                    Gasto (compra de material)
+                  </span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="tipo_movimiento"
+                    value="retorno"
+                    checked={formData.tipo_movimiento === 'retorno'}
+                    onChange={() => setFormData({ ...formData, tipo_movimiento: 'retorno' })}
+                    className="w-4 h-4 accent-emerald-600"
+                  />
+                  <span className="text-sm font-medium text-emerald-700">
+                    Retorno (devolución de material no utilizado)
+                  </span>
+                </label>
+              </div>
+              {formData.tipo_movimiento === 'retorno' && (
+                <p className="text-xs text-emerald-600 mt-2">
+                  Este monto se restará del total de gastos de materiales
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Estado y Forma de Pago */}
           <div className="grid grid-cols-2 gap-4">

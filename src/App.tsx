@@ -44,6 +44,14 @@ const DocumentosInventarioPage = lazy(() => import('./modules/inventario-erp/pag
 const MobileScannerPage = lazy(() => import('./modules/inventario-erp/pages/MobileScannerPage').then(m => ({ default: m.MobileScannerPage })));
 const SesionesMovilPage = lazy(() => import('./modules/inventario-erp/pages/SesionesMovilPage').then(m => ({ default: m.SesionesMovilPage })));
 const EtiquetasPage = lazy(() => import('./modules/inventario-erp/pages/EtiquetasPage').then(m => ({ default: m.EtiquetasPage })));
+// Nuevas páginas de inventario avanzado - DESHABILITADAS TEMPORALMENTE (imports incompletos)
+// const UbicacionesPage = lazy(() => import('./modules/inventario-erp/pages/UbicacionesPage').then(m => ({ default: m.UbicacionesPage })));
+// const LotesPage = lazy(() => import('./modules/inventario-erp/pages/LotesPage').then(m => ({ default: m.LotesPage })));
+// const ConteosPage = lazy(() => import('./modules/inventario-erp/pages/ConteosPage').then(m => ({ default: m.ConteosPage })));
+// const ReservasPage = lazy(() => import('./modules/inventario-erp/pages/ReservasPage').then(m => ({ default: m.ReservasPage })));
+// const KitsEventoPage = lazy(() => import('./modules/inventario-erp/pages/KitsEventoPage').then(m => ({ default: m.KitsEventoPage })));
+// const ChecklistEventoPage = lazy(() => import('./modules/inventario-erp/pages/ChecklistEventoPage').then(m => ({ default: m.ChecklistEventoPage })));
+// const AlertasInventarioPage = lazy(() => import('./modules/inventario-erp/pages/AlertasInventarioPage').then(m => ({ default: m.AlertasInventarioPage })));
 
 // MÓDULO DE RRHH Y NÓMINA
 const RRHHDashboard = lazy(() => import('./modules/rrhh-erp/pages/RRHHDashboard').then(m => ({ default: m.RRHHDashboard })));
@@ -73,6 +81,25 @@ const IntegracionesDashboard = lazy(() => import('./modules/integraciones-erp/pa
 
 // MÓDULO DE IA Y AUTOMATIZACIÓN
 const IADashboard = lazy(() => import('./modules/ia-erp/pages/IADashboard').then(m => ({ default: m.IADashboard })));
+
+// MÓDULO DE COMPRAS
+const ComprasDashboard = lazy(() => import('./modules/compras-erp/pages/ComprasDashboard').then(m => ({ default: m.default })));
+const ComprasOrdenesPage = lazy(() => import('./modules/compras-erp/pages/OrdenesCompraPage').then(m => ({ default: m.default })));
+const RequisicionesPage = lazy(() => import('./modules/compras-erp/pages/RequisicionesPage').then(m => ({ default: m.default })));
+const RecepcionesPage = lazy(() => import('./modules/compras-erp/pages/RecepcionesPage').then(m => ({ default: m.default })));
+const TiposAlmacenPage = lazy(() => import('./modules/compras-erp/pages/TiposAlmacenPage').then(m => ({ default: m.default })));
+
+// PORTAL DE SOLICITUDES DE COMPRA (Acceso para ejecutivos con Google OAuth)
+const PortalLoginPage = lazy(() => import('./modules/portal-solicitudes/pages/PortalLoginPage').then(m => ({ default: m.PortalLoginPage })));
+const PortalDashboard = lazy(() => import('./modules/portal-solicitudes/pages/PortalDashboard').then(m => ({ default: m.PortalDashboard })));
+const NuevaSolicitudPage = lazy(() => import('./modules/portal-solicitudes/pages/NuevaSolicitudPage').then(m => ({ default: m.NuevaSolicitudPage })));
+const DetalleSolicitudPage = lazy(() => import('./modules/portal-solicitudes/pages/DetalleSolicitudPage').then(m => ({ default: m.DetalleSolicitudPage })));
+const MisSolicitudesPage = lazy(() => import('./modules/portal-solicitudes/pages/MisSolicitudesPage').then(m => ({ default: m.MisSolicitudesPage })));
+const PortalAprobacionesPage = lazy(() => import('./modules/portal-solicitudes/pages/AprobacionesPage').then(m => ({ default: m.AprobacionesPage })));
+const CentroMensajesPage = lazy(() => import('./modules/portal-solicitudes/pages/CentroMensajesPage').then(m => ({ default: m.CentroMensajesPage })));
+const ReportesGastosPage = lazy(() => import('./modules/portal-solicitudes/pages/ReportesGastosPage').then(m => ({ default: m.ReportesGastosPage })));
+const PortalLayout = lazy(() => import('./modules/portal-solicitudes/components/PortalLayout').then(m => ({ default: m.PortalLayout })));
+const PortalPublicLayout = lazy(() => import('./modules/portal-solicitudes/components/PortalLayout').then(m => ({ default: m.PortalPublicLayout })));
 
 // MÓDULO DE DESARROLLO (Documentación técnica y pruebas)
 const DocumentacionPage = lazy(() => import('./modules/desarrollo/pages/DocumentacionPage').then(m => ({ default: m.DocumentacionPage })));
@@ -146,6 +173,14 @@ function App() {
                 <Route path="inventario/etiquetas" element={<EtiquetasPage />} />
                 <Route path="inventario/sesiones" element={<SesionesMovilPage />} />
                 <Route path="inventario/mobile-scanner" element={<MobileScannerPage />} />
+                {/* Nuevas rutas de inventario avanzado - DESHABILITADAS TEMPORALMENTE */}
+                {/* <Route path="inventario/ubicaciones" element={<UbicacionesPage />} />
+                <Route path="inventario/lotes" element={<LotesPage />} />
+                <Route path="inventario/conteos" element={<ConteosPage />} />
+                <Route path="inventario/reservas" element={<ReservasPage />} />
+                <Route path="inventario/kits" element={<KitsEventoPage />} />
+                <Route path="inventario/checklists" element={<ChecklistEventoPage />} />
+                <Route path="inventario/alertas" element={<AlertasInventarioPage />} /> */}
 
                 {/* Rutas de RRHH y Nómina */}
                 <Route path="rrhh" element={<RRHHDashboard />} />
@@ -176,6 +211,13 @@ function App() {
                 {/* Rutas de IA y Automatización */}
                 <Route path="ia" element={<IADashboard />} />
 
+                {/* Rutas de Compras */}
+                <Route path="compras" element={<ComprasDashboard />} />
+                <Route path="compras/ordenes" element={<ComprasOrdenesPage />} />
+                <Route path="compras/requisiciones" element={<RequisicionesPage />} />
+                <Route path="compras/recepciones" element={<RecepcionesPage />} />
+                <Route path="compras/tipos-almacen" element={<TiposAlmacenPage />} />
+
                 {/* Rutas de Eventos-ERP (módulo independiente - desarrollo) */}
                 <Route path="eventos-erp" element={<EventosListPage />} />
                 <Route path="eventos-erp/clientes" element={<ClientesPage />} />
@@ -190,6 +232,22 @@ function App() {
                 <Route path="admin/catalogos" element={<CatalogosAdminPage />} />
 
                 <Route path="*" element={<Navigate to="/" replace />} />
+              </Route>
+
+              {/* PORTAL DE SOLICITUDES DE COMPRA - Rutas públicas (fuera del Layout principal) */}
+              <Route path="/portal" element={<PortalPublicLayout />}>
+                <Route path="login" element={<PortalLoginPage />} />
+              </Route>
+
+              {/* PORTAL DE SOLICITUDES DE COMPRA - Rutas protegidas */}
+              <Route path="/portal" element={<PortalLayout />}>
+                <Route index element={<PortalDashboard />} />
+                <Route path="solicitudes" element={<MisSolicitudesPage />} />
+                <Route path="solicitudes/:id" element={<DetalleSolicitudPage />} />
+                <Route path="nueva" element={<NuevaSolicitudPage />} />
+                <Route path="aprobaciones" element={<PortalAprobacionesPage />} />
+                <Route path="mensajes" element={<CentroMensajesPage />} />
+                <Route path="reportes" element={<ReportesGastosPage />} />
               </Route>
             </Routes>
           </Suspense>

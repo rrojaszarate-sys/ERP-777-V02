@@ -10,6 +10,7 @@ export interface ProductoImport {
   precio_venta: number;
   stock_minimo?: number;
   stock_maximo?: number;
+  codigo_barras_fabrica?: string;
   activo?: boolean;
 }
 
@@ -117,6 +118,11 @@ const normalizeHeader = (header: string): string => {
     'min_stock': 'stock_minimo',
     'stock_maximo': 'stock_maximo',
     'max_stock': 'stock_maximo',
+    'codigo_barras': 'codigo_barras_fabrica',
+    'codigo_barras_fabrica': 'codigo_barras_fabrica',
+    'barcode': 'codigo_barras_fabrica',
+    'upc': 'codigo_barras_fabrica',
+    'ean': 'codigo_barras_fabrica',
     'activo': 'activo',
     'active': 'activo'
   };
@@ -136,6 +142,7 @@ const transformToProducto = (row: any): ProductoImport => {
     precio_venta: parseFloat(row.precio_venta) || 0,
     stock_minimo: parseInt(row.stock_minimo) || 0,
     stock_maximo: parseInt(row.stock_maximo) || 100,
+    codigo_barras_fabrica: (row.codigo_barras_fabrica || '').toString().trim(),
     activo: row.activo !== 'false' && row.activo !== '0' && row.activo !== 'no'
   };
 };
@@ -279,13 +286,14 @@ export const generateCSVTemplate = (): string => {
     'precio_venta',
     'stock_minimo',
     'stock_maximo',
+    'codigo_barras_fabrica',
     'activo'
   ];
 
   const exampleRows = [
-    ['PROD-001', 'Mesa Redonda 10 personas', 'Mesa elegante para eventos', 'Mobiliario', 'PZA', '500', '750', '5', '50', 'true'],
-    ['PROD-002', 'Silla Tiffany Dorada', 'Silla estilo Tiffany acabado dorado', 'Mobiliario', 'PZA', '150', '250', '20', '200', 'true'],
-    ['PROD-003', 'Mantel Blanco 3m', 'Mantel de tela blanca para mesa redonda', 'Decoración', 'PZA', '80', '120', '30', '100', 'true']
+    ['PROD-001', 'Mesa Redonda 10 personas', 'Mesa elegante para eventos', 'Mobiliario', 'PZA', '500', '750', '5', '50', '7501234567890', 'true'],
+    ['PROD-002', 'Silla Tiffany Dorada', 'Silla estilo Tiffany acabado dorado', 'Mobiliario', 'PZA', '150', '250', '20', '200', '7501234567891', 'true'],
+    ['PROD-003', 'Mantel Blanco 3m', 'Mantel de tela blanca para mesa redonda', 'Decoración', 'PZA', '80', '120', '30', '100', '7501234567892', 'true']
   ];
 
   return [headers.join(','), ...exampleRows.map(row => row.join(','))].join('\n');

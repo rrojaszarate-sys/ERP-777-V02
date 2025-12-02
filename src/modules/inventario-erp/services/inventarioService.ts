@@ -364,3 +364,18 @@ export const getProductosBajoStock = async (companyId: string, umbralMinimo: num
 
   return productosBajos;
 };
+
+/**
+ * Obtener eventos para selección en inventario
+ */
+export const fetchEventos = async (companyId: string) => {
+  const { data, error } = await supabase
+    .from('evt_eventos_erp')
+    .select('id, clave_evento, nombre_proyecto, fecha_evento')
+    .eq('company_id', companyId)
+    .is('deleted_at', null)
+    .order('fecha_evento', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+};

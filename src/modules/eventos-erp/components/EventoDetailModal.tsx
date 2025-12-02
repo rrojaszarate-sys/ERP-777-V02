@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingUp, TrendingDown, Plus, Pencil, Trash2, Eye, X, Settings as SettingsIcon, XCircle, CheckCircle, Loader2, Wallet, FileText } from 'lucide-react';
+import { TrendingUp, TrendingDown, Plus, Pencil, Trash2, Eye, X, Settings as SettingsIcon, XCircle, CheckCircle, Loader2, Wallet, FileText, ArrowDownLeft, ArrowUpRight, Package } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Modal } from '../../../shared/components/ui/Modal';
 import { Button } from '../../../shared/components/ui/Button';
@@ -15,6 +15,8 @@ import { useAuth } from '../../../core/auth/AuthProvider';
 import toast from 'react-hot-toast';
 import { SimpleExpenseForm } from './finances/SimpleExpenseForm';
 import { IncomeForm } from './finances/IncomeForm';
+import { RetornoMaterialForm } from './finances/RetornoMaterialForm';
+import { MaterialAlmacenForm } from './finances/MaterialAlmacenForm';
 import { GaugeChart } from './GaugeChart';
 import { useTheme } from '../../../shared/components/theme';
 
@@ -44,6 +46,15 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
   const [showGastoModal, setShowGastoModal] = useState(false);
   const [editingGasto, setEditingGasto] = useState<any | null>(null);
   const [defaultGastoCategory, setDefaultGastoCategory] = useState<string | undefined>(undefined);
+
+  // Estados para el modal de retornos de material
+  const [showRetornoModal, setShowRetornoModal] = useState(false);
+  const [editingRetorno, setEditingRetorno] = useState<any | null>(null);
+
+  // Estados para el modal de Material Almacén (Ingreso/Retorno con catálogo)
+  const [showMaterialAlmacenModal, setShowMaterialAlmacenModal] = useState(false);
+  const [materialAlmacenTipo, setMaterialAlmacenTipo] = useState<'gasto' | 'retorno'>('gasto');
+  const [editingMaterialAlmacen, setEditingMaterialAlmacen] = useState<any | null>(null);
 
   // Estados para el modal de ingresos
   const [showIngresoModal, setShowIngresoModal] = useState(false);
@@ -590,6 +601,29 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
                   setEditingGasto(gasto);
                   setShowGastoModal(true);
                 }}
+                onCreateRetorno={() => {
+                  setEditingRetorno(null);
+                  setShowRetornoModal(true);
+                }}
+                onEditRetorno={(retorno) => {
+                  setEditingRetorno(retorno);
+                  setShowRetornoModal(true);
+                }}
+                onCreateIngresoMaterial={() => {
+                  setEditingMaterialAlmacen(null);
+                  setMaterialAlmacenTipo('gasto');
+                  setShowMaterialAlmacenModal(true);
+                }}
+                onCreateRetornoMaterial={() => {
+                  setEditingMaterialAlmacen(null);
+                  setMaterialAlmacenTipo('retorno');
+                  setShowMaterialAlmacenModal(true);
+                }}
+                onEditMaterialAlmacen={(item) => {
+                  setEditingMaterialAlmacen(item);
+                  setMaterialAlmacenTipo(item.tipo_movimiento || 'gasto');
+                  setShowMaterialAlmacenModal(true);
+                }}
               />
             )}
 
@@ -631,6 +665,41 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
         onClose={() => {
           setShowGastoModal(false);
           setEditingGasto(null);
+        }}
+      />
+    )}
+
+    {/* Modal de Retorno de Material - Con catálogo de productos */}
+    {showRetornoModal && (
+      <RetornoMaterialForm
+        eventoId={eventoId}
+        item={editingRetorno}
+        onSave={() => {
+          loadFinancialData();
+          setShowRetornoModal(false);
+          setEditingRetorno(null);
+        }}
+        onClose={() => {
+          setShowRetornoModal(false);
+          setEditingRetorno(null);
+        }}
+      />
+    )}
+
+    {/* Modal de Material Almacén - Ingreso/Retorno con catálogo de productos */}
+    {showMaterialAlmacenModal && (
+      <MaterialAlmacenForm
+        eventoId={eventoId}
+        tipoInicial={materialAlmacenTipo}
+        item={editingMaterialAlmacen}
+        onSave={() => {
+          loadFinancialData();
+          setShowMaterialAlmacenModal(false);
+          setEditingMaterialAlmacen(null);
+        }}
+        onClose={() => {
+          setShowMaterialAlmacenModal(false);
+          setEditingMaterialAlmacen(null);
         }}
       />
     )}
@@ -1266,7 +1335,12 @@ const GastosTab: React.FC<{
   onRefresh: () => void;
   onCreateGasto: () => void;
   onEditGasto: (gasto: any) => void;
-}> = ({ gastos, evento, onRefresh, onCreateGasto, onEditGasto }) => {
+  onCreateRetorno?: () => void;
+  onEditRetorno?: (retorno: any) => void;
+  onCreateIngresoMaterial?: () => void;
+  onCreateRetornoMaterial?: () => void;
+  onEditMaterialAlmacen?: (item: any) => void;
+}> = ({ gastos, evento, onRefresh, onCreateGasto, onEditGasto, onCreateRetorno, onEditRetorno, onCreateIngresoMaterial, onCreateRetornoMaterial, onEditMaterialAlmacen }) => {
   const { canCreate, canUpdate, canDelete } = usePermissions();
   const { paletteConfig } = useTheme();
   const [activeSubTab, setActiveSubTab] = useState<'todos' | 'combustible' | 'materiales' | 'rh' | 'sps'>('todos');
@@ -1443,14 +1517,21 @@ const GastosTab: React.FC<{
             </div>
           ) : (
             gastosFilter.map(gasto => (
-              <div key={gasto.id} className="bg-white border rounded-lg p-3 hover:bg-gray-50 transition-colors">
+              <div key={gasto.id} className={`border rounded-lg p-3 hover:bg-gray-50 transition-colors ${gasto.tipo_movimiento === 'retorno' ? 'bg-emerald-50 border-emerald-200' : 'bg-white'}`}>
                 <div className="flex items-center gap-3">
                   <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-5 gap-x-3 gap-y-1 items-center">
                     <div className="col-span-2 md:col-span-1 flex items-center gap-2">
+                      {gasto.tipo_movimiento === 'retorno' && (
+                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-semibold rounded-full whitespace-nowrap">
+                          RETORNO
+                        </span>
+                      )}
                       <h4 className="font-medium text-gray-900 text-base">{gasto.concepto}</h4>
                     </div>
                     <div>
-                      <span className="text-base font-bold" style={{ color: colors.secondary }}>{formatCurrency(gasto.total)}</span>
+                      <span className={`text-base font-bold ${gasto.tipo_movimiento === 'retorno' ? 'text-emerald-600' : ''}`} style={{ color: gasto.tipo_movimiento !== 'retorno' ? colors.secondary : undefined }}>
+                        {gasto.tipo_movimiento === 'retorno' ? '-' : ''}{formatCurrency(gasto.total)}
+                      </span>
                     </div>
                     <div>
                       {gasto.categoria && (
@@ -1476,12 +1557,20 @@ const GastosTab: React.FC<{
                   <div className="flex gap-2 flex-shrink-0">
                     {canUpdate('gastos') && (
                       <button
-                        onClick={(e) => { e.stopPropagation(); onEditGasto(gasto); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Si es un retorno y existe la función, usar formulario de retornos
+                          if (gasto.tipo_movimiento === 'retorno' && onEditRetorno) {
+                            onEditRetorno(gasto);
+                          } else {
+                            onEditGasto(gasto);
+                          }
+                        }}
                         className="p-2 rounded-lg transition-colors border"
                         style={{
-                          backgroundColor: `${colors.primary}15`,
-                          borderColor: `${colors.primary}30`,
-                          color: colors.primary
+                          backgroundColor: gasto.tipo_movimiento === 'retorno' ? '#10B98115' : `${colors.primary}15`,
+                          borderColor: gasto.tipo_movimiento === 'retorno' ? '#10B98130' : `${colors.primary}30`,
+                          color: gasto.tipo_movimiento === 'retorno' ? '#10B981' : colors.primary
                         }}
                         title="Editar gasto"
                       >
@@ -1504,9 +1593,10 @@ const GastosTab: React.FC<{
           )}
         </div>
 
-        {/* BOTÓN AGREGAR GASTO AL FINAL */}
+        {/* BOTONES AGREGAR GASTO Y MATERIAL ALMACÉN */}
         {canCreate('gastos') && (
-          <div className="pt-4 border-t mt-4">
+          <div className="pt-4 border-t mt-4 space-y-3">
+            {/* Fila 1: Gasto normal */}
             <button
               onClick={onCreateGasto}
               className="w-full rounded-lg p-3 transition-all flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
@@ -1517,6 +1607,30 @@ const GastosTab: React.FC<{
               <Plus className="w-5 h-5 text-white" />
               <span className="text-sm font-semibold text-white">Agregar Gasto</span>
             </button>
+
+            {/* Fila 2: Material Almacén (Ingreso y Retorno) */}
+            <div className="flex gap-3">
+              {onCreateIngresoMaterial && (
+                <button
+                  onClick={onCreateIngresoMaterial}
+                  className="flex-1 rounded-lg p-3 transition-all flex items-center justify-center gap-2 shadow-sm hover:shadow-md bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+                >
+                  <ArrowUpRight className="w-5 h-5 text-white" />
+                  <Package className="w-4 h-4 text-white" />
+                  <span className="text-sm font-semibold text-white">Ingreso Material</span>
+                </button>
+              )}
+              {onCreateRetornoMaterial && (
+                <button
+                  onClick={onCreateRetornoMaterial}
+                  className="flex-1 rounded-lg p-3 transition-all flex items-center justify-center gap-2 shadow-sm hover:shadow-md bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800"
+                >
+                  <ArrowDownLeft className="w-5 h-5 text-white" />
+                  <Package className="w-4 h-4 text-white" />
+                  <span className="text-sm font-semibold text-white">Retorno Material</span>
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>

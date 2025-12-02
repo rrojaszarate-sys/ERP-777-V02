@@ -450,3 +450,18 @@ export const getEstadisticasConteos = async (companyId: string) => {
     con_diferencias: data?.filter(c => c.productos_con_diferencia > 0).length || 0,
   };
 };
+
+/**
+ * Obtener conteos pendientes (programados o en proceso)
+ */
+export const fetchConteosPendientes = async (companyId: string): Promise<ConteoInventario[]> => {
+  const { data, error } = await supabase
+    .from('conteos_inventario_erp')
+    .select('*')
+    .eq('company_id', companyId)
+    .in('estado', ['programado', 'en_proceso'])
+    .order('fecha_programada', { ascending: true });
+
+  if (error) throw error;
+  return (data || []) as ConteoInventario[];
+};
