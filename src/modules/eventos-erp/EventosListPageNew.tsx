@@ -121,13 +121,8 @@ export const EventosListPage: React.FC = () => {
     if (!kpiColorFilter) return eventos;
 
     return eventos.filter((evento: any) => {
-      const ingresoEstimado = evento.ingreso_estimado || 0;
-      const provisionesTotal = (evento.provision_combustible_peaje || 0) +
-                               (evento.provision_materiales || 0) +
-                               (evento.provision_recursos_humanos || 0) +
-                               (evento.provision_solicitudes_pago || 0);
-      const utilidadPlaneada = ingresoEstimado - provisionesTotal;
-      const margenPlaneado = ingresoEstimado > 0 ? (utilidadPlaneada / ingresoEstimado) * 100 : 0;
+      // Usar campos directamente de la vista
+      const margenPlaneado = evento.margen_real_pct || 0;
 
       const colorCategoria = getKpiColorCategory(margenPlaneado);
       return colorCategoria === kpiColorFilter;
@@ -458,20 +453,10 @@ export const EventosListPage: React.FC = () => {
       align: 'right' as const,
       render: (_value: any, row: any) => {
         const isExpanded = hoveredRow === row.id || expandedRows.has(row.id);
-        const provisionesTotal = (row.provision_combustible_peaje || 0) +
-                                 (row.provision_materiales || 0) +
-                                 (row.provision_recursos_humanos || 0) +
-                                 (row.provision_solicitudes_pago || 0);
-        const gastosPagados = row.gastos_pagados_total || 0;
-        const gastosPendientes = row.gastos_pendientes_total || 0;
-        const gastosTotales = gastosPagados + gastosPendientes;
+        // Usar campos directamente de la vista
+        const provisionesTotal = row.provisiones_total || 0;
+        const gastosTotales = row.gastos_totales || 0;
         const disponible = provisionesTotal - gastosTotales;
-
-        // Desglose por categoría (disponible = provisión - gastos)
-        const disponibleCombustible = (row.provision_combustible_peaje || 0) - ((row.gastos_combustible_pagados || 0) + (row.gastos_combustible_pendientes || 0));
-        const disponibleMateriales = (row.provision_materiales || 0) - ((row.gastos_materiales_pagados || 0) + (row.gastos_materiales_pendientes || 0));
-        const disponibleRH = (row.provision_recursos_humanos || 0) - ((row.gastos_rh_pagados || 0) + (row.gastos_rh_pendientes || 0));
-        const disponibleSPs = (row.provision_solicitudes_pago || 0) - ((row.gastos_sps_pagados || 0) + (row.gastos_sps_pendientes || 0));
 
         const getColor = (val: number) => val > 0 ? themeColors.shades[700] : val < 0 ? themeColors.accent : themeColors.textSecondary;
 
@@ -482,21 +467,17 @@ export const EventosListPage: React.FC = () => {
             </div>
             {isExpanded && (
               <div className="text-xs mt-1 space-y-0.5 border-t pt-1" style={{ color: themeColors.textSecondary }}>
-                <div className="flex justify-between gap-2" style={{ color: disponibleCombustible < 0 ? themeColors.accent : 'inherit' }}>
-                  <span>Combustible:</span>
-                  <span className="font-medium">${formatMoney(Math.max(0, disponibleCombustible))}</span>
+                <div className="flex justify-between gap-2">
+                  <span>Total Provisiones:</span>
+                  <span className="font-medium">${formatMoney(provisionesTotal)}</span>
                 </div>
-                <div className="flex justify-between gap-2" style={{ color: disponibleMateriales < 0 ? themeColors.accent : 'inherit' }}>
-                  <span>Materiales:</span>
-                  <span className="font-medium">${formatMoney(Math.max(0, disponibleMateriales))}</span>
+                <div className="flex justify-between gap-2">
+                  <span>- Gastos Totales:</span>
+                  <span className="font-medium">${formatMoney(gastosTotales)}</span>
                 </div>
-                <div className="flex justify-between gap-2" style={{ color: disponibleRH < 0 ? themeColors.accent : 'inherit' }}>
-                  <span>RH:</span>
-                  <span className="font-medium">${formatMoney(Math.max(0, disponibleRH))}</span>
-                </div>
-                <div className="flex justify-between gap-2" style={{ color: disponibleSPs < 0 ? themeColors.accent : 'inherit' }}>
-                  <span>Solicitudes:</span>
-                  <span className="font-medium">${formatMoney(Math.max(0, disponibleSPs))}</span>
+                <div className="flex justify-between gap-2 font-bold" style={{ color: getColor(disponible) }}>
+                  <span>= Disponible:</span>
+                  <span>${formatMoney(disponible)}</span>
                 </div>
               </div>
             )}
@@ -512,17 +493,13 @@ export const EventosListPage: React.FC = () => {
       width: '130px',
       render: (_value: number, row: any) => {
         const isExpanded = hoveredRow === row.id || expandedRows.has(row.id);
+        // Usar campos directamente de la vista vw_eventos_analisis_financiero_erp
         const ingresosTotales = row.ingresos_totales || 0;
-        const gastosPagados = row.gastos_pagados_total || 0;
-        const gastosPendientes = row.gastos_pendientes_total || 0;
-        const gastosTotales = gastosPagados + gastosPendientes;
-        const provisionesTotal = (row.provision_combustible_peaje || 0) +
-                                 (row.provision_materiales || 0) +
-                                 (row.provision_recursos_humanos || 0) +
-                                 (row.provision_solicitudes_pago || 0);
-        const provisionesDisponibles = Math.max(0, provisionesTotal - gastosTotales);
-        const utilidadReal = ingresosTotales - gastosTotales - provisionesDisponibles;
-        const margenReal = ingresosTotales > 0 ? (utilidadReal / ingresosTotales) * 100 : 0;
+        const gastosTotales = row.gastos_totales || 0;
+        const provisionesTotal = row.provisiones_total || 0;
+        // La vista ya calcula utilidad_real y margen_real_pct
+        const utilidadReal = row.utilidad_real ?? (ingresosTotales - gastosTotales - Math.max(0, provisionesTotal - gastosTotales));
+        const margenReal = row.margen_real_pct ?? (ingresosTotales > 0 ? (utilidadReal / ingresosTotales) * 100 : 0);
 
         const getColorInfo = (margen: number) => {
           if (margen >= 35) return { color: themeColors.shades[700], label: 'Excelente' };
@@ -533,7 +510,8 @@ export const EventosListPage: React.FC = () => {
         const colorInfo = getColorInfo(margenReal);
 
         // Tooltip con fórmula
-        const tooltip = `Margen: ${margenReal.toFixed(1)}% (${colorInfo.label})\n\nIngresos: $${formatMoney(ingresosTotales)}\n- Gastos: $${formatMoney(gastosTotales)}\n- Provisión: $${formatMoney(provisionesDisponibles)}\n= Utilidad: $${formatMoney(utilidadReal)}`;
+        const provisionesDisponibles = Math.max(0, provisionesTotal - gastosTotales);
+        const tooltip = `Margen: ${margenReal.toFixed(1)}% (${colorInfo.label})\n\nIngresos: $${formatMoney(ingresosTotales)}\n- Gastos: $${formatMoney(gastosTotales)}\n- Provisión Disp.: $${formatMoney(provisionesDisponibles)}\n= Utilidad: $${formatMoney(utilidadReal)}`;
 
         return (
           <div className="text-center" title={tooltip}>
