@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Edit2, Trash2, Copy, Save, X, Search, Filter, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Calendar } from 'lucide-react';
-import { useAuth } from '@/core/context/AuthContext';
+import { useAuth } from '@/core/auth/AuthProvider';
 import {
   getCuentasContablesPorAnio,
   getAniosDisponiblesCuentas,
@@ -29,8 +29,8 @@ const tiposCuenta: { value: CuentaContable['tipo']; label: string }[] = [
 ];
 
 export default function CuentasContablesPage() {
-  const { profile } = useAuth();
-  const companyId = profile?.company_id;
+  const { user } = useAuth();
+  const companyId = user?.company_id;
 
   // Estados principales
   const [cuentas, setCuentas] = useState<CuentaContable[]>([]);

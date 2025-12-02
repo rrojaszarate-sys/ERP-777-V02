@@ -18,7 +18,6 @@ import type {
   TipoDocumentoInventario,
   DocumentoInventario,
   DocumentoInventarioFormData,
-  DetalleFormData,
   Almacen,
   Producto,
 } from '../types';

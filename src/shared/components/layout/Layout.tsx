@@ -11,10 +11,11 @@ import {
 import { useAuth } from '../../../core/auth/AuthProvider';
 import { APP_CONFIG } from '../../../core/config/constants';
 import { ThemePalettePicker } from '../theme/ThemePalettePicker';
+import { CompanySelector } from '../CompanySelector';
 
 export const Layout: React.FC = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const { user, isDevelopment, logout } = useAuth();
+  const { user, isDevelopment, logout, setCompanyId } = useAuth();
   const location = useLocation();
 
   const modules = [
@@ -290,6 +291,12 @@ export const Layout: React.FC = () => {
             <div className="flex items-center space-x-3">
               <GlobalSearch />
               <NotificationBell />
+              {user?.company_id && setCompanyId && (
+                <CompanySelector
+                  currentCompanyId={user.company_id}
+                  onCompanyChange={setCompanyId}
+                />
+              )}
               <ThemePalettePicker />
               <UserMenu user={user} isDevelopment={isDevelopment} logout={logout} />
             </div>

@@ -13,7 +13,9 @@ interface AuthUser {
 
 interface AuthContextType {
   user: AuthUser | null;
+  profile: AuthUser | null; // Alias para compatibilidad
   setRole?: (role: string) => void;
+  setCompanyId?: (companyId: string) => void;
   availableRoles?: string[];
   isAuthenticated: boolean;
   isDevelopment: boolean;
@@ -23,6 +25,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
+  profile: null,
   isAuthenticated: false,
   isDevelopment: false,
 });
@@ -35,9 +38,13 @@ export const useAuth = () => {
   return context;
 };
 
+// Company ID default para desarrollo
+const DEFAULT_COMPANY_ID = '00000000-0000-0000-0000-000000000001';
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [selectedRole, setSelectedRole] = useState('Administrador');
+  const [selectedCompanyId, setSelectedCompanyId] = useState(DEFAULT_COMPANY_ID);
   const isDevelopment = import.meta.env.VITE_SECURITY_MODE === 'development';
 
   const roleIcons = {
@@ -91,41 +98,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email: `${selectedRole.toLowerCase().replace(' ', '_')}@madeevents.dev`,
       role: selectedRole,
       nombre: getRoleUserName(selectedRole),
-      company_id: '00000000-0000-0000-0000-000000000001' // Company ID de desarrollo
+      company_id: selectedCompanyId
     };
 
     return (
       <AuthContext.Provider value={{
         user: developmentUser,
+        profile: developmentUser, // Alias para compatibilidad
         setRole: setSelectedRole,
+        setCompanyId: setSelectedCompanyId,
         availableRoles: ['Administrador', 'Ejecutivo', 'Visualizador'],
         isAuthenticated: true,
         isDevelopment: true
       }}>
-        <div className="min-h-screen bg-gray-50">
-          {/* Selector de rol flotante en desarrollo */}
-          <div className="fixed top-4 right-4 z-50 bg-yellow-100 border-2 border-yellow-400 rounded-lg p-4 shadow-lg">
-            <div className="text-xs text-yellow-800 mb-2 font-medium flex items-center">
-              <div className="w-2 h-2 bg-yellow-500 rounded-full mr-2 animate-pulse"></div>
-              MODO DESARROLLO
-            </div>
-            <select 
-              value={selectedRole} 
-              onChange={(e) => setSelectedRole(e.target.value)}
-              className="bg-white border border-yellow-300 rounded px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-yellow-500 w-full"
-            >
-              {Object.keys(roleIcons).map((role) => (
-                <option key={role} value={role}>
-                  {role}
-                </option>
-              ))}
-            </select>
-            <div className="text-xs text-yellow-700 mt-2">
-              Usuario: {getRoleUserName(selectedRole)}
-            </div>
-          </div>
-          {children}
-        </div>
+        {children}
       </AuthContext.Provider>
     );
   }
@@ -136,12 +122,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     email: currentUser.email!,
     role: currentUser.user_metadata?.role || 'Visualizador', // Obtener del perfil real
     nombre: currentUser.user_metadata?.nombre || 'Usuario',
-    company_id: currentUser.user_metadata?.company_id || '00000000-0000-0000-0000-000000000001'
+    company_id: currentUser.user_metadata?.company_id || DEFAULT_COMPANY_ID
   } : null;
 
   return (
     <AuthContext.Provider value={{
       user: productionUser,
+      profile: productionUser, // Alias para compatibilidad
       login: handleLogin,
       logout: handleLogout,
       isAuthenticated: !!currentUser,
