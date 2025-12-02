@@ -425,19 +425,19 @@ export const EventosListPage: React.FC = () => {
             {isExpanded && (
               <div className="text-xs mt-1 space-y-0.5 border-t pt-1" style={{ color: themeColors.textSecondary }}>
                 <div className="flex justify-between gap-2">
-                  <span>🚗⛽ Comb:</span>
+                  <span>🚗⛽</span>
                   <span className="font-medium">${formatMoney(combustible)}</span>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <span>🛠️ Mat:</span>
+                  <span>🛠️</span>
                   <span className="font-medium">${formatMoney(materiales)}</span>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <span>👥 RH:</span>
+                  <span>👥</span>
                   <span className="font-medium">${formatMoney(rh)}</span>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <span>💳 SPs:</span>
+                  <span>💳</span>
                   <span className="font-medium">${formatMoney(sps)}</span>
                 </div>
               </div>
@@ -470,19 +470,19 @@ export const EventosListPage: React.FC = () => {
             {isExpanded && (
               <div className="text-xs mt-1 space-y-0.5 border-t pt-1" style={{ color: themeColors.textSecondary }}>
                 <div className="flex justify-between gap-2">
-                  <span>🚗⛽ Comb:</span>
+                  <span>🚗⛽</span>
                   <span className="font-medium">${formatMoney(provComb)}</span>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <span>🛠️ Mat:</span>
+                  <span>🛠️</span>
                   <span className="font-medium">${formatMoney(provMat)}</span>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <span>👥 RH:</span>
+                  <span>👥</span>
                   <span className="font-medium">${formatMoney(provRH)}</span>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <span>💳 SPs:</span>
+                  <span>💳</span>
                   <span className="font-medium">${formatMoney(provSPs)}</span>
                 </div>
               </div>
@@ -839,10 +839,10 @@ export const EventosListPage: React.FC = () => {
                 </p>
                 {showAllCardDetails && (
                   <div className="text-xs mt-2 pt-2 border-t space-y-1" style={{ color: themeColors.textSecondary }}>
-                    <div className="flex justify-between"><span>🚗⛽ Combustible:</span><span>${formatMoney(dashboard.total_gastos_combustible_pagados + dashboard.total_gastos_combustible_pendientes)}</span></div>
-                    <div className="flex justify-between"><span>🛠️ Materiales:</span><span>${formatMoney(dashboard.total_gastos_materiales_pagados + dashboard.total_gastos_materiales_pendientes)}</span></div>
-                    <div className="flex justify-between"><span>👥 RH:</span><span>${formatMoney(dashboard.total_gastos_rh_pagados + dashboard.total_gastos_rh_pendientes)}</span></div>
-                    <div className="flex justify-between"><span>💳 Solicitudes:</span><span>${formatMoney(dashboard.total_gastos_sps_pagados + dashboard.total_gastos_sps_pendientes)}</span></div>
+                    <div className="flex justify-between"><span>🚗⛽</span><span>${formatMoney(dashboard.total_gastos_combustible_pagados + dashboard.total_gastos_combustible_pendientes)}</span></div>
+                    <div className="flex justify-between"><span>🛠️</span><span>${formatMoney(dashboard.total_gastos_materiales_pagados + dashboard.total_gastos_materiales_pendientes)}</span></div>
+                    <div className="flex justify-between"><span>👥</span><span>${formatMoney(dashboard.total_gastos_rh_pagados + dashboard.total_gastos_rh_pendientes)}</span></div>
+                    <div className="flex justify-between"><span>💳</span><span>${formatMoney(dashboard.total_gastos_sps_pagados + dashboard.total_gastos_sps_pendientes)}</span></div>
                   </div>
                 )}
               </div>
@@ -867,16 +867,16 @@ export const EventosListPage: React.FC = () => {
                       {showAllCardDetails && (
                         <div className="text-xs mt-2 pt-2 border-t space-y-1" style={{ color: themeColors.textSecondary }}>
                           <div className="flex justify-between">
-                            <span>🚗⛽ Comb:</span><span>${formatMoney(dashboard.total_provision_combustible || 0)}</span>
+                            <span>🚗⛽</span><span>${formatMoney(dashboard.total_provision_combustible || 0)}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span>🛠️ Mat:</span><span>${formatMoney(dashboard.total_provision_materiales || 0)}</span>
+                            <span>🛠️</span><span>${formatMoney(dashboard.total_provision_materiales || 0)}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span>👥 RH:</span><span>${formatMoney(dashboard.total_provision_rh || 0)}</span>
+                            <span>👥</span><span>${formatMoney(dashboard.total_provision_rh || 0)}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span>💳 SPs:</span><span>${formatMoney(dashboard.total_provision_sps || 0)}</span>
+                            <span>💳</span><span>${formatMoney(dashboard.total_provision_sps || 0)}</span>
                           </div>
                         </div>
                       )}
