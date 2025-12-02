@@ -957,7 +957,7 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
               </div>
             </div>
 
-            {/* GASTOS - Replicando formato del listado */}
+            {/* GASTOS - Desglose por categoría igual que listado */}
             <div className="border-r pr-4">
               <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">Gastos</h4>
               <div className="font-bold text-red-900 text-2xl mb-2">
@@ -970,17 +970,25 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
               )}
               <div className="text-xs text-gray-500 border-t pt-2 space-y-1">
                 <div className="flex justify-between">
-                  <span>Pagados:</span>
-                  <span className="font-medium">{formatCurrency(evento.gastos_pagados_total || 0)}</span>
+                  <span>🚗⛽</span>
+                  <span className="font-medium">{formatCurrency((evento.gastos_combustible_pagados || 0) + (evento.gastos_combustible_pendientes || 0))}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Pendientes:</span>
-                  <span className="font-medium">{formatCurrency(evento.gastos_pendientes_total || 0)}</span>
+                  <span>🛠️</span>
+                  <span className="font-medium">{formatCurrency((evento.gastos_materiales_pagados || 0) + (evento.gastos_materiales_pendientes || 0))}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>👥</span>
+                  <span className="font-medium">{formatCurrency((evento.gastos_rh_pagados || 0) + (evento.gastos_rh_pendientes || 0))}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>💳</span>
+                  <span className="font-medium">{formatCurrency((evento.gastos_sps_pagados || 0) + (evento.gastos_sps_pendientes || 0))}</span>
                 </div>
               </div>
             </div>
 
-            {/* PROVISIONES - Gastos pendientes de pago */}
+            {/* PROVISIONES - Desglose por categoría igual que listado */}
             <div className="border-r pr-4">
               <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">Provisiones</h4>
               <div className={`font-bold text-2xl mb-2 ${provisionesTotal > 0 ? 'text-amber-600' : 'text-gray-500'}`}>
@@ -988,16 +996,20 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
               </div>
               <div className="text-xs text-gray-500 border-t pt-2 space-y-1">
                 <div className="flex justify-between">
-                  <span>Gastos:</span>
-                  <span className="font-medium">{formatCurrency(gastosTotales)}</span>
+                  <span>🚗⛽</span>
+                  <span className="font-medium">{formatCurrency(evento.provision_combustible || 0)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Provisiones:</span>
-                  <span className="font-medium">{formatCurrency(provisionesTotal)}</span>
+                  <span>🛠️</span>
+                  <span className="font-medium">{formatCurrency(evento.provision_materiales || 0)}</span>
                 </div>
-                <div className="flex justify-between font-bold text-blue-700">
-                  <span>Total Egresos:</span>
-                  <span>{formatCurrency(totalEgresos)}</span>
+                <div className="flex justify-between">
+                  <span>👥</span>
+                  <span className="font-medium">{formatCurrency(evento.provision_rh || 0)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>💳</span>
+                  <span className="font-medium">{formatCurrency(evento.provision_sps || 0)}</span>
                 </div>
               </div>
             </div>
@@ -1222,7 +1234,6 @@ const GastosTab: React.FC<{
   const { canCreate, canUpdate, canDelete } = usePermissions();
   const { paletteConfig } = useTheme();
   const [activeSubTab, setActiveSubTab] = useState<'todos' | 'combustible' | 'materiales' | 'rh' | 'sps'>('todos');
-  const [isDesgloseExpanded, setIsDesgloseExpanded] = useState(false);
 
   // Colores dinámicos de la paleta
   const colors = {
@@ -1253,13 +1264,6 @@ const GastosTab: React.FC<{
 
   // Calcular totales desde la vista vw_eventos_analisis_financiero_erp
   const totalGastos = evento.gastos_totales || 0;
-  const numGastos = gastos.length;
-
-  // Provisiones - usar campo de la vista
-  const totalProvisionado = evento.provisiones_total || 0;
-
-  // Disponible = Provisiones - Gastos
-  const totalDisponible = totalProvisionado - totalGastos;
 
   const subTabs = [
     { id: 'todos', label: 'Todos', count: gastos.length },
@@ -1281,6 +1285,38 @@ const GastosTab: React.FC<{
         return g.categoria?.nombre === categoryMap[activeSubTab];
       });
 
+  // Calcular totales por categoría
+  const gastosCombustible = gastos.filter(g => g.categoria?.nombre === 'Combustible/Peaje');
+  const gastosMateriales = gastos.filter(g => g.categoria?.nombre === 'Materiales');
+  const gastosRH = gastos.filter(g => g.categoria?.nombre === 'Recursos Humanos');
+  const gastosSPs = gastos.filter(g => g.categoria?.nombre === 'Solicitudes de Pago');
+
+  const totalCombustible = gastosCombustible.reduce((sum, g) => sum + (g.total || 0), 0);
+  const totalMateriales = gastosMateriales.reduce((sum, g) => sum + (g.total || 0), 0);
+  const totalRH = gastosRH.reduce((sum, g) => sum + (g.total || 0), 0);
+  const totalSPs = gastosSPs.reduce((sum, g) => sum + (g.total || 0), 0);
+
+  // IVA 16%
+  const IVA_RATE = 0.16;
+  const getSubtotalIVA = (total: number) => ({
+    subtotal: total / (1 + IVA_RATE),
+    iva: total - (total / (1 + IVA_RATE))
+  });
+
+  // Obtener total de la categoría activa
+  const getCategoryTotal = () => {
+    switch (activeSubTab) {
+      case 'combustible': return totalCombustible;
+      case 'materiales': return totalMateriales;
+      case 'rh': return totalRH;
+      case 'sps': return totalSPs;
+      default: return totalGastos;
+    }
+  };
+
+  const categoryTotal = getCategoryTotal();
+  const { subtotal: catSubtotal, iva: catIVA } = getSubtotalIVA(categoryTotal);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -1288,70 +1324,6 @@ const GastosTab: React.FC<{
       exit={{ opacity: 0, y: -20 }}
       className="p-6"
     >
-      {/* RESUMEN DE GASTOS - 4 FICHAS (igual que Provisiones) */}
-      <div className="grid grid-cols-4 gap-3 mb-6">
-        {/* FICHA 1: Total Gastos - COLOR SECUNDARIO */}
-        <div
-          className="rounded-lg p-3 border"
-          style={{
-            background: `linear-gradient(135deg, ${colors.secondary}10 0%, ${colors.secondary}20 100%)`,
-            borderColor: `${colors.secondary}30`
-          }}
-        >
-          <div className="flex items-start justify-between gap-2 mb-0.5">
-            <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: colors.secondary }}>Total Gastos</div>
-            <div className="text-[10px] font-semibold" style={{ color: colors.secondary }}>{numGastos} items</div>
-          </div>
-          <div className="text-xl font-bold" style={{ color: colors.secondary }}>{formatCurrency(totalGastos)}</div>
-        </div>
-
-        {/* FICHA 2: Pagados - COLOR PRIMARIO */}
-        <div
-          className="rounded-lg p-3 border"
-          style={{
-            background: `linear-gradient(135deg, ${colors.primaryLight} 0%, ${colors.primary}30 100%)`,
-            borderColor: `${colors.primary}50`
-          }}
-        >
-          <div className="flex items-start justify-between gap-2 mb-0.5">
-            <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: colors.primaryDark }}>Pagados</div>
-            <div className="text-[10px] font-semibold" style={{ color: colors.primary }}>
-              {totalGastos > 0 ? ((evento.gastos_pagados_total || 0) / totalGastos * 100).toFixed(0) : 0}%
-            </div>
-          </div>
-          <div className="text-xl font-bold" style={{ color: colors.primaryDark }}>{formatCurrency(evento.gastos_pagados_total || 0)}</div>
-        </div>
-
-        {/* FICHA 3: Pendientes - COLOR SECUNDARIO */}
-        <div
-          className="rounded-lg p-3 border"
-          style={{
-            background: `linear-gradient(135deg, ${colors.secondary}15 0%, ${colors.secondary}25 100%)`,
-            borderColor: `${colors.secondary}40`
-          }}
-        >
-          <div className="flex items-start justify-between gap-2 mb-0.5">
-            <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: colors.secondary }}>Pendientes</div>
-          </div>
-          <div className="text-xl font-bold" style={{ color: colors.secondary }}>{formatCurrency(evento.gastos_pendientes_total || 0)}</div>
-        </div>
-
-        {/* BOTÓN AGREGAR GASTO - COLOR PRIMARIO */}
-        {canCreate('gastos') && (
-          <button
-            onClick={onCreateGasto}
-            className="rounded-lg p-3 transition-all flex flex-col items-center justify-center gap-1.5 group shadow-sm hover:shadow-md"
-            style={{
-              background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`,
-              borderColor: colors.primary
-            }}
-          >
-            <Plus className="w-6 h-6 text-white" />
-            <span className="text-[10px] font-semibold text-white uppercase tracking-wide text-center">Agregar<br/>Gasto</span>
-          </button>
-        )}
-      </div>
-
       {/* LISTADO DETALLADO DE GASTOS */}
       <div className="bg-white border border-gray-200 rounded-lg mb-6 overflow-hidden p-4">
         {/* SUBTABS CON COLOR PRIMARIO */}
@@ -1371,9 +1343,25 @@ const GastosTab: React.FC<{
           ))}
         </div>
 
-        <h3 className="text-lg font-medium text-gray-900 mb-4">
-          {activeSubTab === 'todos' ? 'Todos los Gastos' : subTabs.find(t => t.id === activeSubTab)?.label}
-        </h3>
+        {/* TOTAL DE LA CATEGORÍA ACTIVA CON SUBTOTAL E IVA */}
+        <div className="mb-4 p-3 rounded-lg" style={{ backgroundColor: `${colors.secondary}10` }}>
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-sm font-medium text-gray-600">
+                {activeSubTab === 'todos' ? 'Total Gastos' : subTabs.find(t => t.id === activeSubTab)?.label}
+              </span>
+              <span className="text-xs text-gray-400 ml-2">({gastosFilter.length} items)</span>
+            </div>
+            <div className="text-right">
+              <div className="text-xl font-bold" style={{ color: colors.secondary }}>
+                {formatCurrency(categoryTotal)}
+              </div>
+              <div className="text-[10px] text-gray-400">
+                Subtotal: {formatCurrency(catSubtotal)} | IVA: {formatCurrency(catIVA)}
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div className="space-y-4">
           {gastosFilter.length === 0 ? (
@@ -1443,6 +1431,22 @@ const GastosTab: React.FC<{
             ))
           )}
         </div>
+
+        {/* BOTÓN AGREGAR GASTO AL FINAL */}
+        {canCreate('gastos') && (
+          <div className="pt-4 border-t mt-4">
+            <button
+              onClick={onCreateGasto}
+              className="w-full rounded-lg p-3 transition-all flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+              style={{
+                background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`
+              }}
+            >
+              <Plus className="w-5 h-5 text-white" />
+              <span className="text-sm font-semibold text-white">Agregar Gasto</span>
+            </button>
+          </div>
+        )}
       </div>
     </motion.div>
   );
@@ -1490,10 +1494,6 @@ const ProvisionesTab: React.FC<{
 
   // Calcular totales
   const totalProvisiones = provisiones.reduce((sum, p) => sum + (p.total || 0), 0);
-  const numProvisiones = provisiones.length;
-  const pendientesCount = provisiones.filter(p => p.estado === 'pendiente').length;
-  const aprobadosCount = provisiones.filter(p => p.estado === 'aprobado').length;
-  const pagadosCount = provisiones.filter(p => p.estado === 'pagado').length;
 
   // SubTabs por categoría (igual que Gastos)
   const subTabs = [
@@ -1518,6 +1518,38 @@ const ProvisionesTab: React.FC<{
         return validNames.includes(p.categoria?.nombre) || validNames.includes(p.categoria?.clave);
       });
 
+  // Calcular totales por categoría
+  const provCombustible = provisiones.filter(p => p.categoria?.nombre === 'Combustible/Peaje' || p.categoria?.clave === 'combustible');
+  const provMateriales = provisiones.filter(p => p.categoria?.nombre === 'Materiales' || p.categoria?.clave === 'materiales');
+  const provRH = provisiones.filter(p => p.categoria?.nombre === 'Recursos Humanos' || p.categoria?.clave === 'rh');
+  const provSPs = provisiones.filter(p => p.categoria?.nombre === 'Solicitudes de Pago' || p.categoria?.clave === 'sps');
+
+  const totalProvCombustible = provCombustible.reduce((sum, p) => sum + (p.total || 0), 0);
+  const totalProvMateriales = provMateriales.reduce((sum, p) => sum + (p.total || 0), 0);
+  const totalProvRH = provRH.reduce((sum, p) => sum + (p.total || 0), 0);
+  const totalProvSPs = provSPs.reduce((sum, p) => sum + (p.total || 0), 0);
+
+  // IVA 16%
+  const IVA_RATE = 0.16;
+  const getSubtotalIVA = (total: number) => ({
+    subtotal: total / (1 + IVA_RATE),
+    iva: total - (total / (1 + IVA_RATE))
+  });
+
+  // Obtener total de la categoría activa
+  const getCategoryTotal = () => {
+    switch (activeSubTab) {
+      case 'combustible': return totalProvCombustible;
+      case 'materiales': return totalProvMateriales;
+      case 'rh': return totalProvRH;
+      case 'sps': return totalProvSPs;
+      default: return totalProvisiones;
+    }
+  };
+
+  const categoryTotal = getCategoryTotal();
+  const { subtotal: catSubtotal, iva: catIVA } = getSubtotalIVA(categoryTotal);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -1525,67 +1557,6 @@ const ProvisionesTab: React.FC<{
       exit={{ opacity: 0, y: -20 }}
       className="p-6"
     >
-      {/* RESUMEN DE PROVISIONES - 4 FICHAS CON COLORES DINÁMICOS */}
-      <div className="grid grid-cols-4 gap-3 mb-6">
-        {/* FICHA 1: Total Provisionado - COLOR PRIMARIO */}
-        <div
-          className="rounded-lg p-3 border"
-          style={{
-            background: `linear-gradient(135deg, ${colors.primaryLight} 0%, ${colors.primary}20 100%)`,
-            borderColor: `${colors.primary}40`
-          }}
-        >
-          <div className="flex items-start justify-between gap-2 mb-0.5">
-            <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: colors.primaryDark }}>Total Provisiones</div>
-            <div className="text-[10px] font-semibold" style={{ color: colors.primary }}>{numProvisiones} items</div>
-          </div>
-          <div className="text-xl font-bold" style={{ color: colors.primaryDark }}>{formatCurrency(totalProvisiones)}</div>
-        </div>
-
-        {/* FICHA 2: Pendientes - COLOR SECUNDARIO */}
-        <div
-          className="rounded-lg p-3 border"
-          style={{
-            background: `linear-gradient(135deg, ${colors.secondary}15 0%, ${colors.secondary}25 100%)`,
-            borderColor: `${colors.secondary}40`
-          }}
-        >
-          <div className="flex items-start justify-between gap-2 mb-0.5">
-            <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: colors.secondary }}>Pendientes</div>
-          </div>
-          <div className="text-xl font-bold" style={{ color: colors.secondary }}>{pendientesCount}</div>
-        </div>
-
-        {/* FICHA 3: Aprobados - COLOR PRIMARIO */}
-        <div
-          className="rounded-lg p-3 border"
-          style={{
-            background: `linear-gradient(135deg, ${colors.primary}15 0%, ${colors.primary}30 100%)`,
-            borderColor: `${colors.primary}50`
-          }}
-        >
-          <div className="flex items-start justify-between gap-2 mb-0.5">
-            <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: colors.primaryDark }}>Aprobados</div>
-          </div>
-          <div className="text-xl font-bold" style={{ color: colors.primaryDark }}>{aprobadosCount}</div>
-        </div>
-
-        {/* BOTÓN AGREGAR PROVISIÓN - COLOR PRIMARIO */}
-        {canCreate('gastos') && (
-          <button
-            onClick={onCreateProvision}
-            className="rounded-lg p-3 transition-all flex flex-col items-center justify-center gap-1.5 group shadow-sm hover:shadow-md"
-            style={{
-              background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`,
-              borderColor: colors.primary
-            }}
-          >
-            <Plus className="w-6 h-6 text-white" />
-            <span className="text-[10px] font-semibold text-white uppercase tracking-wide text-center">Agregar<br/>Provisión</span>
-          </button>
-        )}
-      </div>
-
       {/* LISTADO DE PROVISIONES CON SUBTABS */}
       <div className="bg-white border border-gray-200 rounded-lg mb-6 overflow-hidden p-4">
         {/* SUBTABS CON COLOR PRIMARIO */}
@@ -1605,9 +1576,25 @@ const ProvisionesTab: React.FC<{
           ))}
         </div>
 
-        <h3 className="text-lg font-medium text-gray-900 mb-4">
-          {activeSubTab === 'todos' ? 'Todas las Provisiones' : subTabs.find(t => t.id === activeSubTab)?.label}
-        </h3>
+        {/* TOTAL DE LA CATEGORÍA ACTIVA CON SUBTOTAL E IVA */}
+        <div className="mb-4 p-3 rounded-lg" style={{ backgroundColor: `${colors.primary}10` }}>
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-sm font-medium text-gray-600">
+                {activeSubTab === 'todos' ? 'Total Provisiones' : subTabs.find(t => t.id === activeSubTab)?.label}
+              </span>
+              <span className="text-xs text-gray-400 ml-2">({provisionesFiltered.length} items)</span>
+            </div>
+            <div className="text-right">
+              <div className="text-xl font-bold" style={{ color: colors.primaryDark }}>
+                {formatCurrency(categoryTotal)}
+              </div>
+              <div className="text-[10px] text-gray-400">
+                Subtotal: {formatCurrency(catSubtotal)} | IVA: {formatCurrency(catIVA)}
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div className="space-y-4">
           {provisionesFiltered.length === 0 ? (
@@ -1685,6 +1672,22 @@ const ProvisionesTab: React.FC<{
             ))
           )}
         </div>
+
+        {/* BOTÓN AGREGAR PROVISIÓN AL FINAL */}
+        {canCreate('gastos') && (
+          <div className="pt-4 border-t mt-4">
+            <button
+              onClick={onCreateProvision}
+              className="w-full rounded-lg p-3 transition-all flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+              style={{
+                background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`
+              }}
+            >
+              <Plus className="w-5 h-5 text-white" />
+              <span className="text-sm font-semibold text-white">Agregar Provisión</span>
+            </button>
+          </div>
+        )}
       </div>
     </motion.div>
   );
