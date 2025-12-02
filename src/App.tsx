@@ -21,6 +21,7 @@ const ContabilidadDashboard = lazy(() => import('./modules/contabilidad-erp/page
 const PolizasPage = lazy(() => import('./modules/contabilidad-erp/pages/PolizasPage').then(m => ({ default: m.PolizasPage })));
 const ReportesPage = lazy(() => import('./modules/contabilidad-erp/pages/ReportesPage').then(m => ({ default: m.ReportesPage })));
 const GastosNoImpactadosPage = lazy(() => import('./modules/contabilidad-erp/pages/GastosNoImpactadosPage').then(m => ({ default: m.GastosNoImpactadosPage })));
+const CuentasContablesPage = lazy(() => import('./modules/contabilidad-erp/pages/CuentasContablesPage'));
 
 // MÓDULO DE CRM Y COTIZACIONES
 const CRMDashboard = lazy(() => import('./modules/cotizaciones-erp/pages/CRMDashboard').then(m => ({ default: m.CRMDashboard })));
@@ -153,7 +154,7 @@ function App() {
                 <Route path="contabilidad" element={<ContabilidadDashboard />} />
                 <Route path="contabilidad/polizas" element={<PolizasPage />} />
                 <Route path="contabilidad/reportes" element={<ReportesPage />} />
-                <Route path="contabilidad/plan-cuentas" element={<ContabilidadDashboard />} />
+                <Route path="contabilidad/plan-cuentas" element={<CuentasContablesPage />} />
                 <Route path="contabilidad/gastos-no-impactados" element={<GastosNoImpactadosPage />} />
 
                 {/* Rutas de CRM y Cotizaciones */}

@@ -10,14 +10,15 @@
 export interface CuentaContable {
   id: number;
   company_id: string;
-  clave: string;           // MDE2025-001, ING-001, etc.
-  cuenta: string;          // GASTOS FIJOS, INGRESOS, etc.
-  subcuenta: string | null;
+  clave: string;           // Código completo (MDE2025-001A) - SUBCLAVE
+  cuenta: string;          // Categoría/Concepto (GASTOS FIJOS, INGRESOS, etc.)
+  subcuenta: string | null; // Detalle/Concepto Subclave
   tipo: 'activo' | 'pasivo' | 'capital' | 'ingreso' | 'gasto';
   presupuesto_anual: number;
   orden_display: number;
   activa: boolean;
   descripcion: string | null;
+  anio: number | null;      // Año de la clave (2025, 2026, etc.)
   created_at: string;
   updated_at: string;
 }
@@ -29,6 +30,7 @@ export interface CuentaContableFormData {
   tipo: CuentaContable['tipo'];
   presupuesto_anual: number;
   descripcion: string;
+  anio: number;
 }
 
 // ============================================================================

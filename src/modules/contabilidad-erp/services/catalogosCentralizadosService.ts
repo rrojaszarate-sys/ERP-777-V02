@@ -69,6 +69,134 @@ export async function createCuentaContable(
   return data;
 }
 
+export async function getCuentasContablesPorAnio(
+  companyId: string,
+  anio: number
+): Promise<CuentaContable[]> {
+  const { data, error } = await supabase
+    .from('cont_cuentas_contables')
+    .select('*')
+    .eq('company_id', companyId)
+    .eq('anio', anio)
+    .order('cuenta')
+    .order('clave');
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getAniosDisponiblesCuentas(
+  companyId: string
+): Promise<number[]> {
+  const { data, error } = await supabase
+    .from('cont_cuentas_contables')
+    .select('anio')
+    .eq('company_id', companyId)
+    .not('anio', 'is', null);
+
+  if (error) throw error;
+
+  const anios = [...new Set((data || []).map(d => d.anio as number))];
+  return anios.sort((a, b) => b - a); // Más reciente primero
+}
+
+export async function updateCuentaContable(
+  id: number,
+  formData: Partial<CuentaContableFormData>
+): Promise<CuentaContable> {
+  const { data, error } = await supabase
+    .from('cont_cuentas_contables')
+    .update({
+      ...formData,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteCuentaContable(id: number): Promise<void> {
+  const { error } = await supabase
+    .from('cont_cuentas_contables')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+}
+
+export async function toggleCuentaContableActiva(
+  id: number,
+  activa: boolean
+): Promise<CuentaContable> {
+  const { data, error } = await supabase
+    .from('cont_cuentas_contables')
+    .update({ activa, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function duplicarEstructuraAnio(
+  companyId: string,
+  anioOrigen: number,
+  anioDestino: number,
+  prefijo: string = 'MDE'
+): Promise<{ creadas: number; existentes: number }> {
+  // Obtener cuentas del año origen
+  const cuentasOrigen = await getCuentasContablesPorAnio(companyId, anioOrigen);
+
+  // Filtrar solo las que tienen el prefijo correcto
+  const cuentasADuplicar = cuentasOrigen.filter(c =>
+    c.clave.includes(String(anioOrigen))
+  );
+
+  let creadas = 0;
+  let existentes = 0;
+
+  for (const cuenta of cuentasADuplicar) {
+    const nuevaClave = cuenta.clave.replace(String(anioOrigen), String(anioDestino));
+
+    // Verificar si ya existe
+    const { data: existente } = await supabase
+      .from('cont_cuentas_contables')
+      .select('id')
+      .eq('company_id', companyId)
+      .eq('clave', nuevaClave)
+      .single();
+
+    if (existente) {
+      existentes++;
+      continue;
+    }
+
+    // Crear nueva cuenta
+    await supabase
+      .from('cont_cuentas_contables')
+      .insert({
+        company_id: companyId,
+        clave: nuevaClave,
+        cuenta: cuenta.cuenta,
+        subcuenta: cuenta.subcuenta,
+        tipo: cuenta.tipo,
+        presupuesto_anual: cuenta.presupuesto_anual,
+        orden_display: cuenta.orden_display,
+        activa: true,
+        descripcion: cuenta.descripcion,
+        anio: anioDestino
+      });
+
+    creadas++;
+  }
+
+  return { creadas, existentes };
+}
+
 // ============================================================================
 // PROVEEDORES
 // ============================================================================

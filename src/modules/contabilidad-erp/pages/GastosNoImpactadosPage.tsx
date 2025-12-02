@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
@@ -194,6 +195,7 @@ export const GastosNoImpactadosPage = () => {
   const { user } = useAuth();
   const companyId = user?.company_id;
   const { paletteConfig, isDark } = useTheme();
+  const navigate = useNavigate();
 
   // Colores dinámicos del tema
   const themeColors = useMemo(() => ({
@@ -580,12 +582,14 @@ export const GastosNoImpactadosPage = () => {
   };
 
   // Definición de columnas disponibles para exportación
+  // Estructura jerárquica: CLAVE (sin letra) → CUENTA | SUBCLAVE (con letra) → SUBCUENTA
   const excelColumnDefs = [
     { key: 'periodo', label: 'Período', width: 10 },
     { key: 'fecha_gasto', label: 'Fecha', width: 12 },
-    { key: 'clave', label: 'Clave', width: 15 },
-    { key: 'cuenta', label: 'Cuenta', width: 25 },
-    { key: 'subcuenta', label: 'Subcuenta (Subclave)', width: 30 },
+    { key: 'clave', label: 'Clave', width: 14 },
+    { key: 'cuenta', label: 'Concepto Clave', width: 18 },
+    { key: 'subclave', label: 'Subclave', width: 14 },
+    { key: 'subcuenta', label: 'Concepto Subclave', width: 40 },
     { key: 'proveedor', label: 'Proveedor', width: 35 },
     { key: 'rfc_proveedor', label: 'RFC Proveedor', width: 15 },
     { key: 'concepto', label: 'Concepto', width: 40 },
@@ -648,8 +652,9 @@ export const GastosNoImpactadosPage = () => {
     { key: 'proveedor', label: 'Proveedor', align: 'left' },
     { key: 'concepto', label: 'Concepto', align: 'left' },
     { key: 'clave', label: 'Clave', align: 'left' },
-    { key: 'cuenta', label: 'Cuenta', align: 'left' },
-    { key: 'subcuenta', label: 'Subcuenta', align: 'left' },
+    { key: 'cuenta', label: 'Concepto', align: 'left' },
+    { key: 'subclave', label: 'Subclave', align: 'left' },
+    { key: 'subcuenta', label: 'Concepto Subclave', align: 'left' },
     { key: 'forma_pago', label: 'F. Pago', align: 'left' },
     { key: 'subtotal', label: 'Subtotal', align: 'right' },
     { key: 'iva', label: 'IVA', align: 'right' },
@@ -666,26 +671,31 @@ export const GastosNoImpactadosPage = () => {
     const anio = filtros.anio || filtros.periodo?.split('-')[0] || anioActual;
     const meses = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
 
-    // Agrupar gastos por clave y cuenta
+    // Agrupar gastos por SUBCLAVE (código con letra - el más específico)
     const gastosAgrupados: Record<string, {
-      clave: string;
-      concepto: string;
-      subclave: string;
-      subconcepto: string;
+      clave: string;          // Código padre (MDE2025-002)
+      conceptoClave: string;  // Concepto de la clave (GASTOS FIJOS)
+      subclave: string;       // Código completo (MDE2025-002A)
+      conceptoSubclave: string; // Concepto de la subclave (SERVICIO DE LUZ)
       presupuesto: number;
       meses: number[];
       totalAcumulado: number;
     }> = {};
 
-    // Primero creamos las claves principales desde el catálogo
+    // Función para extraer clave padre (sin letra final)
+    const getClavePadre = (clave: string) => {
+      return clave.match(/[A-Z]$/) ? clave.slice(0, -1) : clave;
+    };
+
+    // Primero creamos las entradas desde el catálogo
     claves.forEach(c => {
-      const key = c.clave;
-      if (!gastosAgrupados[key]) {
-        gastosAgrupados[key] = {
-          clave: c.clave,           // Código de la clave (ej: MDE2025-002A)
-          concepto: c.cuenta,       // Cuenta principal (ej: GASTOS FIJOS)
-          subclave: '',             // No aplica - cada clave es única
-          subconcepto: c.subcuenta, // Detalle/subcuenta (ej: AGUA EMBOTELLADA)
+      const subclave = c.clave; // El catálogo tiene el código completo (con letra)
+      if (!gastosAgrupados[subclave]) {
+        gastosAgrupados[subclave] = {
+          clave: getClavePadre(c.clave),  // Código padre (sin letra)
+          conceptoClave: c.cuenta,         // Concepto de la clave (categoría)
+          subclave: c.clave,               // Código completo (con letra)
+          conceptoSubclave: c.subcuenta,   // Concepto de la subclave (detalle)
           presupuesto: c.presupuesto_anual || 0,
           meses: Array(12).fill(0),
           totalAcumulado: 0
@@ -693,15 +703,15 @@ export const GastosNoImpactadosPage = () => {
       }
     });
 
-    // Ahora sumamos los gastos por mes
+    // Ahora sumamos los gastos por mes usando SUBCLAVE
     gastos.forEach(g => {
-      const clave = g.clave || 'SIN-CLAVE';
-      if (!gastosAgrupados[clave]) {
-        gastosAgrupados[clave] = {
-          clave: clave,
-          concepto: g.cuenta || 'Sin cuenta',
-          subclave: '',               // No aplica
-          subconcepto: g.subcuenta || 'Sin subcuenta',
+      const subclave = (g as any).subclave || g.clave || 'SIN-CLAVE';
+      if (!gastosAgrupados[subclave]) {
+        gastosAgrupados[subclave] = {
+          clave: g.clave || getClavePadre(subclave),
+          conceptoClave: g.cuenta || 'Sin categoría',
+          subclave: subclave,
+          conceptoSubclave: g.subcuenta || 'Sin detalle',
           presupuesto: 0,
           meses: Array(12).fill(0),
           totalAcumulado: 0
@@ -709,32 +719,34 @@ export const GastosNoImpactadosPage = () => {
       }
 
       const mesGasto = g.fecha_gasto ? parseInt(g.fecha_gasto.split('-')[1]) - 1 : 0;
-      gastosAgrupados[clave].meses[mesGasto] += g.total || 0;
-      gastosAgrupados[clave].totalAcumulado += g.total || 0;
+      gastosAgrupados[subclave].meses[mesGasto] += g.total || 0;
+      gastosAgrupados[subclave].totalAcumulado += g.total || 0;
     });
 
     // Crear datos para Excel
     const dataExcel: any[] = [];
 
-    // Header - Estructura: CLAVE (código) | CUENTA (categoría) | SUBCUENTA (detalle)
+    // Header - Estructura jerárquica: CLAVE → CONCEPTO | SUBCLAVE → CONCEPTO
     dataExcel.push({
       'CLAVE': 'CLAVE',
-      'CUENTA': 'CUENTA',
-      'SUBCUENTA': 'SUBCUENTA/DETALLE',
+      'CONCEPTO CLAVE': 'CONCEPTO CLAVE',
+      'SUBCLAVE': 'SUBCLAVE',
+      'CONCEPTO SUBCLAVE': 'CONCEPTO SUBCLAVE',
       'PRESUPUESTO': 'PRESUPUESTO',
       ...meses.reduce((acc, m) => ({ ...acc, [m]: m }), {}),
       'TOTAL ACUMULADO': 'TOTAL ACUMULADO',
       'VARIACIÓN': 'VARIACIÓN PRESUPUESTARIA'
     });
 
-    // Datos agrupados
+    // Datos agrupados ordenados por subclave
     Object.values(gastosAgrupados)
-      .sort((a, b) => a.clave.localeCompare(b.clave))
+      .sort((a, b) => a.subclave.localeCompare(b.subclave))
       .forEach(item => {
         const row: any = {
-          'CLAVE': item.clave,         // Código (MDE2025-002A)
-          'CUENTA': item.concepto,     // Categoría (GASTOS FIJOS)
-          'SUBCUENTA': item.subconcepto, // Detalle (AGUA EMBOTELLADA)
+          'CLAVE': item.clave,                   // Código padre (MDE2025-002)
+          'CONCEPTO CLAVE': item.conceptoClave,  // Categoría (GASTOS FIJOS)
+          'SUBCLAVE': item.subclave,             // Código completo (MDE2025-002A)
+          'CONCEPTO SUBCLAVE': item.conceptoSubclave, // Detalle (SERVICIO DE LUZ)
           'PRESUPUESTO': item.presupuesto,
         };
         meses.forEach((m, i) => {
@@ -750,11 +762,12 @@ export const GastosNoImpactadosPage = () => {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Reporte GNI');
 
-    // Anchos de columna - Actualizado a 3 columnas principales
+    // Anchos de columna - 4 columnas principales
     ws['!cols'] = [
-      { wch: 15 }, // CLAVE
-      { wch: 18 }, // CUENTA
-      { wch: 40 }, // SUBCUENTA (más ancha para el detalle)
+      { wch: 14 }, // CLAVE
+      { wch: 18 }, // CONCEPTO CLAVE
+      { wch: 14 }, // SUBCLAVE
+      { wch: 45 }, // CONCEPTO SUBCLAVE (más ancha para el detalle)
       { wch: 14 }, // PRESUPUESTO
       ...Array(12).fill({ wch: 12 }), // Meses
       { wch: 16 }, // TOTAL ACUMULADO
@@ -961,12 +974,22 @@ export const GastosNoImpactadosPage = () => {
                 </button>
                 <button
                   onClick={() => { setCatalogoActivo('formasPago'); setShowCatalogosDropdown(false); }}
-                  className="w-full px-4 py-3 text-left hover:bg-teal-50 flex items-center gap-3 rounded-b-lg border-t"
+                  className="w-full px-4 py-3 text-left hover:bg-teal-50 flex items-center gap-3 border-t"
                 >
                   <Banknote className="w-5 h-5 text-blue-600" />
                   <div>
                     <div className="font-medium text-gray-900">Formas de Pago</div>
                     <div className="text-xs text-gray-500">{formasPago.length} registros</div>
+                  </div>
+                </button>
+                <button
+                  onClick={() => { navigate('/contabilidad/plan-cuentas'); setShowCatalogosDropdown(false); }}
+                  className="w-full px-4 py-3 text-left hover:bg-violet-50 flex items-center gap-3 rounded-b-lg border-t bg-violet-50/50"
+                >
+                  <Settings className="w-5 h-5 text-violet-600" />
+                  <div>
+                    <div className="font-medium text-violet-900">Administrar Cuentas</div>
+                    <div className="text-xs text-violet-600">CRUD completo por año</div>
                   </div>
                 </button>
               </motion.div>
