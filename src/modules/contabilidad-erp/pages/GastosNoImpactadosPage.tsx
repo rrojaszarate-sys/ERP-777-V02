@@ -2696,6 +2696,114 @@ export const GastosNoImpactadosPage = () => {
         )}
       </AnimatePresence>
 
+      {/* Modal de Selección de Columnas para Excel */}
+      <AnimatePresence>
+        {showExportModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={(e) => e.target === e.currentTarget && setShowExportModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[85vh] flex flex-col"
+            >
+              <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-4 flex items-center justify-between rounded-t-xl">
+                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <FileSpreadsheet className="w-5 h-5" />
+                  Exportar a Excel
+                </h2>
+                <button onClick={() => setShowExportModal(false)} className="text-white/80 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 overflow-y-auto flex-1">
+                <p className="text-sm text-gray-600 mb-4">
+                  Selecciona las columnas que deseas incluir en el archivo Excel:
+                </p>
+
+                {/* Botones de selección rápida */}
+                <div className="flex gap-2 mb-4">
+                  <button
+                    onClick={() => {
+                      const allSelected: Record<string, boolean> = {};
+                      excelColumnDefs.forEach(c => { allSelected[c.key] = true; });
+                      setExportColumns(allSelected);
+                    }}
+                    className="px-3 py-1.5 text-xs bg-emerald-100 text-emerald-700 rounded hover:bg-emerald-200"
+                  >
+                    Seleccionar Todas
+                  </button>
+                  <button
+                    onClick={() => {
+                      const noneSelected: Record<string, boolean> = {};
+                      excelColumnDefs.forEach(c => { noneSelected[c.key] = false; });
+                      setExportColumns(noneSelected);
+                    }}
+                    className="px-3 py-1.5 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+                  >
+                    Deseleccionar Todas
+                  </button>
+                </div>
+
+                {/* Lista de columnas */}
+                <div className="grid grid-cols-2 gap-2">
+                  {excelColumnDefs.map(col => (
+                    <label
+                      key={col.key}
+                      className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${
+                        exportColumns[col.key]
+                          ? 'bg-emerald-50 border border-emerald-200'
+                          : 'bg-gray-50 border border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={exportColumns[col.key]}
+                        onChange={() => setExportColumns(prev => ({ ...prev, [col.key]: !prev[col.key] }))}
+                        className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                      />
+                      <span className={`text-sm ${exportColumns[col.key] ? 'text-emerald-800 font-medium' : 'text-gray-600'}`}>
+                        {col.label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+
+                {/* Info de registros */}
+                <div className="mt-4 bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs text-gray-600">
+                    <strong>{gastosFiltrados.length}</strong> registros serán exportados con{' '}
+                    <strong>{Object.values(exportColumns).filter(Boolean).length}</strong> columnas seleccionadas.
+                  </p>
+                </div>
+              </div>
+
+              <div className="px-6 py-4 border-t flex justify-end gap-3">
+                <button
+                  onClick={() => setShowExportModal(false)}
+                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleExportExcel}
+                  disabled={Object.values(exportColumns).filter(Boolean).length === 0}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Download className="w-4 h-4" />
+                  Generar Excel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Modal de Reporte por Período */}
       <AnimatePresence>
         {showReportModal && (
@@ -2728,7 +2836,7 @@ export const GastosNoImpactadosPage = () => {
                 </p>
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                   <p className="text-sm text-blue-800">
-                    <strong>Año seleccionado:</strong> {(filtros.periodo || getPeriodoActual()).split('-')[0]}
+                    <strong>Año seleccionado:</strong> {filtros.anio || filtros.periodo?.split('-')[0] || anioActual}
                   </p>
                   <p className="text-xs text-blue-600 mt-1">
                     Se incluirán todos los gastos del año con las claves del catálogo.
