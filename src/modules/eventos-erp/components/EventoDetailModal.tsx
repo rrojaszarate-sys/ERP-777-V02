@@ -722,23 +722,23 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
   // UTILIDAD = INGRESOS - GASTOS - PROVISIONES_DISPONIBLES
   // PROVISIONES_DISPONIBLES = MAX(0, PROVISIONES - GASTOS)
 
-  // Usar campos directamente de la vista
-  const provisionesTotalTab = evento.provisiones_total || 0;
+  // Usar campos directamente de la vista vw_eventos_analisis_financiero_erp
+  const provisionesTotal = evento.provisiones_total || 0;
   const ingresoEstimado = evento.ingreso_estimado || 0;
-  const ingresosTotalesTab = evento.ingresos_totales || 0;
-  const gastosTotalesTab = evento.gastos_totales || 0;
+  const ingresosTotales = evento.ingresos_totales || 0;
+  const gastosTotales = evento.gastos_totales || 0;
 
-  // Provisiones disponibles
-  const provisionesDisponiblesTab = Math.max(0, provisionesTotalTab - gastosTotalesTab);
+  // Provisiones disponibles = MAX(0, Provisiones - Gastos)
+  const provisionesDisponibles = Math.max(0, provisionesTotal - gastosTotales);
 
-  // Utilidad y margen de la vista
-  const utilidadRealTab = evento.utilidad_real ?? (ingresosTotalesTab - gastosTotalesTab - provisionesDisponiblesTab);
-  const margenRealPct = evento.margen_real_pct ?? (ingresosTotalesTab > 0 ? (utilidadRealTab / ingresosTotalesTab) * 100 : 0);
+  // Utilidad = Ingresos - Gastos - Provisiones
+  const utilidadReal = evento.utilidad_real ?? (ingresosTotales - gastosTotales - provisionesTotal);
+  const margenRealPct = evento.margen_real_pct ?? (ingresosTotales > 0 ? (utilidadReal / ingresosTotales) * 100 : 0);
 
   // Cálculos de IVA (16%)
-  const IVA_RATE_TAB = 0.16;
-  const ivaIngresosTab = ingresosTotalesTab * IVA_RATE_TAB;
-  const ivaGastosTab = gastosTotalesTab * IVA_RATE_TAB;
+  const IVA_RATE = 0.16;
+  const ivaIngresos = ingresosTotales * IVA_RATE;
+  const ivaGastos = gastosTotales * IVA_RATE;
 
   return (
     <motion.div
@@ -988,21 +988,21 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
             {/* PROVISIÓN - Fórmula del cliente: MAX(0, Provisionado - Gastos) */}
             <div className="border-r pr-4">
               <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">Provisión Disp.</h4>
-              <div className={`font-bold text-2xl mb-2 ${provisionesDisponiblesTab > 0 ? 'text-amber-600' : 'text-gray-500'}`}>
-                {formatCurrency(provisionesDisponiblesTab)}
+              <div className={`font-bold text-2xl mb-2 ${provisionesDisponibles > 0 ? 'text-amber-600' : 'text-gray-500'}`}>
+                {formatCurrency(provisionesDisponibles)}
               </div>
               <div className="text-xs text-gray-500 border-t pt-2 space-y-1">
                 <div className="flex justify-between">
                   <span>Total Prov.:</span>
-                  <span className="font-medium">{formatCurrency(provisionesTotalTab)}</span>
+                  <span className="font-medium">{formatCurrency(provisionesTotal)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>- Gastos:</span>
-                  <span className="font-medium">{formatCurrency(gastosTotalesTab)}</span>
+                  <span className="font-medium">{formatCurrency(gastosTotales)}</span>
                 </div>
-                <div className={`flex justify-between font-bold ${provisionesDisponiblesTab > 0 ? 'text-amber-600' : 'text-gray-400'}`}>
+                <div className={`flex justify-between font-bold ${provisionesDisponibles > 0 ? 'text-amber-600' : 'text-gray-400'}`}>
                   <span>= Disp.:</span>
-                  <span>{formatCurrency(provisionesDisponiblesTab)}</span>
+                  <span>{formatCurrency(provisionesDisponibles)}</span>
                 </div>
               </div>
             </div>
@@ -1010,8 +1010,8 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
             {/* UTILIDAD - Con velocímetro replicando formato del listado */}
             <div className="flex flex-col items-center">
               <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">Utilidad</h4>
-              <div className={`font-bold text-2xl mb-2 ${utilidadRealTab >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                {formatCurrency(utilidadRealTab)}
+              <div className={`font-bold text-2xl mb-2 ${utilidadReal >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                {formatCurrency(utilidadReal)}
               </div>
               {/* Gauge Chart - Replicando el del listado */}
               <GaugeChart
