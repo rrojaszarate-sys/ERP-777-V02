@@ -345,19 +345,15 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
       return;
     }
 
-    // Validaciones para afectar inventario
+    // Validaciones para afectar inventario (firmas son OPCIONALES)
     if (afectarInventario) {
       if (!almacenId) {
         toast.error('Selecciona un almacén');
         return;
       }
-      if (!nombreEntrega || !firmaEntrega) {
-        toast.error('Falta nombre y firma de quien entrega');
-        return;
-      }
-      if (!nombreRecibe || !firmaRecibe) {
-        toast.error('Falta nombre y firma de quien recibe');
-        return;
+      // ✅ FIRMAS OPCIONALES - Solo advertir si no hay firmas, no bloquear
+      if (!nombreEntrega || !firmaEntrega || !nombreRecibe || !firmaRecibe) {
+        console.warn('⚠️ Documento sin firmas completas - se creará igual');
       }
       // Validar que todos los productos tengan ID (para poder afectar inventario)
       const sinProductoId = lineas.filter(l => !l.producto_id);
@@ -394,16 +390,16 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
               observaciones: `Evento #${eventoId} - ${l.producto_nombre}`
             }));
 
-          // Crear documento con firmas
+          // Crear documento (firmas opcionales)
           const documento = await createDocumentoInventario({
             tipo: tipoDocumento,
             fecha: fecha,
             almacen_id: almacenId,
             evento_id: eventoId,
-            nombre_entrega: nombreEntrega,
-            firma_entrega: firmaEntrega,
-            nombre_recibe: nombreRecibe,
-            firma_recibe: firmaRecibe,
+            nombre_entrega: nombreEntrega || 'Pendiente',
+            firma_entrega: firmaEntrega || null,
+            nombre_recibe: nombreRecibe || 'Pendiente',
+            firma_recibe: firmaRecibe || null,
             observaciones: `${tipoMovimiento === 'gasto' ? 'Ingreso' : 'Retorno'} de material - Evento #${eventoId}`,
             detalles: detallesInventario
           }, user.company_id, user.id);

@@ -14,12 +14,12 @@ import { useFileUpload } from '../../hooks/useFileUpload';
 import { useUsers } from '../../hooks/useUsers';
 import { useClients } from '../../hooks/useClients';
 import { useCuentasContables } from '../../hooks/useCuentasContables';
+import { useAuth } from '../../../../core/auth/AuthProvider';
 import { formatCurrency } from '../../../../shared/utils/formatters';
 import { MEXICAN_CONFIG, BUSINESS_RULES } from '../../../../core/config/constants';
 import { Income } from '../../types/Finance';
 import { parseCFDIXml, cfdiToIncomeData } from '../../utils/cfdiXmlParser';
 import { toast } from 'react-hot-toast';
-import { fileUploadService } from '../../../../services/fileUploadService';
 
 // IVA desde config
 const IVA_PORCENTAJE = MEXICAN_CONFIG.ivaRate;
@@ -109,6 +109,9 @@ export const IncomeForm: React.FC<IncomeFormProps> = ({
   onCancel,
   className = ''
 }) => {
+  // Hook de autenticación para company_id
+  const { user } = useAuth();
+
   // Hook de tema para colores dinámicos
   const { paletteConfig, isDark } = useTheme();
 
@@ -140,7 +143,7 @@ export const IncomeForm: React.FC<IncomeFormProps> = ({
     fecha_facturacion: income?.fecha_facturacion || new Date().toISOString().split('T')[0],
     fecha_cobro: income?.fecha_cobro || '',
     responsable_id: income?.responsable_id || '',
-    cuenta_contable_id: income?.cuenta_contable_id || '',
+    cuenta_contable_id: (income as any)?.cuenta_contable_id || '',
     cliente_id: income?.cliente_id || '',
     cliente: income?.cliente || '',
     rfc_cliente: income?.rfc_cliente || '',
@@ -158,14 +161,14 @@ export const IncomeForm: React.FC<IncomeFormProps> = ({
 
   const { uploadFile, isUploading } = useFileUpload();
   const { data: users, loading: loadingUsers } = useUsers();
-  const { clients, loading: loadingClients } = useClients();
+  const { clients, isLoading: loadingClients } = useClients();
   const { data: cuentasContables } = useCuentasContables();
 
   // Filtrar cuentas bancarias para ingresos
   const filteredCuentas = useMemo(() => {
     if (!cuentasContables) return [];
     if (BUSINESS_RULES.limitBankAccountsForIncomes) {
-      return cuentasContables.filter(c => parseInt(c.id) >= BUSINESS_RULES.minBankAccountIdForIncomes);
+      return cuentasContables.filter(c => Number(c.id) >= BUSINESS_RULES.minBankAccountIdForIncomes);
     }
     return cuentasContables;
   }, [cuentasContables]);
@@ -253,8 +256,7 @@ export const IncomeForm: React.FC<IncomeFormProps> = ({
     const newErrors: Record<string, string> = {};
     if (!formData.concepto.trim()) newErrors.concepto = 'Concepto requerido';
     if (formData.total <= 0) newErrors.total = 'Total debe ser mayor a 0';
-    if (!formData.cliente) newErrors.cliente_id = 'Cliente requerido';
-    if (!formData.responsable_id) newErrors.responsable_id = 'Responsable requerido';
+    // Cliente y responsable son opcionales - se auto-asignan si no se seleccionan
     if (!formData.fecha_ingreso) newErrors.fecha_ingreso = 'Fecha requerida';
 
     setErrors(newErrors);
@@ -274,10 +276,70 @@ export const IncomeForm: React.FC<IncomeFormProps> = ({
 
     setIsSubmitting(true);
     try {
+      // Auto-asignar responsable si no hay uno seleccionado
+      let responsableId = formData.responsable_id;
+      if (!responsableId && users && users.length > 0) {
+        // Asignar el primer usuario disponible o uno al azar
+        const randomUser = users[Math.floor(Math.random() * users.length)];
+        responsableId = randomUser.id;
+        toast.info(`Responsable asignado automáticamente: ${randomUser.nombre}`);
+      }
+
+      // Auto-asignar cliente si no hay uno seleccionado
+      let clienteId = formData.cliente_id;
+      let clienteNombre = formData.cliente;
+      if (!clienteId && clients && clients.length > 0) {
+        const randomClient = clients[0]; // Usar el primero
+        clienteId = String(randomClient.id);
+        clienteNombre = randomClient.nombre_comercial || randomClient.razon_social || '';
+      }
+
+      // Mapear campos del formulario a los nombres de columna de la BD
       const dataToSave = {
-        ...formData,
-        evento_id: eventId,
-        updated_at: new Date().toISOString()
+        // ✅ CAMPO OBLIGATORIO: company_id
+        company_id: user?.company_id || '00000000-0000-0000-0000-000000000001',
+        concepto: formData.concepto,
+        descripcion: formData.descripcion,
+        subtotal: formData.subtotal,
+        iva: formData.iva,
+        total: formData.total,
+        iva_porcentaje: formData.iva_porcentaje,
+        fecha_ingreso: formData.fecha_ingreso || null,
+        metodo_pago: formData.metodo_cobro, // BD usa metodo_pago
+        facturado: formData.facturado,
+        cobrado: formData.cobrado,
+        dias_credito: formData.dias_credito,
+        fecha_compromiso_pago: formData.fecha_compromiso_pago || null,
+        fecha_facturacion: formData.fecha_facturacion || null,
+        fecha_cobro: formData.fecha_cobro || null,
+        responsable_id: responsableId || null,
+        cuenta_contable_id: formData.cuenta_contable_id ? parseInt(formData.cuenta_contable_id) : null,
+        cliente_id: clienteId ? parseInt(clienteId) : null,
+        cliente: clienteNombre,
+        rfc_cliente: formData.rfc_cliente,
+        // Campos de archivo - usar pdf_url si archivo_adjunto no existe
+        pdf_url: formData.archivo_adjunto,
+        archivo_nombre: formData.archivo_nombre,
+        // Campos CFDI
+        proveedor: (formData as any).proveedor,
+        rfc_proveedor: (formData as any).rfc_proveedor,
+        uuid_cfdi: (formData as any).uuid_cfdi,
+        folio_fiscal: (formData as any).folio_fiscal,
+        serie: (formData as any).serie,
+        folio: (formData as any).folio,
+        tipo_comprobante: (formData as any).tipo_comprobante,
+        forma_pago_sat: (formData as any).forma_pago_sat,
+        metodo_pago_sat: (formData as any).metodo_pago_sat,
+        moneda: (formData as any).moneda,
+        tipo_cambio: (formData as any).tipo_cambio,
+        lugar_expedicion: (formData as any).lugar_expedicion,
+        uso_cfdi: (formData as any).uso_cfdi,
+        regimen_fiscal_receptor: (formData as any).regimen_fiscal_receptor,
+        regimen_fiscal_emisor: (formData as any).regimen_fiscal_emisor,
+        detalle_compra: (formData as any).detalle_compra,
+        // Campos de evento y timestamp
+        evento_id: parseInt(eventId),
+        fecha_actualizacion: new Date().toISOString()
       };
       onSave(dataToSave);
     } catch (error) {
@@ -397,7 +459,7 @@ export const IncomeForm: React.FC<IncomeFormProps> = ({
               <select
                 value={formData.cliente_id}
                 onChange={(e) => {
-                  const cliente = clients?.find(c => c.id === parseInt(e.target.value));
+                  const cliente = clients?.find(c => String(c.id) === e.target.value);
                   handleInputChange('cliente_id', e.target.value);
                   if (cliente) {
                     handleInputChange('cliente', cliente.nombre_comercial || cliente.razon_social);

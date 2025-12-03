@@ -2,12 +2,13 @@
  * FORMULARIO DE GASTOS - CON TEMA DINÁMICO
  * - Usa paleta de colores dinámica
  * - Estilo homogéneo con IncomeForm y ProvisionForm
- * - Soporte OCR para tickets
+ * - Soporte para Facturas (XML CFDI + PDF) y Tickets (imagen con OCR)
+ * - Lógica homologada con IncomeForm y SimpleExpenseForm
  */
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   TrendingDown, FileText, Calculator, Loader2, Calendar,
-  Upload, X, Save, Bot, Zap, DollarSign, Tag, Building2
+  Upload, X, Save, Camera, DollarSign, Tag, Building2
 } from 'lucide-react';
 import { useTheme } from '../../../../shared/components/theme';
 import { useFileUpload } from '../../hooks/useFileUpload';
@@ -15,7 +16,10 @@ import { useExpenseCategories } from '../../hooks/useFinances';
 import { formatCurrency } from '../../../../shared/utils/formatters';
 import { MEXICAN_CONFIG } from '../../../../core/config/constants';
 import { Expense } from '../../types/Finance';
-import { useOCRIntegration } from '../../../ocr/hooks/useOCRIntegration';
+import { parseCFDIXml } from '../../utils/cfdiXmlParser';
+import { processFileWithOCR } from '../../../ocr/services/dualOCRService';
+import { supabase } from '../../../../core/config/supabase';
+import { useAuth } from '../../../../core/auth/AuthProvider';
 import toast from 'react-hot-toast';
 
 // IVA desde config
@@ -108,6 +112,19 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 }) => {
   // Hook de tema para colores dinámicos
   const { paletteConfig, isDark } = useTheme();
+  const { user } = useAuth();
+
+  // Refs para inputs de archivos
+  const xmlInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  const ticketInputRef = useRef<HTMLInputElement>(null);
+
+  // Estado para tipo de documento y archivos
+  const [tipoDocumento, setTipoDocumento] = useState<'factura' | 'ticket' | null>(null);
+  const [xmlFile, setXmlFile] = useState<File | null>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [ticketFile, setTicketFile] = useState<File | null>(null);
+  const [processingDoc, setProcessingDoc] = useState(false);
 
   // Colores dinámicos - Rojo para gastos
   const themeColors = useMemo(() => ({
@@ -147,7 +164,6 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
   const { uploadFile, isUploading } = useFileUpload();
   const { data: categories } = useExpenseCategories();
-  const { processOCRFile, isProcessing, error: ocrError } = useOCRIntegration(eventId);
 
   // Validar cuadre fiscal
   useEffect(() => {
@@ -177,58 +193,210 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     toast.success(`Total calculado: $${nuevoTotal.toFixed(2)}`);
   }, [formData.subtotal, formData.iva, formData.retenciones]);
 
+  // ============================================================================
+  // PROCESAMIENTO DE DOCUMENTOS - HOMOLOGADO CON INCOMEFORM Y SIMPLEEXPENSEFORM
+  // ============================================================================
+  // 1. FACTURA: XML CFDI + PDF (procesar XML, adjuntar PDF)
+  // 2. TICKET: Solo imagen (procesar con OCR)
+  // ============================================================================
+
+  // Seleccionar archivo XML para factura
+  const handleXMLSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.xml')) {
+      toast.error('Solo se permiten archivos XML');
+      return;
+    }
+
+    setXmlFile(file);
+    setTipoDocumento('factura');
+    // Limpiar ticket si había uno
+    setTicketFile(null);
+    toast.success('XML seleccionado - Ahora suba el PDF');
+  };
+
+  // Seleccionar PDF para factura
+  const handlePDFSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      toast.error('Solo se permiten archivos PDF');
+      return;
+    }
+
+    setPdfFile(file);
+    toast.success('PDF seleccionado');
+  };
+
+  // Seleccionar imagen de ticket
+  const handleTicketSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      toast.error('Solo se permiten imágenes (JPG, PNG, WEBP) para tickets');
+      return;
+    }
+
+    setTicketFile(file);
+    setTipoDocumento('ticket');
+    // Limpiar factura si había una
+    setXmlFile(null);
+    setPdfFile(null);
+    toast.success('Imagen de ticket seleccionada');
+  };
+
+  // Procesar XML CFDI (para facturas)
+  const processXMLCFDI = async (xmlFileToProcess: File) => {
+    try {
+      const text = await xmlFileToProcess.text();
+      const cfdiData = await parseCFDIXml(text);
+
+      if (cfdiData) {
+        setFormData(prev => ({
+          ...prev,
+          concepto: cfdiData.concepto || prev.concepto,
+          proveedor: cfdiData.emisor?.nombre || prev.proveedor,
+          rfc_proveedor: cfdiData.emisor?.rfc || prev.rfc_proveedor,
+          fecha_gasto: cfdiData.fecha?.split('T')[0] || prev.fecha_gasto,
+          subtotal: cfdiData.subtotal || prev.subtotal,
+          iva: cfdiData.iva || prev.iva,
+          total: cfdiData.total || prev.total,
+        }));
+
+        toast.success(`XML procesado: ${cfdiData.emisor?.nombre} - $${cfdiData.total?.toFixed(2)}`);
+      }
+    } catch (error: any) {
+      console.error('Error procesando XML:', error);
+      toast.error(`Error procesando XML: ${error.message}`);
+    }
+  };
+
+  // Procesar ticket con OCR
+  const processTicketOCR = async (file: File) => {
+    setProcessingDoc(true);
+    toast.loading('Procesando ticket con OCR...', { id: 'ocr' });
+
+    try {
+      // Subir archivo a Supabase Storage
+      const fileName = `${Date.now()}_${file.name}`;
+      const filePath = `comprobantes/${user?.company_id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('documentos')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Obtener URL pública
+      const { data: urlData } = supabase.storage
+        .from('documentos')
+        .getPublicUrl(filePath);
+
+      setFormData(prev => ({
+        ...prev,
+        archivo_adjunto: urlData.publicUrl,
+        archivo_nombre: file.name
+      }));
+
+      // Procesar con OCR
+      const ocrResult = await processFileWithOCR(file);
+
+      if (ocrResult) {
+        setFormData(prev => ({
+          ...prev,
+          concepto: ocrResult.concepto_sugerido || prev.concepto,
+          proveedor: ocrResult.establecimiento || prev.proveedor,
+          rfc_proveedor: ocrResult.rfc || prev.rfc_proveedor,
+          fecha_gasto: ocrResult.fecha || prev.fecha_gasto,
+          subtotal: ocrResult.subtotal || prev.subtotal,
+          iva: ocrResult.iva || prev.iva,
+          total: ocrResult.total || prev.total,
+        }));
+        toast.success('Datos extraídos del ticket', { id: 'ocr' });
+      } else {
+        toast.success('Ticket subido (sin datos OCR)', { id: 'ocr' });
+      }
+    } catch (error: any) {
+      console.error('Error procesando ticket:', error);
+      toast.error('Error al procesar ticket', { id: 'ocr' });
+    } finally {
+      setProcessingDoc(false);
+    }
+  };
+
+  // Procesar documentos según el tipo seleccionado
+  const processDocuments = async () => {
+    if (tipoDocumento === 'factura') {
+      if (!xmlFile) {
+        toast.error('Se requiere el XML CFDI para facturas');
+        return;
+      }
+
+      setProcessingDoc(true);
+      try {
+        // Procesar XML
+        await processXMLCFDI(xmlFile);
+
+        // Subir PDF si existe
+        if (pdfFile) {
+          const fileName = `${Date.now()}_${pdfFile.name}`;
+          const filePath = `comprobantes/${user?.company_id}/${fileName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('documentos')
+            .upload(filePath, pdfFile);
+
+          if (uploadError) throw uploadError;
+
+          const { data: urlData } = supabase.storage
+            .from('documentos')
+            .getPublicUrl(filePath);
+
+          setFormData(prev => ({
+            ...prev,
+            archivo_adjunto: urlData.publicUrl,
+            archivo_nombre: pdfFile.name
+          }));
+          toast.success('XML procesado + PDF adjunto');
+        }
+      } catch (error: any) {
+        console.error('Error procesando factura:', error);
+        toast.error(`Error: ${error.message}`);
+      } finally {
+        setProcessingDoc(false);
+      }
+    } else if (tipoDocumento === 'ticket') {
+      if (!ticketFile) {
+        toast.error('Se requiere una imagen del ticket');
+        return;
+      }
+      await processTicketOCR(ticketFile);
+    } else {
+      toast.error('Seleccione un tipo de documento (Factura o Ticket)');
+    }
+  };
+
+  // Limpiar documentos
+  const clearDocuments = () => {
+    setTipoDocumento(null);
+    setXmlFile(null);
+    setPdfFile(null);
+    setTicketFile(null);
+    setFormData(prev => ({
+      ...prev,
+      archivo_adjunto: '',
+      archivo_nombre: ''
+    }));
+  };
+
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
-  };
-
-  // Procesar archivo con OCR
-  const handleOCRFile = async (file: File) => {
-    try {
-      const result = await processOCRFile(file);
-      const ocrData = result.formData;
-
-      setFormData(prev => ({
-        ...prev,
-        concepto: ocrData.concepto || prev.concepto,
-        descripcion: ocrData.descripcion || prev.descripcion,
-        subtotal: ocrData.subtotal > 0 ? ocrData.subtotal : prev.subtotal,
-        iva: ocrData.iva > 0 ? ocrData.iva : prev.iva,
-        total: ocrData.total_con_iva > 0 ? ocrData.total_con_iva : prev.total,
-        proveedor: ocrData.proveedor || prev.proveedor,
-        fecha_gasto: ocrData.fecha_gasto || prev.fecha_gasto,
-        forma_pago: ocrData.forma_pago || prev.forma_pago,
-        categoria_id: ocrData.categoria_id || prev.categoria_id,
-        rfc_proveedor: ocrData.rfc_proveedor || prev.rfc_proveedor,
-        referencia: `OCR (${result.confidence}% confianza)${result.needsValidation ? ' - REVISAR' : ''}`
-      }));
-
-      // Subir archivo
-      const uploadResult = await uploadFile({ file, type: 'expense', eventId });
-      if (uploadResult) {
-        setFormData(prev => ({
-          ...prev,
-          archivo_adjunto: uploadResult.url,
-          archivo_nombre: uploadResult.fileName
-        }));
-      }
-
-      toast.success(`OCR procesado con ${result.confidence}% confianza`);
-    } catch (error) {
-      toast.error('Error procesando OCR');
-    }
-  };
-
-  const handleFileUploaded = async (file: File) => {
-    const uploadResult = await uploadFile({ file, type: 'expense', eventId });
-    if (uploadResult) {
-      setFormData(prev => ({
-        ...prev,
-        archivo_adjunto: uploadResult.url,
-        archivo_nombre: uploadResult.fileName
-      }));
-      toast.success('Comprobante subido');
-    }
   };
 
   const validateForm = () => {
@@ -317,53 +485,197 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       {/* Form */}
       <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
 
-        {/* Comprobante y OCR */}
-        <div>
-          <h3 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: themeColors.primary }}>
-            Comprobante
-          </h3>
-          <div className="grid grid-cols-2 gap-3">
-            {/* Subir comprobante */}
-            <div className="border-2 rounded-lg p-3" style={{ borderColor: formData.archivo_adjunto ? themeColors.primary : themeColors.border }}>
-              <label className="block text-xs font-medium mb-2" style={{ color: themeColors.text }}>
-                Comprobante
-              </label>
-              {!formData.archivo_adjunto ? (
-                <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
-                  style={{ borderColor: themeColors.border }}>
-                  <Upload className="w-4 h-4" style={{ color: themeColors.primary }} />
-                  <span className="text-sm" style={{ color: themeColors.textSecondary }}>Subir archivo</span>
-                  <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden"
-                    onChange={(e) => e.target.files?.[0] && handleFileUploaded(e.target.files[0])} />
-                </label>
-              ) : (
-                <div className="flex items-center justify-between p-2 rounded-lg" style={{ backgroundColor: themeColors.primaryLight }}>
-                  <span className="text-sm font-medium truncate" style={{ color: themeColors.primaryDark }}>{formData.archivo_nombre}</span>
-                  <button type="button" onClick={() => setFormData(prev => ({ ...prev, archivo_adjunto: '', archivo_nombre: '' }))}
-                    className="text-xs px-2 py-1 hover:bg-white/50 rounded">✕</button>
+        {/* ============================================================== */}
+        {/* ZONA DE DOCUMENTOS - HOMOLOGADA CON INCOMEFORM */}
+        {/* ============================================================== */}
+        <div className="border-2 rounded-lg p-4" style={{ borderColor: themeColors.primary }}>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold uppercase tracking-wide" style={{ color: themeColors.primary }}>
+              Tipo de Documento
+            </h3>
+            {tipoDocumento && (
+              <button
+                type="button"
+                onClick={clearDocuments}
+                className="text-xs text-red-500 hover:text-red-700"
+              >
+                Limpiar
+              </button>
+            )}
+          </div>
+
+          {/* Selector de tipo de documento */}
+          {!tipoDocumento ? (
+            <div className="grid grid-cols-2 gap-3">
+              {/* Opción: Factura (XML + PDF) */}
+              <button
+                type="button"
+                onClick={() => {
+                  setTipoDocumento('factura');
+                  xmlInputRef.current?.click();
+                }}
+                className="flex flex-col items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg hover:bg-blue-50 transition-colors"
+                style={{ borderColor: '#3B82F6' }}
+              >
+                <FileText className="w-8 h-8 text-blue-600" />
+                <span className="font-medium text-blue-600">Factura</span>
+                <span className="text-xs text-gray-500">XML CFDI + PDF</span>
+              </button>
+              <input
+                ref={xmlInputRef}
+                type="file"
+                accept=".xml"
+                onChange={handleXMLSelect}
+                className="hidden"
+              />
+
+              {/* Opción: Ticket (imagen con OCR) */}
+              <button
+                type="button"
+                onClick={() => {
+                  setTipoDocumento('ticket');
+                  ticketInputRef.current?.click();
+                }}
+                className="flex flex-col items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg hover:bg-amber-50 transition-colors"
+                style={{ borderColor: '#F59E0B' }}
+              >
+                <Camera className="w-8 h-8 text-amber-600" />
+                <span className="font-medium text-amber-600">Ticket</span>
+                <span className="text-xs text-gray-500">Imagen con OCR</span>
+              </button>
+              <input
+                ref={ticketInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleTicketSelect}
+                className="hidden"
+              />
+            </div>
+          ) : tipoDocumento === 'factura' ? (
+            /* Vista para FACTURA */
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                {/* XML */}
+                <div className={`p-3 border-2 rounded-lg ${xmlFile ? 'bg-blue-50 border-blue-300' : 'border-dashed'}`}
+                  style={{ borderColor: xmlFile ? '#3B82F6' : themeColors.border }}>
+                  <label className="block text-xs font-medium mb-1 text-blue-600">XML CFDI *</label>
+                  {!xmlFile ? (
+                    <button
+                      type="button"
+                      onClick={() => xmlInputRef.current?.click()}
+                      className="w-full flex items-center justify-center gap-2 p-2 rounded hover:bg-gray-50"
+                    >
+                      <Upload className="w-4 h-4 text-blue-600" />
+                      <span className="text-sm text-blue-600">Seleccionar XML</span>
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-blue-600" />
+                      <span className="text-sm text-blue-700 truncate">{xmlFile.name}</span>
+                      <button type="button" onClick={() => setXmlFile(null)} className="text-red-500 text-xs">✕</button>
+                    </div>
+                  )}
                 </div>
+
+                {/* PDF */}
+                <div className={`p-3 border-2 rounded-lg ${pdfFile ? 'bg-green-50 border-green-300' : 'border-dashed'}`}
+                  style={{ borderColor: pdfFile ? '#10B981' : themeColors.border }}>
+                  <label className="block text-xs font-medium mb-1 text-green-600">PDF Factura</label>
+                  {!pdfFile ? (
+                    <button
+                      type="button"
+                      onClick={() => pdfInputRef.current?.click()}
+                      className="w-full flex items-center justify-center gap-2 p-2 rounded hover:bg-gray-50"
+                    >
+                      <Upload className="w-4 h-4 text-green-600" />
+                      <span className="text-sm text-green-600">Seleccionar PDF</span>
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-green-600" />
+                      <span className="text-sm text-green-700 truncate">{pdfFile.name}</span>
+                      <button type="button" onClick={() => setPdfFile(null)} className="text-red-500 text-xs">✕</button>
+                    </div>
+                  )}
+                  <input
+                    ref={pdfInputRef}
+                    type="file"
+                    accept=".pdf"
+                    onChange={handlePDFSelect}
+                    className="hidden"
+                  />
+                </div>
+              </div>
+
+              {xmlFile && (
+                <button
+                  type="button"
+                  onClick={processDocuments}
+                  disabled={processingDoc}
+                  className="w-full py-2.5 rounded-lg font-medium text-white flex items-center justify-center gap-2"
+                  style={{ backgroundColor: '#3B82F6' }}
+                >
+                  {processingDoc ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Calculator className="w-4 h-4" />
+                  )}
+                  {processingDoc ? 'Procesando...' : 'Procesar Factura'}
+                </button>
               )}
             </div>
+          ) : (
+            /* Vista para TICKET */
+            <div className="space-y-3">
+              <div className={`p-3 border-2 rounded-lg ${ticketFile ? 'bg-amber-50 border-amber-300' : 'border-dashed'}`}
+                style={{ borderColor: ticketFile ? '#F59E0B' : themeColors.border }}>
+                <label className="block text-xs font-medium mb-1 text-amber-600">Imagen del Ticket *</label>
+                {!ticketFile ? (
+                  <button
+                    type="button"
+                    onClick={() => ticketInputRef.current?.click()}
+                    className="w-full flex items-center justify-center gap-2 p-3 rounded hover:bg-gray-50"
+                  >
+                    <Camera className="w-5 h-5 text-amber-600" />
+                    <span className="text-sm text-amber-600">Seleccionar imagen (JPG, PNG)</span>
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Camera className="w-4 h-4 text-amber-600" />
+                    <span className="text-sm text-amber-700 truncate">{ticketFile.name}</span>
+                    <button type="button" onClick={() => setTicketFile(null)} className="text-red-500 text-xs">✕</button>
+                  </div>
+                )}
+              </div>
 
-            {/* OCR */}
-            <div className="border-2 rounded-lg p-3" style={{ borderColor: themeColors.border }}>
-              <label className="block text-xs font-medium mb-2" style={{ color: themeColors.text }}>
-                OCR Automático
-              </label>
-              <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed rounded-lg cursor-pointer transition-colors"
-                style={{ borderColor: themeColors.accent, backgroundColor: `${themeColors.accent}10` }}>
-                <Bot className="w-4 h-4" style={{ color: themeColors.accent }} />
-                <Zap className="w-3 h-3" style={{ color: themeColors.accent }} />
-                <span className="text-sm font-medium" style={{ color: themeColors.accent }}>
-                  {isProcessing ? 'Procesando...' : 'Extraer datos'}
-                </span>
-                <input type="file" accept="image/*,.pdf" className="hidden" disabled={isProcessing}
-                  onChange={(e) => e.target.files?.[0] && handleOCRFile(e.target.files[0])} />
-              </label>
+              {ticketFile && (
+                <button
+                  type="button"
+                  onClick={processDocuments}
+                  disabled={processingDoc}
+                  className="w-full py-2.5 rounded-lg font-medium text-white flex items-center justify-center gap-2"
+                  style={{ backgroundColor: '#F59E0B' }}
+                >
+                  {processingDoc ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Camera className="w-4 h-4" />
+                  )}
+                  {processingDoc ? 'Procesando OCR...' : 'Procesar Ticket con OCR'}
+                </button>
+              )}
             </div>
-          </div>
-          {ocrError && (
-            <div className="mt-2 p-2 rounded-lg text-sm bg-red-100 text-red-600">{ocrError}</div>
+          )}
+
+          {/* Archivo adjunto procesado */}
+          {formData.archivo_adjunto && (
+            <div className="mt-3 flex items-center gap-2 p-2 bg-green-50 rounded-lg border border-green-200">
+              <FileText className="w-4 h-4 text-green-600" />
+              <span className="text-sm text-green-700 truncate flex-1">{formData.archivo_nombre}</span>
+              <a href={formData.archivo_adjunto} target="_blank" className="text-sm text-blue-600 hover:underline">
+                Ver
+              </a>
+            </div>
           )}
         </div>
 

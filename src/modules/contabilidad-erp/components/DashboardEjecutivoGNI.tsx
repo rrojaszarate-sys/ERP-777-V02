@@ -260,7 +260,7 @@ export const DashboardEjecutivoGNI: React.FC<DashboardEjecutivoGNIProps> = ({
     <div className="fixed inset-0 z-50 overflow-hidden" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
       <div className="h-full p-2 md:p-4 flex items-center justify-center">
         <div
-          className="w-full max-w-[98vw] max-h-[96vh] rounded-2xl shadow-2xl overflow-y-auto"
+          className="w-[90vw] h-[90vh] rounded-2xl shadow-2xl overflow-y-auto"
           style={{ backgroundColor: themeColors.cardBg }}
         >
           {/* Header */}
@@ -283,19 +283,19 @@ export const DashboardEjecutivoGNI: React.FC<DashboardEjecutivoGNIProps> = ({
             </button>
           </div>
 
-          {/* Barra de Filtros */}
+          {/* Barra de Filtros - Compacta */}
           <div
-            className="px-6 py-3 flex items-center gap-4 border-b"
+            className="px-4 py-2 flex items-center gap-3 border-b"
             style={{ backgroundColor: themeColors.chartBg, borderColor: themeColors.border }}
           >
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4" style={{ color: themeColors.textSecondary }} />
-              <span className="text-sm font-medium" style={{ color: themeColors.textSecondary }}>Período:</span>
+            <div className="flex items-center gap-1.5">
+              <Filter className="w-3.5 h-3.5" style={{ color: themeColors.textSecondary }} />
+              <span className="text-xs font-medium" style={{ color: themeColors.textSecondary }}>Período:</span>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <button
                 onClick={() => setPeriodoFiltro('todos')}
-                className="px-3 py-1.5 text-sm rounded-lg transition-all"
+                className="px-2 py-1 text-xs rounded-md transition-all"
                 style={{
                   backgroundColor: periodoFiltro === 'todos' ? themeColors.primary : 'transparent',
                   color: periodoFiltro === 'todos' ? '#fff' : themeColors.textSecondary,
@@ -304,19 +304,19 @@ export const DashboardEjecutivoGNI: React.FC<DashboardEjecutivoGNIProps> = ({
               >
                 Todos ({gastos.length})
               </button>
-              {/* Selector desplegable para todos los períodos disponibles */}
+              {/* Selector desplegable compacto */}
               <select
                 value={periodoFiltro === 'todos' ? '' : periodoFiltro}
                 onChange={(e) => setPeriodoFiltro(e.target.value || 'todos')}
-                className="px-3 py-1.5 text-sm rounded-lg transition-all cursor-pointer"
+                className="px-2 py-1 text-xs rounded-md transition-all cursor-pointer"
                 style={{
                   backgroundColor: periodoFiltro !== 'todos' ? themeColors.primary : themeColors.cardBg,
                   color: periodoFiltro !== 'todos' ? '#fff' : themeColors.textSecondary,
                   border: `1px solid ${themeColors.border}`,
-                  minWidth: '150px'
+                  minWidth: '130px'
                 }}
               >
-                <option value="">Seleccionar período...</option>
+                <option value="">Seleccionar mes...</option>
                 {periodosDisponibles.map(periodo => (
                   <option key={periodo} value={periodo}>
                     {periodo} ({gastos.filter(g => g.periodo === periodo).length})
@@ -325,8 +325,8 @@ export const DashboardEjecutivoGNI: React.FC<DashboardEjecutivoGNIProps> = ({
               </select>
             </div>
             {periodoFiltro !== 'todos' && (
-              <span className="ml-auto text-sm" style={{ color: themeColors.textSecondary }}>
-                {gastosFiltrados.length} de {gastos.length} registros
+              <span className="ml-auto text-xs" style={{ color: themeColors.textSecondary }}>
+                {gastosFiltrados.length} de {gastos.length}
               </span>
             )}
           </div>

@@ -8,78 +8,37 @@ export const useClients = () => {
   const { user } = useAuth();
 
   const clientsQuery = useQuery({
-    queryKey: ['clients'],
+    queryKey: ['clients', user?.company_id],
     queryFn: async (): Promise<Cliente[]> => {
-      // Check if Supabase is properly configured
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      
-      if (!supabaseUrl || !supabaseKey || 
-          supabaseUrl.includes('your-project') || 
-          supabaseUrl.includes('placeholder.supabase.co') ||
-          supabaseKey.includes('your-anon-key') ||
-          supabaseKey === 'dummy-key') {
-        console.warn('⚠️ Supabase not configured for clients, using mock data');
-        return [
-          {
-            id: '1',
-            razon_social: 'Tech Innovations SA de CV',
-            nombre_comercial: 'TechInno',
-            rfc: 'TIN123456ABC',
-            email: 'contacto@techinno.com',
-            telefono: '55-1234-5678',
-            contacto_principal: 'Ana García',
-            regimen_fiscal: '601',
-            uso_cfdi: 'G03',
-            metodo_pago: 'PUE',
-            forma_pago: '03',
-            dias_credito: 30,
-            activo: true,
-            created_at: '2024-01-01T00:00:00Z',
-            updated_at: '2024-01-01T00:00:00Z'
-          },
-          {
-            id: '2',
-            razon_social: 'Corporativo Global SA',
-            nombre_comercial: 'CorpGlobal',
-            rfc: 'CGL789012DEF',
-            email: 'eventos@corpglobal.com',
-            telefono: '55-9876-5432',
-            contacto_principal: 'Carlos Rodríguez',
-            regimen_fiscal: '612',
-            uso_cfdi: 'G01',
-            metodo_pago: 'PPD',
-            forma_pago: '03',
-            dias_credito: 45,
-            activo: true,
-            created_at: '2024-01-01T00:00:00Z',
-            updated_at: '2024-01-01T00:00:00Z'
-          }
-        ];
-      }
-
       try {
-        // Test connectivity first
-        const { error: connectError } = await supabase.from('evt_clientes_erp').select('id').limit(1);
-        if (connectError) {
-          throw new Error(`Connectivity issue: ${connectError.message}`);
-        }
-
-        const { data, error } = await supabase
+        // Construir query base
+        let query = supabase
           .from('evt_clientes_erp')
           .select('*')
-          .eq('activo', true)
-          .order('razon_social');
+          .eq('activo', true);
 
-        if (error) throw error;
+        // Filtrar por company_id si el usuario tiene uno
+        if (user?.company_id) {
+          query = query.eq('company_id', user.company_id);
+        }
+
+        const { data, error } = await query.order('razon_social');
+
+        if (error) {
+          console.error('Error cargando clientes:', error);
+          throw error;
+        }
+
+        console.log('✅ Clientes cargados:', data?.length || 0);
         return data || [];
       } catch (error) {
-        console.warn('⚠️ Error fetching clients from Supabase, using mock data:', error);
+        console.error('⚠️ Error fetching clients:', error);
         return [];
       }
     },
+    enabled: true,
     staleTime: 1000 * 60 * 5, // 5 minutes
-    retry: false, // Don't retry failed requests
+    retry: 1,
   });
 
   const createClientMutation = useMutation({

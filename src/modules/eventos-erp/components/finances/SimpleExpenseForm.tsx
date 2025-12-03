@@ -68,12 +68,19 @@ export const SimpleExpenseForm: React.FC<SimpleExpenseFormProps> = ({
   const { data: categorias } = useExpenseCategories();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const xmlInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   const [saving, setSaving] = useState(false);
   const [processingOCR, setProcessingOCR] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [archivoAdjunto, setArchivoAdjunto] = useState<string | null>(item?.archivo_adjunto || null);
   const [archivoNombre, setArchivoNombre] = useState<string | null>(item?.archivo_nombre || null);
+
+  // Tipo de documento: 'factura' (XML+PDF) o 'ticket' (imagen con OCR)
+  const [tipoDocumento, setTipoDocumento] = useState<'factura' | 'ticket' | null>(null);
+  const [xmlFile, setXmlFile] = useState<File | null>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [ticketFile, setTicketFile] = useState<File | null>(null);
 
   const [formData, setFormData] = useState<FormData>({
     concepto: item?.concepto || '',
@@ -125,20 +132,96 @@ export const SimpleExpenseForm: React.FC<SimpleExpenseFormProps> = ({
     }
   }, [formData.total]);
 
-  // Procesar archivo con OCR
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // ============================================================================
+  // PROCESAMIENTO DE DOCUMENTOS - HOMOLOGADO CON INCOMEFORM
+  // ============================================================================
+  // 1. FACTURA: XML CFDI + PDF (procesar XML, adjuntar PDF)
+  // 2. TICKET: Solo imagen (procesar con OCR)
+  // ============================================================================
+
+  // Seleccionar archivo XML para factura
+  const handleXMLSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validar tipo
-    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-    if (!validTypes.includes(file.type)) {
-      toast.error('Solo se permiten imágenes (JPG, PNG, WEBP) o PDF');
+    if (!file.name.toLowerCase().endsWith('.xml')) {
+      toast.error('Solo se permiten archivos XML');
       return;
     }
 
+    setXmlFile(file);
+    setTipoDocumento('factura');
+    // Limpiar ticket si había uno
+    setTicketFile(null);
+    toast.success('XML seleccionado - Ahora suba el PDF');
+  };
+
+  // Seleccionar PDF para factura
+  const handlePDFSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      toast.error('Solo se permiten archivos PDF');
+      return;
+    }
+
+    setPdfFile(file);
+    toast.success('PDF seleccionado');
+  };
+
+  // Seleccionar imagen de ticket
+  const handleTicketSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      toast.error('Solo se permiten imágenes (JPG, PNG, WEBP) para tickets');
+      return;
+    }
+
+    setTicketFile(file);
+    setTipoDocumento('ticket');
+    // Limpiar factura si había una
+    setXmlFile(null);
+    setPdfFile(null);
+    toast.success('Imagen de ticket seleccionada');
+  };
+
+  // Procesar XML CFDI (para facturas)
+  const processXMLCFDI = async (xmlFile: File) => {
+    try {
+      const text = await xmlFile.text();
+      const cfdiData = await parseCFDIXml(text);
+
+      if (cfdiData) {
+        setFormData(prev => ({
+          ...prev,
+          concepto: cfdiData.concepto || prev.concepto,
+          proveedor: cfdiData.emisor?.nombre || prev.proveedor,
+          rfc_proveedor: cfdiData.emisor?.rfc || prev.rfc_proveedor,
+          fecha: cfdiData.fecha?.split('T')[0] || prev.fecha,
+          subtotal: cfdiData.subtotal || prev.subtotal,
+          iva: cfdiData.iva || prev.iva,
+          total: cfdiData.total || prev.total,
+          uuid_cfdi: cfdiData.uuid || prev.uuid_cfdi,
+          folio_fiscal: cfdiData.folio || prev.folio_fiscal,
+        }));
+
+        setShowAdvanced(true);
+        toast.success(`XML procesado: ${cfdiData.emisor?.nombre} - $${cfdiData.total?.toFixed(2)}`);
+      }
+    } catch (error: any) {
+      console.error('Error procesando XML:', error);
+      toast.error(`Error procesando XML: ${error.message}`);
+    }
+  };
+
+  // Procesar ticket con OCR
+  const processTicketOCR = async (file: File) => {
     setProcessingOCR(true);
-    toast.loading('Procesando comprobante con OCR...', { id: 'ocr' });
+    toast.loading('Procesando ticket con OCR...', { id: 'ocr' });
 
     try {
       // Subir archivo a Supabase Storage
@@ -163,7 +246,6 @@ export const SimpleExpenseForm: React.FC<SimpleExpenseFormProps> = ({
       const ocrResult = await processFileWithOCR(file);
 
       if (ocrResult) {
-        // Aplicar datos del OCR
         setFormData(prev => ({
           ...prev,
           concepto: ocrResult.concepto_sugerido || prev.concepto,
@@ -173,57 +255,73 @@ export const SimpleExpenseForm: React.FC<SimpleExpenseFormProps> = ({
           subtotal: ocrResult.subtotal || prev.subtotal,
           iva: ocrResult.iva || prev.iva,
           total: ocrResult.total || prev.total,
-          uuid_cfdi: ocrResult.uuid_cfdi || prev.uuid_cfdi,
-          folio_fiscal: ocrResult.folio_fiscal || prev.folio_fiscal,
         }));
-
-        toast.success('Datos extraídos del comprobante', { id: 'ocr' });
+        // No hay UUID ni folio fiscal en tickets
+        toast.success('Datos extraídos del ticket', { id: 'ocr' });
       } else {
-        toast.success('Archivo subido (sin datos OCR)', { id: 'ocr' });
+        toast.success('Ticket subido (sin datos OCR)', { id: 'ocr' });
       }
     } catch (error: any) {
-      console.error('Error procesando archivo:', error);
-      toast.error('Error al procesar archivo', { id: 'ocr' });
+      console.error('Error procesando ticket:', error);
+      toast.error('Error al procesar ticket', { id: 'ocr' });
     } finally {
       setProcessingOCR(false);
     }
   };
 
-  // Procesar XML CFDI
-  const handleXMLUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.name.toLowerCase().endsWith('.xml')) {
-      toast.error('Solo se permiten archivos XML');
-      return;
-    }
-
-    try {
-      const text = await file.text();
-      const cfdiData = parseCFDIXml(text);
-
-      if (cfdiData) {
-        setFormData(prev => ({
-          ...prev,
-          concepto: cfdiData.concepto || prev.concepto,
-          proveedor: cfdiData.emisor?.nombre || prev.proveedor,
-          rfc_proveedor: cfdiData.emisor?.rfc || prev.rfc_proveedor,
-          fecha: cfdiData.fecha?.split('T')[0] || prev.fecha,
-          subtotal: cfdiData.subtotal || prev.subtotal,
-          iva: cfdiData.iva || prev.iva,
-          total: cfdiData.total || prev.total,
-          uuid_cfdi: cfdiData.uuid || prev.uuid_cfdi,
-          folio_fiscal: cfdiData.folio || prev.folio_fiscal,
-        }));
-
-        toast.success('Datos extraídos del XML CFDI');
-        setShowAdvanced(true); // Mostrar campos avanzados con UUID
+  // Procesar documentos según el tipo seleccionado
+  const processDocuments = async () => {
+    if (tipoDocumento === 'factura') {
+      if (!xmlFile) {
+        toast.error('Se requiere el XML CFDI para facturas');
+        return;
       }
-    } catch (error) {
-      console.error('Error procesando XML:', error);
-      toast.error('Error al leer XML');
+
+      // Procesar XML
+      await processXMLCFDI(xmlFile);
+
+      // Subir PDF si existe
+      if (pdfFile) {
+        try {
+          const fileName = `${Date.now()}_${pdfFile.name}`;
+          const filePath = `comprobantes/${user?.company_id}/${fileName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('documentos')
+            .upload(filePath, pdfFile);
+
+          if (uploadError) throw uploadError;
+
+          const { data: urlData } = supabase.storage
+            .from('documentos')
+            .getPublicUrl(filePath);
+
+          setArchivoAdjunto(urlData.publicUrl);
+          setArchivoNombre(pdfFile.name);
+          toast.success('XML procesado + PDF adjunto');
+        } catch (error) {
+          console.error('Error subiendo PDF:', error);
+        }
+      }
+    } else if (tipoDocumento === 'ticket') {
+      if (!ticketFile) {
+        toast.error('Se requiere una imagen del ticket');
+        return;
+      }
+      await processTicketOCR(ticketFile);
+    } else {
+      toast.error('Seleccione un tipo de documento (Factura o Ticket)');
     }
+  };
+
+  // Limpiar documentos
+  const clearDocuments = () => {
+    setTipoDocumento(null);
+    setXmlFile(null);
+    setPdfFile(null);
+    setTicketFile(null);
+    setArchivoAdjunto(null);
+    setArchivoNombre(null);
   };
 
   // Guardar
@@ -244,39 +342,50 @@ export const SimpleExpenseForm: React.FC<SimpleExpenseFormProps> = ({
       const table = mode === 'gasto' ? 'evt_gastos_erp' : 'evt_provisiones_erp';
       const fechaField = mode === 'gasto' ? 'fecha_gasto' : 'fecha_estimada';
 
+      // =====================================================
+      // MAPEO DE CAMPOS - evt_gastos_erp vs evt_provisiones_erp
+      // =====================================================
       const dataToSave: any = {
         evento_id: eventoId,
-        company_id: user?.company_id,
+        company_id: user?.company_id || '00000000-0000-0000-0000-000000000001',
         concepto: formData.concepto,
         descripcion: formData.descripcion,
-        proveedor: formData.proveedor,
-        rfc_proveedor: formData.rfc_proveedor,
         [fechaField]: formData.fecha,
-        categoria_id: formData.categoria_id,
+        categoria_id: formData.categoria_id || null,
         subtotal: formData.subtotal,
         iva: formData.iva,
         total: formData.total,
         notas: formData.notas,
       };
 
-      // Campos de fecha según tabla (gastos usa fecha_actualizacion, provisiones usa updated_at)
+      // Campos de fecha según tabla
       if (mode === 'gasto') {
         dataToSave.fecha_actualizacion = new Date().toISOString();
       } else {
         dataToSave.updated_at = new Date().toISOString();
       }
 
-      // Campos específicos según modo
+      // Campos específicos según modo - MAPEO CORRECTO A BD
       if (mode === 'gasto') {
-        dataToSave.forma_pago = formData.forma_pago;
-        dataToSave.status_aprobacion = formData.estado;
-        dataToSave.archivo_adjunto = archivoAdjunto;
-        dataToSave.archivo_nombre = archivoNombre;
-        dataToSave.uuid_cfdi = formData.uuid_cfdi || null;
-        dataToSave.folio_fiscal = formData.folio_fiscal || null;
-        // Tipo de movimiento (gasto/retorno) - solo para gastos de materiales
+        // evt_gastos_erp - usar nombres de columna correctos
+        dataToSave.metodo_pago = formData.forma_pago;           // forma_pago → metodo_pago
+        dataToSave.status = formData.estado || 'pendiente';      // status_aprobacion → status
+        dataToSave.comprobante_url = archivoAdjunto;             // archivo_adjunto → comprobante_url
+        dataToSave.comprobante_nombre = archivoNombre;           // archivo_nombre → comprobante_nombre
+        dataToSave.uuid_factura = formData.uuid_cfdi || null;    // uuid_cfdi → uuid_factura
+        dataToSave.factura_numero = formData.folio_fiscal || null; // folio_fiscal → factura_numero
         dataToSave.tipo_movimiento = formData.tipo_movimiento || 'gasto';
+        // No hay columna 'proveedor' en evt_gastos_erp, es proveedor_id (FK)
+        // Por ahora guardar en notas o descripción si hay nombre de proveedor
+        if (formData.proveedor) {
+          dataToSave.descripcion = dataToSave.descripcion
+            ? `${dataToSave.descripcion} | Proveedor: ${formData.proveedor}`
+            : `Proveedor: ${formData.proveedor}`;
+        }
       } else {
+        // evt_provisiones_erp
+        dataToSave.proveedor = formData.proveedor;
+        dataToSave.rfc_proveedor = formData.rfc_proveedor;
         dataToSave.estado = formData.estado;
         dataToSave.comprobante_pago_url = archivoAdjunto;
         dataToSave.comprobante_pago_nombre = archivoNombre;
@@ -413,60 +522,194 @@ export const SimpleExpenseForm: React.FC<SimpleExpenseFormProps> = ({
 
         {/* Form */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {/* Zona de carga de archivos */}
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={processingOCR}
-              className="flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg hover:bg-gray-50 transition-colors"
-              style={{ borderColor: themeColors.accent }}
-            >
-              {processingOCR ? (
-                <Loader2 className="w-6 h-6 animate-spin" style={{ color: themeColors.accent }} />
-              ) : (
-                <Camera className="w-6 h-6" style={{ color: themeColors.accent }} />
+          {/* ============================================================== */}
+          {/* ZONA DE DOCUMENTOS - HOMOLOGADA CON INCOMEFORM */}
+          {/* ============================================================== */}
+          <div className="border-2 rounded-lg p-4" style={{ borderColor: themeColors.accent }}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wide" style={{ color: themeColors.accent }}>
+                Tipo de Documento
+              </h3>
+              {tipoDocumento && (
+                <button
+                  type="button"
+                  onClick={clearDocuments}
+                  className="text-xs text-red-500 hover:text-red-700"
+                >
+                  Limpiar
+                </button>
               )}
-              <span className="font-medium" style={{ color: themeColors.accent }}>
-                {processingOCR ? 'Procesando...' : 'Escanear Comprobante'}
-              </span>
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,application/pdf"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-
-            <button
-              type="button"
-              onClick={() => xmlInputRef.current?.click()}
-              className="flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg hover:bg-gray-50 transition-colors"
-              style={{ borderColor: themeColors.border }}
-            >
-              <FileText className="w-6 h-6 text-blue-600" />
-              <span className="font-medium text-blue-600">Cargar XML CFDI</span>
-            </button>
-            <input
-              ref={xmlInputRef}
-              type="file"
-              accept=".xml"
-              onChange={handleXMLUpload}
-              className="hidden"
-            />
-          </div>
-
-          {/* Archivo adjunto */}
-          {archivoAdjunto && (
-            <div className="flex items-center gap-2 p-2 bg-green-50 rounded-lg">
-              <FileText className="w-4 h-4 text-green-600" />
-              <span className="text-sm text-green-700 truncate flex-1">{archivoNombre}</span>
-              <a href={archivoAdjunto} target="_blank" className="text-sm text-blue-600 hover:underline">
-                Ver
-              </a>
             </div>
-          )}
+
+            {/* Selector de tipo de documento */}
+            {!tipoDocumento ? (
+              <div className="grid grid-cols-2 gap-3">
+                {/* Opción: Factura (XML + PDF) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTipoDocumento('factura');
+                    xmlInputRef.current?.click();
+                  }}
+                  className="flex flex-col items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg hover:bg-blue-50 transition-colors"
+                  style={{ borderColor: '#3B82F6' }}
+                >
+                  <FileText className="w-8 h-8 text-blue-600" />
+                  <span className="font-medium text-blue-600">Factura</span>
+                  <span className="text-xs text-gray-500">XML CFDI + PDF</span>
+                </button>
+                <input
+                  ref={xmlInputRef}
+                  type="file"
+                  accept=".xml"
+                  onChange={handleXMLSelect}
+                  className="hidden"
+                />
+
+                {/* Opción: Ticket (imagen con OCR) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTipoDocumento('ticket');
+                    fileInputRef.current?.click();
+                  }}
+                  className="flex flex-col items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg hover:bg-amber-50 transition-colors"
+                  style={{ borderColor: '#F59E0B' }}
+                >
+                  <Camera className="w-8 h-8 text-amber-600" />
+                  <span className="font-medium text-amber-600">Ticket</span>
+                  <span className="text-xs text-gray-500">Imagen con OCR</span>
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleTicketSelect}
+                  className="hidden"
+                />
+              </div>
+            ) : tipoDocumento === 'factura' ? (
+              /* Vista para FACTURA */
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  {/* XML */}
+                  <div className={`p-3 border-2 rounded-lg ${xmlFile ? 'bg-blue-50 border-blue-300' : 'border-dashed'}`}
+                    style={{ borderColor: xmlFile ? '#3B82F6' : themeColors.border }}>
+                    <label className="block text-xs font-medium mb-1 text-blue-600">XML CFDI *</label>
+                    {!xmlFile ? (
+                      <button
+                        type="button"
+                        onClick={() => xmlInputRef.current?.click()}
+                        className="w-full flex items-center justify-center gap-2 p-2 rounded hover:bg-gray-50"
+                      >
+                        <Upload className="w-4 h-4 text-blue-600" />
+                        <span className="text-sm text-blue-600">Seleccionar XML</span>
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-blue-600" />
+                        <span className="text-sm text-blue-700 truncate">{xmlFile.name}</span>
+                        <button type="button" onClick={() => setXmlFile(null)} className="text-red-500 text-xs">✕</button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* PDF */}
+                  <div className={`p-3 border-2 rounded-lg ${pdfFile ? 'bg-green-50 border-green-300' : 'border-dashed'}`}
+                    style={{ borderColor: pdfFile ? '#10B981' : themeColors.border }}>
+                    <label className="block text-xs font-medium mb-1 text-green-600">PDF Factura</label>
+                    {!pdfFile ? (
+                      <button
+                        type="button"
+                        onClick={() => pdfInputRef.current?.click()}
+                        className="w-full flex items-center justify-center gap-2 p-2 rounded hover:bg-gray-50"
+                      >
+                        <Upload className="w-4 h-4 text-green-600" />
+                        <span className="text-sm text-green-600">Seleccionar PDF</span>
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-green-600" />
+                        <span className="text-sm text-green-700 truncate">{pdfFile.name}</span>
+                        <button type="button" onClick={() => setPdfFile(null)} className="text-red-500 text-xs">✕</button>
+                      </div>
+                    )}
+                    <input
+                      ref={pdfInputRef}
+                      type="file"
+                      accept=".pdf"
+                      onChange={handlePDFSelect}
+                      className="hidden"
+                    />
+                  </div>
+                </div>
+
+                {xmlFile && (
+                  <button
+                    type="button"
+                    onClick={processDocuments}
+                    className="w-full py-2.5 rounded-lg font-medium text-white flex items-center justify-center gap-2"
+                    style={{ backgroundColor: '#3B82F6' }}
+                  >
+                    <Calculator className="w-4 h-4" />
+                    Procesar Factura
+                  </button>
+                )}
+              </div>
+            ) : (
+              /* Vista para TICKET */
+              <div className="space-y-3">
+                <div className={`p-3 border-2 rounded-lg ${ticketFile ? 'bg-amber-50 border-amber-300' : 'border-dashed'}`}
+                  style={{ borderColor: ticketFile ? '#F59E0B' : themeColors.border }}>
+                  <label className="block text-xs font-medium mb-1 text-amber-600">Imagen del Ticket *</label>
+                  {!ticketFile ? (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full flex items-center justify-center gap-2 p-3 rounded hover:bg-gray-50"
+                    >
+                      <Camera className="w-5 h-5 text-amber-600" />
+                      <span className="text-sm text-amber-600">Seleccionar imagen (JPG, PNG)</span>
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Camera className="w-4 h-4 text-amber-600" />
+                      <span className="text-sm text-amber-700 truncate">{ticketFile.name}</span>
+                      <button type="button" onClick={() => setTicketFile(null)} className="text-red-500 text-xs">✕</button>
+                    </div>
+                  )}
+                </div>
+
+                {ticketFile && (
+                  <button
+                    type="button"
+                    onClick={processDocuments}
+                    disabled={processingOCR}
+                    className="w-full py-2.5 rounded-lg font-medium text-white flex items-center justify-center gap-2"
+                    style={{ backgroundColor: '#F59E0B' }}
+                  >
+                    {processingOCR ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Camera className="w-4 h-4" />
+                    )}
+                    {processingOCR ? 'Procesando OCR...' : 'Procesar Ticket con OCR'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Archivo adjunto procesado */}
+            {archivoAdjunto && (
+              <div className="mt-3 flex items-center gap-2 p-2 bg-green-50 rounded-lg border border-green-200">
+                <FileText className="w-4 h-4 text-green-600" />
+                <span className="text-sm text-green-700 truncate flex-1">{archivoNombre}</span>
+                <a href={archivoAdjunto} target="_blank" className="text-sm text-blue-600 hover:underline">
+                  Ver
+                </a>
+              </div>
+            )}
+          </div>
 
           {/* Concepto */}
           <div>

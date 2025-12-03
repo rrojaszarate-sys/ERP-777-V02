@@ -1,5 +1,5 @@
 /**
- * MODAL: FORMULARIO DE GASTO NO IMPACTADO (MEJORADO V2)
+ * MODAL: FORMULARIO DE GASTO NO IMPACTADO (MEJORADO V3)
  * - Layout 50% horizontal, 45% vertical
  * - Selector de dos niveles: Cuenta → Subclave
  * - Cálculo automático de IVA con toggle
@@ -7,14 +7,19 @@
  * - Header con iconos de editar/guardar
  * - Colores dinámicos de la paleta activa
  * - Subida de PDF al bucket con estructura /gni/{año-mes}/
+ * - 🆕 Soporte XML CFDI (100% precisión - igual que Eventos)
+ * - 🆕 OCR inteligente para imágenes/PDF
+ * - 🆕 Detección automática de tipo de archivo
  */
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { X, Search, Plus, Upload, FileText, Calculator, Loader2, Save, Pencil, DollarSign, Bot, Zap } from 'lucide-react';
+import { X, Search, Plus, Upload, FileText, Calculator, Loader2, Save, Pencil, DollarSign, Bot, Zap, FileCode } from 'lucide-react';
 import { useAuth } from '../../../core/auth/AuthProvider';
 import { supabase } from '../../../core/config/supabase';
 import { useTheme } from '../../../shared/components/theme';
 import { expenseOCRIntegration } from '../../ocr/services/expenseOCRIntegration';
+// 🆕 Parser XML CFDI - Mismo motor que Eventos (100% precisión)
+import { parseCFDIXml, cfdiToExpenseData } from '../../eventos-erp/utils/cfdiXmlParser';
 import {
   createGasto,
   updateGasto,
@@ -165,6 +170,12 @@ export const GastoFormModal = ({
   const [ocrProgress, setOcrProgress] = useState<string>('');
   const ocrFileInputRef = useRef<HTMLInputElement>(null);
   const [shouldProcessOCR, setShouldProcessOCR] = useState(false); // true = procesar OCR, false = solo subir
+
+  // 🆕 Estados para XML CFDI (igual que DualOCRExpenseForm de Eventos)
+  const [xmlFile, setXmlFile] = useState<File | null>(null);
+  const [visualFile, setVisualFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [lastProcessedMethod, setLastProcessedMethod] = useState<'xml' | 'ocr' | null>(null);
 
   // Hook de tema para colores dinámicos
   const { paletteConfig, isDark } = useTheme();
@@ -528,6 +539,222 @@ export const GastoFormModal = ({
   };
 
   // =============================================
+  // 🆕 FUNCIONALIDAD XML CFDI (100% PRECISIÓN - Igual que Eventos)
+  // =============================================
+
+  /**
+   * Procesa archivo XML CFDI y extrae datos fiscales automáticamente
+   * - 100% precisión (extracción directa del XML, sin OCR)
+   * - Soporta CFDI 4.0 y versiones anteriores
+   * - Extrae: emisor, receptor, montos, UUID, método de pago, etc.
+   */
+  const processXMLCFDI = async (xmlFileToProcess: File) => {
+    setIsProcessingOCR(true);
+    setOcrProgress('📄 Leyendo XML CFDI...');
+    
+    try {
+      console.log('📄 Procesando XML CFDI:', xmlFileToProcess.name);
+      
+      // Leer el contenido del archivo XML
+      const xmlContent = await xmlFileToProcess.text();
+      console.log('📝 Contenido XML cargado, parseando...');
+      
+      // Parsear el XML usando el mismo motor que Eventos
+      setOcrProgress('🔍 Extrayendo datos del CFDI...');
+      const cfdiData = await parseCFDIXml(xmlContent);
+      
+      console.log('✅ CFDI parseado exitosamente:', cfdiData);
+      console.log('  - Emisor:', cfdiData.emisor.nombre);
+      console.log('  - Total:', cfdiData.total);
+      console.log('  - UUID:', cfdiData.timbreFiscal?.uuid);
+      
+      // Convertir a formato del formulario
+      setOcrProgress('📋 Aplicando datos al formulario...');
+      const expenseData = cfdiToExpenseData(cfdiData);
+      
+      console.log('📋 Datos convertidos para el formulario:', expenseData);
+
+      // Buscar proveedor por RFC o nombre
+      let proveedorEncontrado: Proveedor | undefined;
+      
+      // Primero buscar por RFC (más preciso)
+      if (expenseData.rfc_proveedor) {
+        proveedorEncontrado = proveedores.find(p => 
+          p.rfc?.toUpperCase() === expenseData.rfc_proveedor.toUpperCase()
+        );
+      }
+      
+      // Si no encuentra por RFC, buscar por nombre parcial
+      if (!proveedorEncontrado && expenseData.proveedor) {
+        proveedorEncontrado = proveedores.find(p =>
+          p.razon_social.toLowerCase().includes(expenseData.proveedor!.toLowerCase().substring(0, 10))
+        );
+      }
+      
+      if (proveedorEncontrado) {
+        setFormData(prev => ({ ...prev, proveedor_id: proveedorEncontrado!.id }));
+        setProveedorSearch(proveedorEncontrado.razon_social);
+        console.log('✅ Proveedor encontrado:', proveedorEncontrado.razon_social);
+      } else {
+        // Si no existe, poner el nombre para que el usuario lo cree
+        setProveedorSearch(expenseData.proveedor || cfdiData.emisor.nombre);
+        console.log('⚠️ Proveedor no encontrado, sugiriendo:', expenseData.proveedor);
+        toast.success(`Proveedor "${cfdiData.emisor.nombre}" no existe. Puedes crearlo.`, { duration: 4000 });
+      }
+
+      // Actualizar montos (usar valores del XML que son 100% precisos)
+      setFormData(prev => ({
+        ...prev,
+        subtotal: expenseData.subtotal,
+        iva: expenseData.iva,
+        total: expenseData.total,
+        concepto: expenseData.concepto || prev.concepto,
+        fecha_gasto: expenseData.fecha_gasto || prev.fecha_gasto,
+        folio_factura: expenseData.uuid_cfdi || expenseData.folio || ''
+      }));
+      
+      // Marcar método de procesamiento
+      setLastProcessedMethod('xml');
+      setXmlFile(xmlFileToProcess);
+
+      // Guardar el XML en storage como comprobante
+      if (companyId) {
+        try {
+          setOcrProgress('💾 Guardando comprobante XML...');
+          const fechaArchivo = formData.fecha_gasto.replace(/-/g, '');
+          const tipoGasto = cuentaSeleccionada?.replace(/\s+/g, '_') || 'XML';
+          const consecutivo = Date.now().toString().slice(-6);
+          const periodoFolder = formData.fecha_gasto.substring(0, 7);
+          const fileName = `${fechaArchivo}_${tipoGasto}_${consecutivo}.xml`;
+          const filePath = `gni/${periodoFolder}/${fileName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('event_docs')
+            .upload(filePath, xmlFileToProcess, { cacheControl: '3600', upsert: false });
+
+          if (uploadError && !uploadError.message.includes('Bucket not found')) {
+            console.warn('⚠️ No se pudo guardar comprobante XML:', uploadError.message);
+          } else if (!uploadError) {
+            const { data: urlData } = supabase.storage
+              .from('event_docs')
+              .getPublicUrl(filePath);
+            setFormData(prev => ({ ...prev, documento_url: urlData.publicUrl }));
+            console.log('✅ XML CFDI guardado como comprobante');
+          }
+        } catch (uploadErr) {
+          console.warn('⚠️ Error guardando comprobante XML:', uploadErr);
+        }
+      }
+      
+      // Mensaje de éxito
+      setOcrProgress('');
+      toast.success(
+        `✅ XML CFDI procesado con 100% precisión\n` +
+        `Emisor: ${cfdiData.emisor.nombre}\n` +
+        `Total: $${cfdiData.total.toFixed(2)}\n` +
+        `UUID: ${cfdiData.timbreFiscal?.uuid?.substring(0, 8) || 'N/A'}...`,
+        { duration: 5000 }
+      );
+      
+      console.log('✅ Formulario actualizado con datos del CFDI');
+      
+    } catch (error: any) {
+      console.error('❌ Error procesando XML CFDI:', error);
+      setOcrProgress('');
+      setLastProcessedMethod(null);
+      
+      // Mensaje de error detallado
+      const errorMsg = error.message || 'Error desconocido';
+      toast.error(
+        `Error procesando XML CFDI:\n${errorMsg}\n\nVerifica que el archivo sea un CFDI válido.`,
+        { duration: 6000 }
+      );
+    } finally {
+      setIsProcessingOCR(false);
+    }
+  };
+
+  // =============================================
+  // 🆕 MANEJADOR UNIFICADO DE ARCHIVOS (XML + OCR)
+  // =============================================
+
+  /**
+   * Detecta automáticamente el tipo de archivo y lo procesa:
+   * - XML → processXMLCFDI (100% precisión)
+   * - Imagen/PDF → OCR inteligente
+   */
+  const handleSmartFileUpload = async (file: File) => {
+    if (!user?.id) return;
+
+    // 🆕 DETECTAR XML AUTOMÁTICAMENTE
+    const isXML = file.name.toLowerCase().endsWith('.xml') || 
+                  file.type === 'text/xml' || 
+                  file.type === 'application/xml';
+    
+    // Si es XML, procesarlo directamente (SIN OCR - 100% precisión)
+    if (isXML) {
+      console.log('📄 Archivo XML detectado - Procesando CFDI...');
+      toast.success('XML detectado - Extrayendo datos fiscales...', { duration: 2000 });
+      await processXMLCFDI(file);
+      return;
+    }
+    
+    // Validar tipo de archivo (imagen/PDF)
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+    if (!validTypes.includes(file.type)) {
+      toast.error('Tipo de archivo no válido. Solo se permiten: JPG, PNG, PDF, XML');
+      return;
+    }
+    
+    // Validar tamaño (10MB máximo)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      toast.error('El archivo es demasiado grande. Máximo 10MB permitido.');
+      return;
+    }
+    
+    // Procesar con OCR
+    setVisualFile(file);
+    setShouldProcessOCR(true);
+    
+    // Simular evento de cambio para el handler existente
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+    if (ocrFileInputRef.current) {
+      ocrFileInputRef.current.files = dataTransfer.files;
+      const event = new Event('change', { bubbles: true });
+      ocrFileInputRef.current.dispatchEvent(event);
+    }
+  };
+
+  // =============================================
+  // 🆕 MANEJADORES DE DRAG & DROP (igual que Eventos)
+  // =============================================
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+  
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+  
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile) {
+      await handleSmartFileUpload(droppedFile);
+    }
+  };
+
+  // =============================================
   // FUNCIONALIDAD OCR INTELIGENTE (igual que Eventos)
   // =============================================
 
@@ -535,6 +762,16 @@ export const GastoFormModal = ({
   const handleOCRProcess = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !user?.id) return;
+
+    // 🆕 Detectar XML automáticamente
+    const isXML = file.name.toLowerCase().endsWith('.xml') || 
+                  file.type === 'text/xml' || 
+                  file.type === 'application/xml';
+    
+    if (isXML) {
+      await processXMLCFDI(file);
+      return;
+    }
 
     // Si no es modo OCR, solo subir el archivo
     if (!shouldProcessOCR) {
@@ -545,6 +782,7 @@ export const GastoFormModal = ({
 
     setIsProcessingOCR(true);
     setOcrProgress('Procesando con OCR...');
+    setLastProcessedMethod('ocr');
 
     try {
       console.log('🔍 Procesando PDF con OCR Inteligente:', file.name);
@@ -753,21 +991,42 @@ export const GastoFormModal = ({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4">
-          {/* Sección: Comprobante + OCR - Un solo renglón */}
-          <div className="mb-4 p-3 rounded-xl border-2" style={{ borderColor: themeColors.primary + '40', backgroundColor: themeColors.primaryLight + '10' }}>
+          {/* 🆕 Sección: Comprobante MEJORADA - XML CFDI + OCR + Drag & Drop */}
+          <div 
+            className={`mb-4 p-3 rounded-xl border-2 transition-all ${isDragging ? 'ring-4 ring-opacity-50' : ''}`} 
+            style={{ 
+              borderColor: isDragging ? themeColors.accent : themeColors.primary + '40', 
+              backgroundColor: isDragging ? `${themeColors.accent}15` : themeColors.primaryLight + '10',
+              ringColor: themeColors.accent
+            }}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
             <h3
               className="text-sm font-semibold uppercase tracking-wide mb-3 flex items-center gap-2"
               style={{ color: themeColors.secondary }}
             >
-              <FileText className="w-4 h-4" />
-              Comprobante (PDF/Imagen)
+              <FileCode className="w-4 h-4" />
+              Comprobante (XML CFDI / PDF / Imagen)
+              {lastProcessedMethod && (
+                <span 
+                  className="ml-auto text-xs font-normal px-2 py-0.5 rounded-full"
+                  style={{ 
+                    backgroundColor: lastProcessedMethod === 'xml' ? '#10B98120' : `${themeColors.accent}20`,
+                    color: lastProcessedMethod === 'xml' ? '#10B981' : themeColors.accent
+                  }}
+                >
+                  {lastProcessedMethod === 'xml' ? '✓ XML 100%' : '✓ OCR'}
+                </span>
+              )}
             </h3>
 
-            {/* Input file oculto */}
+            {/* Input file oculto - Ahora acepta XML */}
             <input
               type="file"
               ref={ocrFileInputRef}
-              accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/*"
+              accept=".xml,.pdf,.jpg,.jpeg,.png,text/xml,application/xml,application/pdf,image/*"
               onChange={handleOCRProcess}
               className="hidden"
             />
@@ -776,9 +1035,13 @@ export const GastoFormModal = ({
             {formData.documento_url ? (
               <div className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: `${themeColors.primary}15` }}>
                 <div className="flex items-center gap-2">
-                  <FileText className="w-5 h-5" style={{ color: themeColors.primary }} />
+                  {xmlFile ? (
+                    <FileCode className="w-5 h-5" style={{ color: '#10B981' }} />
+                  ) : (
+                    <FileText className="w-5 h-5" style={{ color: themeColors.primary }} />
+                  )}
                   <span className="text-sm truncate max-w-[200px]" style={{ color: themeColors.text }}>
-                    Archivo cargado
+                    {xmlFile ? `XML: ${xmlFile.name}` : 'Archivo cargado'}
                   </span>
                 </div>
                 <div className="flex gap-2">
@@ -793,7 +1056,12 @@ export const GastoFormModal = ({
                   </a>
                   <button
                     type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, documento_url: null }))}
+                    onClick={() => {
+                      setFormData(prev => ({ ...prev, documento_url: null }));
+                      setXmlFile(null);
+                      setVisualFile(null);
+                      setLastProcessedMethod(null);
+                    }}
                     className="px-3 py-1.5 text-xs rounded-lg border"
                     style={{ borderColor: themeColors.border, color: themeColors.textSecondary }}
                   >
@@ -802,70 +1070,119 @@ export const GastoFormModal = ({
                 </div>
               </div>
             ) : (
-              /* Dos botones en un solo renglón */
-              <div className="flex gap-3">
-                {/* Botón Subir (sin OCR) */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShouldProcessOCR(false);
-                    ocrFileInputRef.current?.click();
+              /* 🆕 ZONA MEJORADA: Drag & Drop + 3 botones */
+              <div className="space-y-3">
+                {/* Zona de arrastre */}
+                <div 
+                  className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-all ${isDragging ? 'scale-[1.02]' : ''}`}
+                  style={{ 
+                    borderColor: isDragging ? themeColors.accent : themeColors.border,
+                    backgroundColor: isDragging ? `${themeColors.accent}10` : 'transparent'
                   }}
-                  disabled={uploadingFile || isProcessingOCR}
-                  className="flex-1 py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-all text-sm border-2"
-                  style={{
-                    borderColor: themeColors.border,
-                    color: themeColors.text,
-                    backgroundColor: themeColors.bg
-                  }}
-                >
-                  {uploadingFile ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Subiendo...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4" />
-                      Subir PDF
-                    </>
-                  )}
-                </button>
-
-                {/* Botón Procesar OCR - con animación */}
-                <button
-                  type="button"
                   onClick={() => {
                     setShouldProcessOCR(true);
                     ocrFileInputRef.current?.click();
                   }}
-                  disabled={isProcessingOCR || uploadingFile}
-                  className={`flex-1 py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-all font-medium text-sm ${isProcessingOCR ? 'animate-pulse' : ''}`}
-                  style={{
-                    background: isProcessingOCR
-                      ? `linear-gradient(135deg, ${themeColors.primary}, ${themeColors.secondary})`
-                      : `linear-gradient(135deg, ${themeColors.accent}, ${themeColors.primary})`,
-                    color: '#fff',
-                    boxShadow: isProcessingOCR ? `0 0 20px ${themeColors.primary}80` : 'none'
-                  }}
                 >
-                  {isProcessingOCR ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      <span className="animate-pulse">{ocrProgress || 'Procesando OCR...'}</span>
-                    </>
-                  ) : (
-                    <>
-                      <Bot className="w-5 h-5" />
-                      <Zap className="w-4 h-4" />
-                      Procesar OCR
-                    </>
-                  )}
-                </button>
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="flex gap-2">
+                      <FileCode className="w-6 h-6" style={{ color: '#10B981' }} />
+                      <FileText className="w-6 h-6" style={{ color: themeColors.primary }} />
+                    </div>
+                    <p className="text-sm font-medium" style={{ color: themeColors.text }}>
+                      {isDragging ? '¡Suelta el archivo aquí!' : 'Arrastra un archivo o haz clic'}
+                    </p>
+                    <p className="text-xs" style={{ color: themeColors.textSecondary }}>
+                      XML CFDI (100% precisión) • PDF • JPG • PNG
+                    </p>
+                  </div>
+                </div>
+
+                {/* Tres botones en un renglón */}
+                <div className="flex gap-2">
+                  {/* Botón XML CFDI - Prioridad */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShouldProcessOCR(true);
+                      ocrFileInputRef.current?.click();
+                    }}
+                    disabled={isProcessingOCR || uploadingFile}
+                    className="flex-1 py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all text-xs font-medium"
+                    style={{
+                      background: 'linear-gradient(135deg, #10B981, #059669)',
+                      color: '#fff',
+                      opacity: isProcessingOCR || uploadingFile ? 0.7 : 1
+                    }}
+                  >
+                    <FileCode className="w-4 h-4" />
+                    XML CFDI
+                  </button>
+
+                  {/* Botón Procesar OCR */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShouldProcessOCR(true);
+                      ocrFileInputRef.current?.click();
+                    }}
+                    disabled={isProcessingOCR || uploadingFile}
+                    className={`flex-1 py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all text-xs font-medium ${isProcessingOCR ? 'animate-pulse' : ''}`}
+                    style={{
+                      background: isProcessingOCR
+                        ? `linear-gradient(135deg, ${themeColors.primary}, ${themeColors.secondary})`
+                        : `linear-gradient(135deg, ${themeColors.accent}, ${themeColors.primary})`,
+                      color: '#fff',
+                      boxShadow: isProcessingOCR ? `0 0 15px ${themeColors.primary}60` : 'none'
+                    }}
+                  >
+                    {isProcessingOCR ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span className="truncate max-w-[80px]">{ocrProgress || 'Procesando...'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Bot className="w-4 h-4" />
+                        <Zap className="w-3 h-3" />
+                        OCR
+                      </>
+                    )}
+                  </button>
+
+                  {/* Botón Solo Subir */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShouldProcessOCR(false);
+                      ocrFileInputRef.current?.click();
+                    }}
+                    disabled={uploadingFile || isProcessingOCR}
+                    className="flex-1 py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all text-xs border-2"
+                    style={{
+                      borderColor: themeColors.border,
+                      color: themeColors.text,
+                      backgroundColor: themeColors.bg,
+                      opacity: uploadingFile || isProcessingOCR ? 0.7 : 1
+                    }}
+                  >
+                    {uploadingFile ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Subiendo...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4" />
+                        Solo Subir
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             )}
             <p className="text-xs mt-2 text-center" style={{ color: themeColors.textSecondary }}>
-              Sube un comprobante o usa OCR para extraer datos automáticamente
+              💡 <strong>XML CFDI:</strong> Extracción 100% precisa • <strong>OCR:</strong> Para tickets e imágenes
             </p>
           </div>
 

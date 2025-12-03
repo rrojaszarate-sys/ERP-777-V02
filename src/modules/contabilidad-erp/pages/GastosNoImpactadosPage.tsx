@@ -230,8 +230,8 @@ export const GastosNoImpactadosPage = () => {
   const [aniosDisponibles, setAniosDisponibles] = useState<number[]>([anioActual]);
   const [mesesSeleccionados, setMesesSeleccionados] = useState<number[]>([]); // Vacío = todos los meses
 
-  // Tipo de gráfica: 'bar' (horizontal), 'vbar' (vertical), 'pie', o 'line'
-  const [chartType, setChartType] = useState<'bar' | 'vbar' | 'pie' | 'line'>('bar');
+  // Tipo de gráfica: 'bar' (horizontal), 'pie', o 'line' (sin vbar)
+  const [chartType, setChartType] = useState<'bar' | 'pie' | 'line'>('line');
 
   // Modales
   const [showGastoModal, setShowGastoModal] = useState(false);
@@ -1091,168 +1091,169 @@ export const GastosNoImpactadosPage = () => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="mb-6 overflow-hidden"
+            className="mb-4 overflow-hidden"
           >
-            {/* KPIs - Layout mejorado */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              {/* Total Período - Ficha principal mejorada con colores dinámicos */}
+            {/* Barra compacta: KPIs + Toggle gráfica */}
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              {/* KPI Total - Principal con tooltip */}
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="group relative flex items-center gap-2 px-3 py-2 rounded-lg shadow-sm cursor-help"
+                style={{ background: `linear-gradient(135deg, ${themeColors.primary}, ${themeColors.secondary})` }}
+              >
+                <DollarSign className="w-4 h-4 text-white/90" />
+                <div className="flex flex-col">
+                  <span className="text-[9px] text-white/70 font-medium leading-tight">TOTAL PERÍODO</span>
+                  <span className="text-sm font-bold text-white leading-tight">{formatCurrency(totales.total)}</span>
+                </div>
+                <div className="flex flex-col border-l border-white/30 pl-2 ml-1">
+                  <span className="text-[8px] text-white/60">{totales.cantidad} registros</span>
+                  <span className="text-[8px] text-white/60">IVA: {formatCurrency(totales.iva)}</span>
+                </div>
+                {/* Tooltip */}
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                  <div className="font-semibold mb-1">💰 Total del Período</div>
+                  <div>Subtotal: {formatCurrency(totales.subtotal)}</div>
+                  <div>IVA: {formatCurrency(totales.iva)}</div>
+                  <div>Total: {formatCurrency(totales.total)}</div>
+                  <div className="text-gray-400 mt-1">{totales.cantidad} gastos registrados</div>
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                </div>
+              </motion.div>
+
+              {/* KPI Validados con tooltip */}
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.05 }}
+                className="group relative flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg cursor-help"
+              >
+                <CheckCircle className="w-4 h-4 text-emerald-600" />
+                <div className="flex flex-col">
+                  <span className="text-[8px] text-emerald-600/80 font-medium leading-tight">VALIDADOS</span>
+                  <span className="text-xs font-bold text-emerald-700 leading-tight">{contadores.correctos}</span>
+                </div>
+                {/* Tooltip */}
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                  <div className="font-semibold mb-1">✅ Gastos Validados</div>
+                  <div>Cantidad: {contadores.correctos} gastos</div>
+                  <div>Monto: {formatCurrency(dashboardData.totalCorrectosAmount)}</div>
+                  <div className="text-gray-400 mt-1">Gastos con validación correcta</div>
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                </div>
+              </motion.div>
+
+              {/* KPI Pendientes con tooltip */}
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.1 }}
-                className="p-4 rounded-xl shadow-lg"
-                style={{ background: `linear-gradient(135deg, ${themeColors.primary}, ${themeColors.secondary})` }}
+                className="group relative flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 border border-amber-200 rounded-lg cursor-help"
               >
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.8)' }}>Total Período</p>
-                    <p className="text-2xl font-bold text-white mt-1">{formatCurrency(totales.total)}</p>
-                  </div>
-                  <div className="p-2 bg-white/20 rounded-lg">
-                    <DollarSign className="w-5 h-5 text-white" />
-                  </div>
+                <Clock className="w-4 h-4 text-amber-600" />
+                <div className="flex flex-col">
+                  <span className="text-[8px] text-amber-600/80 font-medium leading-tight">PENDIENTES</span>
+                  <span className="text-xs font-bold text-amber-700 leading-tight">{contadores.pendientes}</span>
                 </div>
-                <div className="grid grid-cols-3 gap-2 pt-3 border-t border-white/20">
-                  <div>
-                    <p className="text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>Subtotal</p>
-                    <p className="text-white text-sm font-semibold">{formatCurrency(totales.subtotal)}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>IVA</p>
-                    <p className="text-white text-sm font-semibold">{formatCurrency(totales.iva)}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>Registros</p>
-                    <p className="text-white text-sm font-semibold">{totales.cantidad}</p>
-                  </div>
+                {/* Tooltip */}
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                  <div className="font-semibold mb-1">⏳ Gastos Pendientes</div>
+                  <div>Cantidad: {contadores.pendientes} gastos</div>
+                  <div>Monto: {formatCurrency(dashboardData.totalPendientesAmount)}</div>
+                  <div className="text-gray-400 mt-1">Gastos sin validar aún</div>
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
                 </div>
               </motion.div>
 
-              {/* Validados */}
+              {/* KPI Pagados con tooltip */}
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.15 }}
-                className="bg-white p-4 rounded-xl shadow-sm border border-emerald-100"
+                className="group relative flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 border border-blue-200 rounded-lg cursor-help"
               >
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 bg-emerald-100 rounded-lg">
-                    <CheckCircle className="w-5 h-5 text-emerald-600" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 font-medium">Validados</p>
-                    <p className="text-xl font-bold text-emerald-700">{contadores.correctos}</p>
-                  </div>
+                <CreditCard className="w-4 h-4 text-blue-600" />
+                <div className="flex flex-col">
+                  <span className="text-[8px] text-blue-600/80 font-medium leading-tight">PAGADOS</span>
+                  <span className="text-xs font-bold text-blue-700 leading-tight">{contadores.pagados}</span>
                 </div>
-                <p className="text-sm text-emerald-600 font-medium">{formatCurrency(dashboardData.totalCorrectosAmount)}</p>
+                {/* Tooltip */}
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                  <div className="font-semibold mb-1">💳 Gastos Pagados</div>
+                  <div>Cantidad: {contadores.pagados} gastos</div>
+                  <div>Monto: {formatCurrency(dashboardData.totalPagadosAmount)}</div>
+                  <div className="text-gray-400 mt-1">Gastos ya liquidados</div>
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                </div>
               </motion.div>
 
-              {/* Pendientes */}
+              {/* KPI Por Pagar con tooltip */}
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.2 }}
-                className="bg-white p-4 rounded-xl shadow-sm border border-amber-100"
+                className="group relative flex items-center gap-1.5 px-2.5 py-1.5 bg-rose-50 border border-rose-200 rounded-lg cursor-help"
               >
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 bg-amber-100 rounded-lg">
-                    <Clock className="w-5 h-5 text-amber-600" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 font-medium">Pendientes</p>
-                    <p className="text-xl font-bold text-amber-700">{contadores.pendientes}</p>
-                  </div>
+                <Wallet className="w-4 h-4 text-rose-600" />
+                <div className="flex flex-col">
+                  <span className="text-[8px] text-rose-600/80 font-medium leading-tight">POR PAGAR</span>
+                  <span className="text-xs font-bold text-rose-700 leading-tight">{dashboardData.porPago.pendientes.length}</span>
                 </div>
-                <p className="text-sm text-amber-600 font-medium">{formatCurrency(dashboardData.totalPendientesAmount)}</p>
-              </motion.div>
-
-              {/* Pagados / Por Pagar */}
-              <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.25 }}
-                className="bg-white p-4 rounded-xl shadow-sm border"
-              >
-                <div className="flex gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <CreditCard className="w-4 h-4 text-blue-500" />
-                      <p className="text-xs text-gray-500 font-medium">Pagados</p>
-                    </div>
-                    <p className="text-lg font-bold text-blue-700">{contadores.pagados}</p>
-                    <p className="text-xs text-blue-600">{formatCurrency(dashboardData.totalPagadosAmount)}</p>
-                  </div>
-                  <div className="w-px bg-gray-200"></div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Wallet className="w-4 h-4 text-rose-500" />
-                      <p className="text-xs text-gray-500 font-medium">Por Pagar</p>
-                    </div>
-                    <p className="text-lg font-bold text-rose-700">{dashboardData.porPago.pendientes.length}</p>
-                    <p className="text-xs text-rose-600">{formatCurrency(dashboardData.totalPorPagarAmount)}</p>
-                  </div>
+                {/* Tooltip */}
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                  <div className="font-semibold mb-1">🔴 Gastos Por Pagar</div>
+                  <div>Cantidad: {dashboardData.porPago.pendientes.length} gastos</div>
+                  <div>Monto: {formatCurrency(dashboardData.totalPorPagarAmount)}</div>
+                  <div className="text-gray-400 mt-1">Gastos pendientes de pago</div>
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
                 </div>
               </motion.div>
-            </div>
 
-            {/* Toggle tipo de gráfica - 4 opciones con animación */}
-            <div className="flex justify-end mb-3">
+              {/* Separador */}
+              <div className="hidden md:block w-px h-8 bg-gray-200"></div>
+
+              {/* Toggle tipo de gráfica - 3 opciones compactas */}
               <motion.div
-                className="flex items-center gap-1 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-1 shadow-sm border"
+                className="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
               >
                 <motion.button
                   onClick={() => setChartType('bar')}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
+                  className={`p-1.5 rounded-md transition-all ${
                     chartType === 'bar'
-                      ? 'bg-white shadow-md text-blue-600 border border-blue-200'
-                      : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'
+                      ? 'bg-white shadow-sm text-blue-600'
+                      : 'text-gray-400 hover:text-gray-600'
                   }`}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  whileTap={{ scale: 0.95 }}
+                  title="Barras horizontales"
                 >
                   <BarChart3 className="w-4 h-4 rotate-90" />
-                  Horizontal
-                </motion.button>
-                <motion.button
-                  onClick={() => setChartType('vbar')}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
-                    chartType === 'vbar'
-                      ? 'bg-white shadow-md text-violet-600 border border-violet-200'
-                      : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'
-                  }`}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <BarChart3 className="w-4 h-4" />
-                  Vertical
                 </motion.button>
                 <motion.button
                   onClick={() => setChartType('pie')}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
+                  className={`p-1.5 rounded-md transition-all ${
                     chartType === 'pie'
-                      ? 'bg-white shadow-md text-pink-600 border border-pink-200'
-                      : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'
+                      ? 'bg-white shadow-sm text-pink-600'
+                      : 'text-gray-400 hover:text-gray-600'
                   }`}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  whileTap={{ scale: 0.95 }}
+                  title="Gráfica de pastel"
                 >
                   <PieChart className="w-4 h-4" />
-                  Pastel 3D
                 </motion.button>
                 <motion.button
                   onClick={() => setChartType('line')}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
+                  className={`p-1.5 rounded-md transition-all ${
                     chartType === 'line'
-                      ? 'bg-white shadow-md text-emerald-600 border border-emerald-200'
-                      : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'
+                      ? 'bg-white shadow-sm text-emerald-600'
+                      : 'text-gray-400 hover:text-gray-600'
                   }`}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  whileTap={{ scale: 0.95 }}
+                  title="Tendencia"
                 >
                   <LineChart className="w-4 h-4" />
-                  Tendencia
                 </motion.button>
               </motion.div>
             </div>
@@ -1267,7 +1268,7 @@ export const GastosNoImpactadosPage = () => {
                 className="bg-white p-4 rounded-xl shadow-sm border"
               >
                 <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                  {chartType === 'pie' ? <PieChart className="w-4 h-4 text-pink-600" /> : chartType === 'line' ? <LineChart className="w-4 h-4 text-emerald-600" /> : chartType === 'vbar' ? <BarChart3 className="w-4 h-4 text-violet-600" /> : <BarChart3 className="w-4 h-4 text-blue-600 rotate-90" />}
+                  {chartType === 'pie' ? <PieChart className="w-4 h-4 text-pink-600" /> : chartType === 'line' ? <LineChart className="w-4 h-4 text-emerald-600" /> : <BarChart3 className="w-4 h-4 text-blue-600 rotate-90" />}
                   Por Cuenta
                 </h3>
                 {chartType === 'bar' && (
@@ -1305,86 +1306,6 @@ export const GastosNoImpactadosPage = () => {
                           </div>
                         );
                       })}
-                  </div>
-                )}
-                {chartType === 'vbar' && (
-                  /* Vista Barras Verticales con animación */
-                  <div className="relative h-44">
-                    {(() => {
-                      const sortedData = Object.entries(dashboardData.porCuenta)
-                        .sort((a, b) => b[1].total - a[1].total)
-                        .slice(0, 6);
-                      const maxVal = Math.max(...sortedData.map(([, d]) => d.total), 1);
-                      const total = sortedData.reduce((sum, [, d]) => sum + d.total, 0);
-                      const barWidth = sortedData.length > 0 ? Math.floor(160 / sortedData.length) : 20;
-
-                      return (
-                        <svg viewBox="0 0 200 130" className="w-full h-full">
-                          {/* Grid lines horizontales */}
-                          {[0, 25, 50, 75, 100].map(pct => (
-                            <g key={pct}>
-                              <line x1="35" y1={100 - pct} x2="195" y2={100 - pct} stroke="#e5e7eb" strokeWidth="0.5" strokeDasharray={pct === 0 ? '' : '2,2'} />
-                              <text x="32" y={103 - pct} fontSize="6" textAnchor="end" fill="#9ca3af">{pct}%</text>
-                            </g>
-                          ))}
-                          {/* Barras verticales */}
-                          {sortedData.map(([cuenta, data], i) => {
-                            const pct = maxVal > 0 ? (data.total / maxVal) * 100 : 0;
-                            const barHeight = pct;
-                            const x = 42 + i * barWidth;
-                            const color = getCuentaColor(cuenta);
-                            const pctTotal = total > 0 ? ((data.total / total) * 100).toFixed(0) : '0';
-                            return (
-                              <g key={cuenta}>
-                                {/* Barra con gradiente */}
-                                <defs>
-                                  <linearGradient id={`vbarGrad-${i}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                                    <stop offset="0%" stopColor={color} stopOpacity="1" />
-                                    <stop offset="100%" stopColor={color} stopOpacity="0.6" />
-                                  </linearGradient>
-                                </defs>
-                                <motion.rect
-                                  x={x}
-                                  y={100 - barHeight}
-                                  width={barWidth - 4}
-                                  height={barHeight}
-                                  fill={`url(#vbarGrad-${i})`}
-                                  rx="2"
-                                  initial={{ height: 0, y: 100 }}
-                                  animate={{ height: barHeight, y: 100 - barHeight }}
-                                  transition={{ delay: 0.3 + i * 0.1, duration: 0.5, ease: 'easeOut' }}
-                                />
-                                {/* Valor en la parte superior */}
-                                <motion.text
-                                  x={x + (barWidth - 4) / 2}
-                                  y={97 - barHeight}
-                                  fontSize="5"
-                                  textAnchor="middle"
-                                  fill={color}
-                                  fontWeight="bold"
-                                  initial={{ opacity: 0 }}
-                                  animate={{ opacity: 1 }}
-                                  transition={{ delay: 0.6 + i * 0.1 }}
-                                >
-                                  {pctTotal}%
-                                </motion.text>
-                                {/* Etiqueta abreviada */}
-                                <text
-                                  x={x + (barWidth - 4) / 2}
-                                  y="112"
-                                  fontSize="5"
-                                  textAnchor="middle"
-                                  fill="#6b7280"
-                                  className="truncate"
-                                >
-                                  {cuenta.slice(0, 4)}
-                                </text>
-                              </g>
-                            );
-                          })}
-                        </svg>
-                      );
-                    })()}
                   </div>
                 )}
                 {chartType === 'pie' && (
@@ -1611,76 +1532,6 @@ export const GastosNoImpactadosPage = () => {
                         </div>
                       </motion.div>
                     );
-                  } else if (chartType === 'vbar') {
-                    // Gráfica de barras verticales por mes
-                    const barWidth = Math.floor(290 / Math.max(mesesOrdenados.length, 1));
-                    return (
-                      <motion.div
-                        className="h-48"
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.4 }}
-                      >
-                        <svg viewBox="0 0 350 150" className="w-full h-full">
-                          {/* Grid horizontal */}
-                          {[0, 25, 50, 75, 100].map(pct => (
-                            <g key={pct}>
-                              <line x1="40" y1={115 - pct} x2="340" y2={115 - pct} stroke="#e5e7eb" strokeWidth="0.5" strokeDasharray={pct === 0 ? '' : '2,2'} />
-                              <text x="37" y={118 - pct} fontSize="7" textAnchor="end" fill="#9ca3af">{pct}%</text>
-                            </g>
-                          ))}
-                          {/* Barras verticales */}
-                          {mesesOrdenados.map(([mes, cuentas], i) => {
-                            const total = Object.values(cuentas).reduce((s, v) => s + v, 0);
-                            const pct = maxMes > 0 ? (total / maxMes) * 100 : 0;
-                            const x = 45 + i * barWidth;
-                            const [anio, mesNum] = mes.split('-');
-                            const color = DYNAMIC_COLORS[i % DYNAMIC_COLORS.length];
-                            const pctTotal = totalGeneral > 0 ? ((total / totalGeneral) * 100).toFixed(0) : '0';
-                            return (
-                              <g key={mes}>
-                                <defs>
-                                  <linearGradient id={`vbarMes-${i}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                                    <stop offset="0%" stopColor={color} stopOpacity="1" />
-                                    <stop offset="100%" stopColor={color} stopOpacity="0.5" />
-                                  </linearGradient>
-                                </defs>
-                                <motion.rect
-                                  x={x}
-                                  y={115 - pct}
-                                  width={barWidth - 4}
-                                  height={pct}
-                                  fill={`url(#vbarMes-${i})`}
-                                  rx="3"
-                                  initial={{ height: 0, y: 115 }}
-                                  animate={{ height: pct, y: 115 - pct }}
-                                  transition={{ delay: 0.2 + i * 0.06, duration: 0.5, ease: 'easeOut' }}
-                                />
-                                <motion.text
-                                  x={x + (barWidth - 4) / 2}
-                                  y={111 - pct}
-                                  fontSize="6"
-                                  textAnchor="middle"
-                                  fill={color}
-                                  fontWeight="bold"
-                                  initial={{ opacity: 0 }}
-                                  animate={{ opacity: 1 }}
-                                  transition={{ delay: 0.5 + i * 0.06 }}
-                                >
-                                  {pctTotal}%
-                                </motion.text>
-                                <text x={x + (barWidth - 4) / 2} y="128" fontSize="6" textAnchor="middle" fill="#6b7280">
-                                  {mesesLabels[parseInt(mesNum) - 1]}
-                                </text>
-                                <text x={x + (barWidth - 4) / 2} y="138" fontSize="5" textAnchor="middle" fill="#9ca3af">
-                                  {anio?.slice(-2)}
-                                </text>
-                              </g>
-                            );
-                          })}
-                        </svg>
-                      </motion.div>
-                    );
                   } else {
                     // Gráfica de líneas mejorada
                     return (
@@ -1781,7 +1632,7 @@ export const GastosNoImpactadosPage = () => {
                 className="bg-white p-4 rounded-xl shadow-sm border"
               >
                 <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                  {chartType === 'pie' ? <PieChart className="w-4 h-4 text-pink-600" /> : chartType === 'line' ? <LineChart className="w-4 h-4 text-emerald-600" /> : chartType === 'vbar' ? <BarChart3 className="w-4 h-4 text-violet-600" /> : <BarChart3 className="w-4 h-4 text-blue-600 rotate-90" />}
+                  {chartType === 'pie' ? <PieChart className="w-4 h-4 text-pink-600" /> : chartType === 'line' ? <LineChart className="w-4 h-4 text-emerald-600" /> : <BarChart3 className="w-4 h-4 text-blue-600 rotate-90" />}
                   Por Forma de Pago
                 </h3>
                 {chartType === 'bar' && (
@@ -1813,74 +1664,6 @@ export const GastosNoImpactadosPage = () => {
                     })}
                   </div>
                 )}
-                {chartType === 'vbar' && (() => {
-                  const sortedFP = Object.entries(dashboardData.porFormaPago).sort((a, b) => b[1].total - a[1].total).slice(0, 6);
-                  const maxVal = Math.max(...sortedFP.map(([, d]) => d.total), 1);
-                  const total = sortedFP.reduce((sum, [, d]) => sum + d.total, 0);
-                  const barWidth = sortedFP.length > 0 ? Math.floor(160 / sortedFP.length) : 20;
-                  return (
-                    <motion.div
-                      className="h-44"
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ duration: 0.4 }}
-                    >
-                      <svg viewBox="0 0 200 130" className="w-full h-full">
-                        {/* Grid horizontal */}
-                        {[0, 25, 50, 75, 100].map(pct => (
-                          <g key={pct}>
-                            <line x1="35" y1={100 - pct} x2="195" y2={100 - pct} stroke="#e5e7eb" strokeWidth="0.5" strokeDasharray={pct === 0 ? '' : '2,2'} />
-                            <text x="32" y={103 - pct} fontSize="6" textAnchor="end" fill="#9ca3af">{pct}%</text>
-                          </g>
-                        ))}
-                        {/* Barras verticales */}
-                        {sortedFP.map(([fp, data], i) => {
-                          const pct = maxVal > 0 ? (data.total / maxVal) * 100 : 0;
-                          const x = 42 + i * barWidth;
-                          const color = getFormaPagoColor(fp);
-                          const pctTotal = total > 0 ? ((data.total / total) * 100).toFixed(0) : '0';
-                          return (
-                            <g key={fp}>
-                              <defs>
-                                <linearGradient id={`vbarFP-${i}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                                  <stop offset="0%" stopColor={color} stopOpacity="1" />
-                                  <stop offset="100%" stopColor={color} stopOpacity="0.5" />
-                                </linearGradient>
-                              </defs>
-                              <motion.rect
-                                x={x}
-                                y={100 - pct}
-                                width={barWidth - 4}
-                                height={pct}
-                                fill={`url(#vbarFP-${i})`}
-                                rx="2"
-                                initial={{ height: 0, y: 100 }}
-                                animate={{ height: pct, y: 100 - pct }}
-                                transition={{ delay: 0.2 + i * 0.1, duration: 0.5, ease: 'easeOut' }}
-                              />
-                              <motion.text
-                                x={x + (barWidth - 4) / 2}
-                                y={96 - pct}
-                                fontSize="5"
-                                textAnchor="middle"
-                                fill={color}
-                                fontWeight="bold"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                transition={{ delay: 0.5 + i * 0.1 }}
-                              >
-                                {pctTotal}%
-                              </motion.text>
-                              <text x={x + (barWidth - 4) / 2} y="112" fontSize="5" textAnchor="middle" fill="#6b7280">
-                                {fp.slice(0, 5)}
-                              </text>
-                            </g>
-                          );
-                        })}
-                      </svg>
-                    </motion.div>
-                  );
-                })()}
                 {chartType === 'pie' && (() => {
                   const sortedFP = Object.entries(dashboardData.porFormaPago).sort((a, b) => b[1].total - a[1].total).slice(0, 6);
                   const total = sortedFP.reduce((sum, [, d]) => sum + d.total, 0);
@@ -1948,111 +1731,108 @@ export const GastosNoImpactadosPage = () => {
         )}
       </AnimatePresence>
 
-      {/* Barra de búsqueda y filtros */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border mb-6">
-        <div className="flex flex-wrap gap-4 items-center">
+      {/* Barra de búsqueda y filtros - Compacta */}
+      <div className="bg-white p-3 rounded-xl shadow-sm border mb-4">
+        <div className="flex flex-wrap gap-2 items-center">
           {/* Búsqueda */}
-          <div className="relative flex-1 min-w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <div className="relative flex-1 min-w-48">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
             <input
               type="text"
-              placeholder="Buscar por proveedor, concepto, clave, ejecutivo..."
+              placeholder="Buscar..."
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+              className="w-full pl-8 pr-3 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
             />
           </div>
 
-          {/* Selector de Año */}
-          <select
-            value={filtros.anio || anioActual}
-            onChange={(e) => {
-              const nuevoAnio = parseInt(e.target.value);
-              setFiltros({ ...filtros, anio: nuevoAnio, periodo: undefined });
-              setMesesSeleccionados([]); // Reset meses al cambiar año
-            }}
-            className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 bg-white font-medium"
-          >
-            {aniosDisponibles.map(a => (
-              <option key={a} value={a}>{a}</option>
-            ))}
-          </select>
-
-          {/* Selector de Meses (multi-select visual) */}
-          <div className="relative">
+          {/* Selector ultra-compacto Año + Meses */}
+          <div className="flex items-center gap-0.5 bg-teal-50 border border-teal-200 rounded-md px-1.5 py-1">
+            <select
+              value={filtros.anio || anioActual}
+              onChange={(e) => {
+                const nuevoAnio = parseInt(e.target.value);
+                setFiltros({ ...filtros, anio: nuevoAnio, periodo: undefined });
+                setMesesSeleccionados([]);
+              }}
+              className="px-0.5 py-0 text-xs font-semibold bg-transparent border-0 focus:ring-0 text-teal-700 cursor-pointer w-14"
+            >
+              {aniosDisponibles.map(a => (
+                <option key={a} value={a}>{a}</option>
+              ))}
+            </select>
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`px-3 py-2 border rounded-lg flex items-center gap-2 transition-colors text-sm ${
-                mesesSeleccionados.length > 0 ? 'bg-teal-50 border-teal-300 text-teal-700' : 'hover:bg-gray-50'
+              className={`px-1.5 py-0.5 text-[10px] rounded transition-colors ${
+                mesesSeleccionados.length > 0 ? 'bg-teal-600 text-white' : 'text-teal-600 hover:bg-teal-100'
               }`}
             >
-              <Calendar className="w-4 h-4" />
               {mesesSeleccionados.length === 0
-                ? 'Todo el año'
+                ? '12m'
                 : mesesSeleccionados.length === 1
-                  ? MESES_NOMBRES[mesesSeleccionados[0] - 1]
-                  : `${mesesSeleccionados.length} meses`}
+                  ? MESES_NOMBRES[mesesSeleccionados[0] - 1].substring(0, 3)
+                  : `${mesesSeleccionados.length}m`}
             </button>
           </div>
 
-          {/* Toggle filtros avanzados */}
+          {/* Filtros avanzados - Botón compacto */}
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`px-4 py-2 border rounded-lg flex items-center gap-2 transition-colors ${
+            className={`px-2 py-1.5 text-xs border rounded-md flex items-center gap-1 transition-colors ${
               showFilters ? 'bg-teal-50 border-teal-300 text-teal-700' : 'hover:bg-gray-50'
             }`}
           >
-            <Filter className="w-4 h-4" />
-            Filtros
+            <Filter className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Filtros</span>
           </button>
 
-          {/* Items per page */}
+          {/* Items per page - Compacto */}
           <select
             value={itemsPerPage}
             onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-            className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 bg-white text-sm"
+            className="px-2 py-1.5 text-xs border rounded-md focus:ring-2 focus:ring-teal-500 bg-white"
           >
-            <option value={10}>10 por pág</option>
-            <option value={25}>25 por pág</option>
-            <option value={50}>50 por pág</option>
-            <option value={100}>100 por pág</option>
+            <option value={10}>10</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
           </select>
 
           {/* Refrescar */}
           <button
             onClick={loadGastos}
-            className="p-2 border rounded-lg hover:bg-teal-50 hover:border-teal-300 transition-colors"
+            className="p-1.5 border rounded-md hover:bg-teal-50 hover:border-teal-300 transition-colors"
             title="Refrescar"
           >
-            <RefreshCw className={`w-4 h-4 text-teal-600 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 text-teal-600 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
 
         {/* Filtros avanzados */}
         {showFilters && (
-          <div className="mt-4 pt-4 border-t space-y-4">
-            {/* Selector de Meses - Visual tipo calendario */}
+          <div className="mt-3 pt-3 border-t space-y-3">
+            {/* Selector de Meses - Compacto */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-medium text-gray-700">
-                  Meses de {filtros.anio || anioActual}
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-medium text-gray-700">
+                  Meses {filtros.anio || anioActual}
                 </label>
-                <div className="flex gap-2">
+                <div className="flex gap-1">
                   <button
                     onClick={() => setMesesSeleccionados([])}
-                    className={`px-2 py-1 text-xs rounded ${mesesSeleccionados.length === 0 ? 'bg-teal-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
+                    className={`px-1.5 py-0.5 text-[10px] rounded ${mesesSeleccionados.length === 0 ? 'bg-teal-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
                   >
-                    Todo el año
+                    Todos
                   </button>
                   <button
                     onClick={() => setMesesSeleccionados(mesesDelAnio.filter(m => m.disponible).map(m => m.valor))}
-                    className="px-2 py-1 text-xs rounded bg-gray-100 hover:bg-gray-200"
+                    className="px-1.5 py-0.5 text-[10px] rounded bg-gray-100 hover:bg-gray-200"
                   >
-                    Seleccionar todos
+                    Disponibles
                   </button>
                 </div>
               </div>
-              <div className="grid grid-cols-6 md:grid-cols-12 gap-1">
+              <div className="flex flex-wrap gap-0.5">
                 {mesesDelAnio.map(mes => (
                   <button
                     key={mes.valor}
@@ -2064,12 +1844,12 @@ export const GastosNoImpactadosPage = () => {
                         setMesesSeleccionados([...mesesSeleccionados, mes.valor].sort((a, b) => a - b));
                       }
                     }}
-                    className={`px-2 py-1.5 text-xs rounded transition-colors ${
+                    className={`w-8 h-6 text-[10px] rounded transition-colors ${
                       !mes.disponible
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
                         : mesesSeleccionados.includes(mes.valor)
                           ? 'bg-teal-600 text-white'
-                          : 'bg-gray-100 hover:bg-teal-100 text-gray-700'
+                          : 'bg-gray-100 hover:bg-teal-100 text-gray-600'
                     }`}
                     title={mes.nombre}
                   >
@@ -2079,14 +1859,14 @@ export const GastosNoImpactadosPage = () => {
               </div>
             </div>
 
-            {/* Otros filtros en grid */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {/* Otros filtros en grid - Compacto */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Cuenta</label>
+              <label className="block text-[10px] font-medium text-gray-600 mb-0.5">Cuenta</label>
               <select
                 value={filtros.cuenta || ''}
                 onChange={(e) => setFiltros({ ...filtros, cuenta: e.target.value || undefined })}
-                className="w-full px-3 py-2 border rounded-lg"
+                className="w-full px-2 py-1 text-xs border rounded-md"
               >
                 <option value="">Todas</option>
                 {[...new Set(claves.map(c => c.cuenta))].map(cuenta => (
@@ -2096,11 +1876,11 @@ export const GastosNoImpactadosPage = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Forma de Pago</label>
+              <label className="block text-[10px] font-medium text-gray-600 mb-0.5">F. Pago</label>
               <select
                 value={filtros.forma_pago_id || ''}
                 onChange={(e) => setFiltros({ ...filtros, forma_pago_id: e.target.value ? parseInt(e.target.value) : undefined })}
-                className="w-full px-3 py-2 border rounded-lg"
+                className="w-full px-2 py-1 text-xs border rounded-md"
               >
                 <option value="">Todas</option>
                 {formasPago.map(fp => (
@@ -2110,38 +1890,38 @@ export const GastosNoImpactadosPage = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Validación</label>
+              <label className="block text-[10px] font-medium text-gray-600 mb-0.5">Validación</label>
               <select
                 value={filtros.validacion || ''}
                 onChange={(e) => setFiltros({ ...filtros, validacion: e.target.value || undefined })}
-                className="w-full px-3 py-2 border rounded-lg"
+                className="w-full px-2 py-1 text-xs border rounded-md"
               >
                 <option value="">Todas</option>
-                <option value="correcto">Correcto</option>
-                <option value="pendiente">Pendiente</option>
-                <option value="revisar">Revisar</option>
+                <option value="correcto">✓ Correcto</option>
+                <option value="pendiente">⏳ Pendiente</option>
+                <option value="revisar">⚠ Revisar</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <label className="block text-[10px] font-medium text-gray-600 mb-0.5">Status</label>
               <select
                 value={filtros.status_pago || ''}
                 onChange={(e) => setFiltros({ ...filtros, status_pago: e.target.value || undefined })}
-                className="w-full px-3 py-2 border rounded-lg"
+                className="w-full px-2 py-1 text-xs border rounded-md"
               >
                 <option value="">Todos</option>
-                <option value="pagado">Pagado</option>
-                <option value="pendiente">Pendiente</option>
+                <option value="pagado">💳 Pagado</option>
+                <option value="pendiente">🔴 Pendiente</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Ejecutivo</label>
+              <label className="block text-[10px] font-medium text-gray-600 mb-0.5">Ejecutivo</label>
               <select
                 value={filtros.ejecutivo_id || ''}
                 onChange={(e) => setFiltros({ ...filtros, ejecutivo_id: e.target.value ? parseInt(e.target.value) : undefined })}
-                className="w-full px-3 py-2 border rounded-lg"
+                className="w-full px-2 py-1 text-xs border rounded-md"
               >
                 <option value="">Todos</option>
                 {ejecutivos.map(e => (

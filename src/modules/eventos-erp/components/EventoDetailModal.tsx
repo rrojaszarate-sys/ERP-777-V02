@@ -833,13 +833,11 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
 const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, showIVA = true }) => {
   const { paletteConfig } = useTheme();
 
-  // Estado para controlar qué fichas están expandidas (por default colapsado)
-  const [expandedCards, setExpandedCards] = useState({
-    ingresos: false,
-    gastos: false,
-    provisiones: false,
-    utilidad: false
-  });
+  // Estado ÚNICO para colapsar/expandir TODAS las fichas juntas
+  const [allCardsExpanded, setAllCardsExpanded] = useState(false);
+
+  // Toggle para expandir/colapsar todas las fichas
+  const toggleAllCards = () => setAllCardsExpanded(prev => !prev);
 
   // Usar el toggle global (showIVA) en lugar de uno local
   const showTotales = showIVA;
@@ -1011,27 +1009,34 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
         })()}
       </div>
 
-        {/* DATOS DEL RESUMEN DEL EVENTO - Con desglose colapsable */}
+        {/* DATOS DEL RESUMEN DEL EVENTO - Todas las fichas colapsan juntas */}
         <div className="bg-white rounded-lg p-6 mb-6 shadow-lg border-2 border-blue-200">
+          {/* Header con botón para expandir/colapsar todas */}
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-sm font-semibold text-gray-600">Resumen Financiero</h4>
+            <button
+              onClick={toggleAllCards}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-xs font-medium text-gray-600 transition-colors"
+            >
+              {allCardsExpanded ? '▲ Colapsar' : '▼ Expandir'} Detalles
+            </button>
+          </div>
+
           <div className="grid grid-cols-4 gap-6">
             {/* INGRESOS */}
             <div className="border-r pr-4">
-              <button
-                onClick={() => setExpandedCards(prev => ({ ...prev, ingresos: !prev.ingresos }))}
-                className="w-full text-left"
-              >
+              <div className="text-left">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-xs font-semibold text-gray-500 uppercase">Ingresos</h4>
-                  <span className="text-[10px] text-gray-400">{expandedCards.ingresos ? '▲' : '▼'}</span>
                 </div>
                 <div className="font-bold text-blue-900 text-2xl">
-                  {formatCurrency(ingresosTotales)}
+                  {formatCurrency(showTotales ? ingresosTotales : ingresosSubtotal)}
                 </div>
                 <div className="text-[9px] text-gray-400">
                   Sub: {formatCurrency(ingresosSubtotal)} | IVA: {formatCurrency(ivaIngresos)}
                 </div>
-              </button>
-              {expandedCards.ingresos && (
+              </div>
+              {allCardsExpanded && (
                 <div className="text-xs text-gray-500 border-t pt-2 mt-2 space-y-1">
                   <div className="text-blue-600 flex items-center gap-1">
                     <span className="text-green-500">✓</span> Facturado: {formatCurrency(ingresosTotales)}
@@ -1043,25 +1048,21 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
 
             {/* GASTOS */}
             <div className="border-r pr-4">
-              <button
-                onClick={() => setExpandedCards(prev => ({ ...prev, gastos: !prev.gastos }))}
-                className="w-full text-left"
-              >
+              <div className="text-left">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-xs font-semibold text-gray-500 uppercase">Gastos</h4>
-                  <span className="text-[10px] text-gray-400">{expandedCards.gastos ? '▲' : '▼'}</span>
                 </div>
                 <div className="font-bold text-red-900 text-2xl">
-                  {formatCurrency(gastosTotales)}
+                  {formatCurrency(showTotales ? gastosTotales : gastosSubtotal)}
                 </div>
                 <div className="text-[9px] text-gray-400">
                   Sub: {formatCurrency(gastosSubtotal)} | IVA: {formatCurrency(ivaGastos)}
                 </div>
-              </button>
-              {expandedCards.gastos && (
+              </div>
+              {allCardsExpanded && (
                 <div className="text-xs text-gray-500 border-t pt-2 mt-2 space-y-1">
                   <div className="flex justify-between">
-                    <span>🚗⛽</span>
+                    <span>⛽</span>
                     <span className="font-medium">{formatCurrency((evento.gastos_combustible_pagados || 0) + (evento.gastos_combustible_pendientes || 0))}</span>
                   </div>
                   <div className="flex justify-between">
@@ -1082,25 +1083,21 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
 
             {/* PROVISIONES */}
             <div className="border-r pr-4">
-              <button
-                onClick={() => setExpandedCards(prev => ({ ...prev, provisiones: !prev.provisiones }))}
-                className="w-full text-left"
-              >
+              <div className="text-left">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-xs font-semibold text-gray-500 uppercase">Provisiones</h4>
-                  <span className="text-[10px] text-gray-400">{expandedCards.provisiones ? '▲' : '▼'}</span>
                 </div>
                 <div className={`font-bold text-2xl ${provisionesTotal > 0 ? 'text-amber-600' : 'text-gray-500'}`}>
-                  {formatCurrency(provisionesTotal)}
+                  {formatCurrency(showTotales ? provisionesTotal : provisionesSubtotal)}
                 </div>
                 <div className="text-[9px] text-gray-400">
                   Sub: {formatCurrency(provisionesSubtotal)} | IVA: {formatCurrency(provisionesTotal - provisionesSubtotal)}
                 </div>
-              </button>
-              {expandedCards.provisiones && (
+              </div>
+              {allCardsExpanded && (
                 <div className="text-xs text-gray-500 border-t pt-2 mt-2 space-y-1">
                   <div className="flex justify-between">
-                    <span>🚗⛽</span>
+                    <span>⛽</span>
                     <span className="font-medium">{formatCurrency(evento.provision_combustible || 0)}</span>
                   </div>
                   <div className="flex justify-between">
@@ -1121,36 +1118,32 @@ const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, sho
 
             {/* UTILIDAD BRUTA */}
             <div>
-              <button
-                onClick={() => setExpandedCards(prev => ({ ...prev, utilidad: !prev.utilidad }))}
-                className="w-full text-center"
-              >
+              <div className="text-center">
                 <div className="flex items-center justify-center gap-2 mb-2">
-                  <h4 className="text-xs font-semibold text-gray-500 uppercase">Utilidad Bruta</h4>
-                  <span className="text-[10px] text-gray-400">{expandedCards.utilidad ? '▲' : '▼'}</span>
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase">Utilidad {showTotales ? '' : 'Bruta'}</h4>
                 </div>
-                <div className={`font-bold text-2xl ${utilidadBruta >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                  {formatCurrency(utilidadBruta)}
+                <div className={`font-bold text-2xl ${(showTotales ? utilidadReal : utilidadBruta) >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                  {formatCurrency(showTotales ? utilidadReal : utilidadBruta)}
                 </div>
                 <div className="text-[9px] text-gray-400">
-                  Margen: {margenBrutoPct.toFixed(1)}% | Sin IVA
+                  Margen: {(showTotales ? margenRealPct : margenBrutoPct).toFixed(1)}% | {showTotales ? 'Con IVA' : 'Sin IVA'}
                 </div>
-              </button>
-              {expandedCards.utilidad && (
+              </div>
+              {allCardsExpanded && (
                 <div className="border-t pt-2 mt-2">
                   <GaugeChart
-                    value={margenBrutoPct}
+                    value={showTotales ? margenRealPct : margenBrutoPct}
                     size="sm"
                     showLabel={true}
                   />
                   <div className="text-xs text-gray-500 mt-2 space-y-1">
                     <div className="flex justify-between">
-                      <span>Util. Total (con IVA):</span>
-                      <span className="font-medium">{formatCurrency(utilidadReal)}</span>
+                      <span>Util. Bruta:</span>
+                      <span className="font-medium">{formatCurrency(utilidadBruta)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Margen Total:</span>
-                      <span className="font-medium">{margenRealPct.toFixed(1)}%</span>
+                      <span>Util. Total:</span>
+                      <span className="font-medium">{formatCurrency(utilidadReal)}</span>
                     </div>
                   </div>
                 </div>
