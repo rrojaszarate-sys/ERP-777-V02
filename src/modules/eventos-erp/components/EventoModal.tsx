@@ -90,11 +90,11 @@ export const EventoModal: React.FC<EventoModalProps> = ({ evento, onClose, onSav
         tipo_evento_id: evento.tipo_evento_id || '',
         responsable_id: evento.responsable_id || '',
         solicitante_id: evento.solicitante_id || '',
-        ganancia_estimada: evento.ganancia_estimada || evento.ingreso_estimado || '',
-        provision_combustible_peaje: evento.provision_combustible_peaje || '',
-        provision_materiales: evento.provision_materiales || '',
-        provision_recursos_humanos: evento.provision_recursos_humanos || '',
-        provision_solicitudes_pago: evento.provision_solicitudes_pago || '',
+        ganancia_estimada: evento.ganancia_estimada || evento.ingreso_estimado || 0,
+        provision_combustible_peaje: evento.provision_combustible_peaje ?? 0,
+        provision_materiales: evento.provision_materiales ?? 0,
+        provision_recursos_humanos: evento.provision_recursos_humanos ?? 0,
+        provision_solicitudes_pago: evento.provision_solicitudes_pago ?? 0,
         notas: evento.notas || ''
       });
     }
@@ -185,12 +185,12 @@ export const EventoModal: React.FC<EventoModalProps> = ({ evento, onClose, onSav
         
         // Obtener el último consecutivo del año
         const { data: ultimoEvento } = await supabase
-          .from('evt_eventos')
+          .from('evt_eventos_erp')
           .select('clave_evento')
           .like('clave_evento', `EVT-${año}-%`)
           .order('clave_evento', { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle();
         
         let consecutivo = 1;
         if (ultimoEvento?.clave_evento) {

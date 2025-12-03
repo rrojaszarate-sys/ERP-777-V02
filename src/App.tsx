@@ -73,6 +73,11 @@ const ConfiguracionPage = lazy(() => import('./modules/facturacion-erp/pages/Con
 const ProyectosDashboard = lazy(() => import('./modules/proyectos-erp/pages/ProyectosDashboard').then(m => ({ default: m.ProyectosDashboard })));
 const ProyectosPage = lazy(() => import('./modules/proyectos-erp/pages/ProyectosPage').then(m => ({ default: m.ProyectosPage })));
 const TareasPage = lazy(() => import('./modules/proyectos-erp/pages/TareasPage').then(m => ({ default: m.TareasPage })));
+const TareasKanbanPage = lazy(() => import('./modules/proyectos-erp/pages/TareasKanbanPage').then(m => ({ default: m.TareasKanbanPage })));
+const GanttChartPage = lazy(() => import('./modules/proyectos-erp/pages/GanttChartPage').then(m => ({ default: m.GanttChartPage })));
+const TimesheetPage = lazy(() => import('./modules/proyectos-erp/pages/TimesheetPage').then(m => ({ default: m.TimesheetPage })));
+const MilestonesPage = lazy(() => import('./modules/proyectos-erp/pages/MilestonesPage').then(m => ({ default: m.MilestonesPage })));
+const EtapasConfigPage = lazy(() => import('./modules/proyectos-erp/pages/EtapasConfigPage').then(m => ({ default: m.EtapasConfigPage })));
 
 // MÓDULO DE TESORERÍA
 const TesoreriaDashboard = lazy(() => import('./modules/tesoreria-erp/pages/TesoreriaDashboard').then(m => ({ default: m.TesoreriaDashboard })));
@@ -113,6 +118,12 @@ const DocumentacionPage = lazy(() => import('./modules/desarrollo/pages/Document
 // MÓDULO DE ADMINISTRACIÓN (Herramientas de desarrollo)
 const DataSeederPage = lazy(() => import('./modules/admin/pages/DataSeederPage').then(m => ({ default: m.DataSeederPage })));
 const CatalogosAdminPage = lazy(() => import('./modules/admin/pages/CatalogosAdminPage').then(m => ({ default: m.CatalogosAdminPage })));
+const AccessRequestsPage = lazy(() => import('./modules/admin/pages/AccessRequestsPage').then(m => ({ default: m.AccessRequestsPage })));
+
+// PÁGINAS DE AUTENTICACIÓN
+const LoginPage = lazy(() => import('./pages/auth/LoginPage').then(m => ({ default: m.LoginPage })));
+const AuthCallbackPage = lazy(() => import('./pages/auth/AuthCallbackPage').then(m => ({ default: m.AuthCallbackPage })));
+const RequestAccessPage = lazy(() => import('./pages/auth/RequestAccessPage').then(m => ({ default: m.RequestAccessPage })));
 
 // Configurar React Query
 const queryClient = new QueryClient({
@@ -207,6 +218,11 @@ function App() {
                 <Route path="proyectos" element={<ProyectosDashboard />} />
                 <Route path="proyectos/lista" element={<ProyectosPage />} />
                 <Route path="proyectos/tareas" element={<TareasPage />} />
+                <Route path="proyectos/kanban" element={<TareasKanbanPage />} />
+                <Route path="proyectos/gantt" element={<GanttChartPage />} />
+                <Route path="proyectos/timesheet" element={<TimesheetPage />} />
+                <Route path="proyectos/milestones" element={<MilestonesPage />} />
+                <Route path="proyectos/configuracion" element={<EtapasConfigPage />} />
 
                 {/* Rutas de Tesorería */}
                 <Route path="tesoreria" element={<TesoreriaDashboard />} />
@@ -241,9 +257,15 @@ function App() {
                 <Route path="desarrollo" element={<DocumentacionPage />} />
                 <Route path="admin/data-seeder" element={<DataSeederPage />} />
                 <Route path="admin/catalogos" element={<CatalogosAdminPage />} />
+                <Route path="admin/usuarios" element={<AccessRequestsPage />} />
 
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
+
+              {/* RUTAS DE AUTENTICACIÓN (fuera del Layout principal) */}
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/auth/callback" element={<AuthCallbackPage />} />
+              <Route path="/auth/request-access" element={<RequestAccessPage />} />
 
               {/* PORTAL DE SOLICITUDES DE COMPRA - Rutas públicas (fuera del Layout principal) */}
               <Route path="/portal" element={<PortalPublicLayout />}>

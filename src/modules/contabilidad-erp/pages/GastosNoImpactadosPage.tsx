@@ -297,23 +297,68 @@ export const GastosNoImpactadosPage = () => {
     return getMesesDelAnio(filtros.anio || anioActual);
   }, [filtros.anio, anioActual]);
 
-  // Cargar datos iniciales
+  // Cargar datos iniciales - TODO EN PARALELO
   useEffect(() => {
     if (companyId) {
-      loadCatalogos();
-      loadGastos();
-      loadResumenAnual();
-      loadAniosDisponibles();
+      loadAllData();
     }
   }, [companyId]);
 
-  // Recargar cuando cambian los filtros
+  // Recargar solo gastos y resumen cuando cambian los filtros (no catálogos)
   useEffect(() => {
-    if (companyId) {
-      loadGastos();
-      loadResumenAnual();
+    if (companyId && !loading) {
+      loadGastosYResumen();
     }
-  }, [filtros]);
+  }, [filtros.anio, filtros.meses?.join(','), filtros.periodo]);
+
+  // Función para cargar todo en paralelo (inicial)
+  const loadAllData = async () => {
+    if (!companyId) return;
+    setLoading(true);
+    try {
+      // Cargar TODO en paralelo para máxima velocidad
+      const [gastosData, clavesData, formasData, provData, ejData, aniosData, resumenData] = await Promise.all([
+        fetchGastosNoImpactados(companyId, filtros),
+        fetchClavesGasto(companyId),
+        fetchFormasPago(companyId),
+        fetchProveedores(companyId),
+        fetchEjecutivos(companyId),
+        fetchAniosConDatos(companyId),
+        fetchResumenAnual(companyId, filtros.anio || anioActual)
+      ]);
+
+      setGastos(gastosData);
+      setClaves(clavesData);
+      setFormasPago(formasData);
+      setProveedores(provData);
+      setEjecutivos(ejData);
+      setAniosDisponibles(aniosData.length > 0 ? aniosData : [anioActual]);
+      setResumenAnual(resumenData);
+    } catch (error) {
+      console.error('Error cargando datos:', error);
+      toast.error('Error al cargar datos');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función para recargar solo gastos y resumen (cuando cambian filtros)
+  const loadGastosYResumen = async () => {
+    if (!companyId) return;
+    setLoading(true);
+    try {
+      const [gastosData, resumenData] = await Promise.all([
+        fetchGastosNoImpactados(companyId, filtros),
+        fetchResumenAnual(companyId, filtros.anio || anioActual)
+      ]);
+      setGastos(gastosData);
+      setResumenAnual(resumenData);
+    } catch (error) {
+      console.error('Error recargando datos:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Actualizar filtros cuando cambian los meses seleccionados
   useEffect(() => {

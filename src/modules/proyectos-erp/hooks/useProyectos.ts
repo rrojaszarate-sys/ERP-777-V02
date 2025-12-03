@@ -257,6 +257,98 @@ export const useUpdateTareaEtapa = () => {
   });
 };
 
+// CRUD para Etapas de Proyecto
+export const useCreateEtapaProyecto = () => {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: (data: { nombre: string; color: string; orden: number }) =>
+      proyectosService.createEtapaProyecto({ ...data, company_id: user!.company_id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['etapas-proyecto'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Error al crear etapa');
+    }
+  });
+};
+
+export const useUpdateEtapaProyecto = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) =>
+      proyectosService.updateEtapaProyecto(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['etapas-proyecto'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Error al actualizar etapa');
+    }
+  });
+};
+
+export const useDeleteEtapaProyecto = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: number) => proyectosService.deleteEtapaProyecto(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['etapas-proyecto'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Error al eliminar etapa');
+    }
+  });
+};
+
+// CRUD para Etapas de Tarea (Columnas Kanban)
+export const useCreateEtapaTarea = () => {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: (data: { nombre: string; color: string; orden: number }) =>
+      proyectosService.createEtapaTarea({ ...data, company_id: user!.company_id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['etapas-tarea'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Error al crear columna');
+    }
+  });
+};
+
+export const useUpdateEtapaTarea = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) =>
+      proyectosService.updateEtapaTarea(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['etapas-tarea'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Error al actualizar columna');
+    }
+  });
+};
+
+export const useDeleteEtapaTarea = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: number) => proyectosService.deleteEtapaTarea(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['etapas-tarea'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Error al eliminar columna');
+    }
+  });
+};
+
 // ============================================
 // HOOKS DE MILESTONES (HITOS)
 // ============================================
@@ -273,9 +365,10 @@ export const useMilestones = (proyectoId?: number) => {
 
 export const useCreateMilestone = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
-    mutationFn: (milestone: any) => proyectosService.createMilestone(milestone),
+    mutationFn: (milestone: any) => proyectosService.createMilestone({ ...milestone, company_id: user!.company_id }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['milestones'] });
       toast.success('Hito creado exitosamente');
@@ -348,9 +441,10 @@ export const useRegistrosTiempo = (filters?: any) => {
 
 export const useCreateRegistroTiempo = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
-    mutationFn: (registro: any) => proyectosService.createRegistroTiempo(registro),
+    mutationFn: (registro: any) => proyectosService.createRegistroTiempo({ ...registro, company_id: user!.company_id, usuario_id: user!.id }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['registros-tiempo'] });
       queryClient.invalidateQueries({ queryKey: ['tareas'] });

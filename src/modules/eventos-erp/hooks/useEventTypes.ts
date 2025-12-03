@@ -8,7 +8,10 @@ export function useEventTypes() {
   useEffect(() => {
     const fetchTypes = async () => {
       const { data, error } = await supabase.from('evt_tipos_evento').select('*');
-      if (!error) setData(data);
+      if (error) {
+        console.error('Error cargando tipos de evento:', error);
+      }
+      setData(data || []);
       setLoading(false);
     };
 

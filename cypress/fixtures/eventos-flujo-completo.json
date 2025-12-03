@@ -1,0 +1,206 @@
+{
+  "cliente_nuevo": {
+    "razon_social": "CYPRESS EVENTOS SA DE CV",
+    "nombre_comercial": "Cypress Events",
+    "rfc": "CEV231201ABC",
+    "email": "cypress@test.com",
+    "telefono": "5512345678",
+    "direccion": "Av. Cypress 100, Col. Testing",
+    "codigo_postal": "06600",
+    "ciudad": "CDMX",
+    "estado": "Ciudad de México",
+    "regimen_fiscal": "601",
+    "uso_cfdi": "G03",
+    "sufijo": "CYP"
+  },
+
+  "evento_completo": {
+    "nombre_proyecto": "EVENTO CYPRESS FLUJO COMPLETO",
+    "descripcion": "Evento de prueba automatizada - flujo completo E2E",
+    "fecha_evento": "2025-02-15",
+    "fecha_fin": "2025-02-17",
+    "lugar": "Centro de Convenciones Cypress",
+    "numero_invitados": 500,
+    "prioridad": "alta",
+    "provision_combustible_peaje": 15000,
+    "provision_materiales": 50000,
+    "provision_recursos_humanos": 80000,
+    "provision_solicitudes_pago": 120000,
+    "ingreso_estimado": 450000
+  },
+
+  "ingresos": [
+    {
+      "concepto": "ANTICIPO EVENTO CYPRESS",
+      "subtotal": 172413.79,
+      "iva": 27586.21,
+      "total": 200000,
+      "dias_credito": 15,
+      "tipo": "anticipo"
+    },
+    {
+      "concepto": "PAGO FINAL EVENTO CYPRESS",
+      "subtotal": 215517.24,
+      "iva": 34482.76,
+      "total": 250000,
+      "dias_credito": 30,
+      "tipo": "finiquito"
+    }
+  ],
+
+  "gastos": {
+    "combustible": {
+      "concepto": "GASOLINA Y CASETAS MONTAJE",
+      "subtotal": 8620.69,
+      "iva": 1379.31,
+      "total": 10000,
+      "categoria_id": 9,
+      "categoria_nombre": "Combustible/Peaje"
+    },
+    "materiales": {
+      "concepto": "MATERIAL DECORATIVO EVENTO",
+      "subtotal": 25862.07,
+      "iva": 4137.93,
+      "total": 30000,
+      "categoria_id": 8,
+      "categoria_nombre": "Materiales"
+    },
+    "rh": {
+      "concepto": "HONORARIOS STAFF EVENTO",
+      "subtotal": 43103.45,
+      "iva": 6896.55,
+      "total": 50000,
+      "categoria_id": 7,
+      "categoria_nombre": "RH (Recursos Humanos)"
+    },
+    "sps": {
+      "concepto": "SERVICIO AUDIO E ILUMINACION",
+      "subtotal": 68965.52,
+      "iva": 11034.48,
+      "total": 80000,
+      "categoria_id": 6,
+      "categoria_nombre": "SPs (Solicitudes de Pago)"
+    }
+  },
+
+  "material_almacen": {
+    "ingreso": {
+      "productos": [
+        {
+          "nombre": "Mesa redonda 180cm",
+          "cantidad": 10,
+          "precio_unitario": 1500,
+          "unidad": "PZA"
+        },
+        {
+          "nombre": "Silla Tiffany",
+          "cantidad": 100,
+          "precio_unitario": 150,
+          "unidad": "PZA"
+        }
+      ],
+      "observaciones": "Material para evento Cypress"
+    },
+    "retorno": {
+      "productos": [
+        {
+          "nombre": "Mesa redonda 180cm",
+          "cantidad": 2,
+          "precio_unitario": 1500,
+          "unidad": "PZA",
+          "motivo": "No utilizadas"
+        }
+      ],
+      "observaciones": "Devolución material no utilizado"
+    }
+  },
+
+  "documentos": {
+    "contrato": {
+      "tipo": "contrato",
+      "nombre": "Contrato-Acuerdo",
+      "estado_requerido": 1
+    },
+    "orden_compra": {
+      "tipo": "orden_compra",
+      "nombre": "Orden de Compra",
+      "estado_requerido": 2
+    },
+    "cierre_evento": {
+      "tipo": "cierre_evento",
+      "nombre": "Cierre del Evento",
+      "estado_requerido": 4
+    }
+  },
+
+  "provisiones": [
+    {
+      "categoria": "Combustible/Peaje",
+      "categoria_id": 9,
+      "monto_estimado": 15000,
+      "concepto": "Provisión gasolina y casetas"
+    },
+    {
+      "categoria": "Materiales",
+      "categoria_id": 8,
+      "monto_estimado": 50000,
+      "concepto": "Provisión material decorativo"
+    },
+    {
+      "categoria": "RH (Recursos Humanos)",
+      "categoria_id": 7,
+      "monto_estimado": 80000,
+      "concepto": "Provisión honorarios staff"
+    },
+    {
+      "categoria": "SPs (Solicitudes de Pago)",
+      "categoria_id": 6,
+      "monto_estimado": 120000,
+      "concepto": "Provisión servicios externos"
+    }
+  ],
+
+  "gni": {
+    "gasto_operativo": {
+      "concepto": "GASTO OPERATIVO CYPRESS TEST",
+      "subtotal": 4310.34,
+      "iva": 689.66,
+      "total": 5000,
+      "clave": "MDE2025-001A",
+      "cuenta": "GASTOS FIJOS",
+      "forma_pago": "Transferencia",
+      "validacion": "factura",
+      "status_pago": "pendiente"
+    }
+  },
+
+  "workflow_estados": [
+    { "id": 1, "nombre": "Prospecto", "color": "#6B7280" },
+    { "id": 2, "nombre": "Acuerdo", "color": "#3B82F6" },
+    { "id": 3, "nombre": "En Proceso", "color": "#F59E0B" },
+    { "id": 4, "nombre": "Completado", "color": "#10B981" },
+    { "id": 5, "nombre": "Facturado", "color": "#8B5CF6" },
+    { "id": 6, "nombre": "Cobrado", "color": "#059669" },
+    { "id": 7, "nombre": "Cancelado", "color": "#EF4444" }
+  ],
+
+  "validaciones_esperadas": {
+    "cliente": {
+      "campos_requeridos": ["razon_social", "rfc", "email"],
+      "formato_rfc": "^[A-Z&Ñ]{3,4}[0-9]{6}[A-Z0-9]{3}$"
+    },
+    "evento": {
+      "campos_requeridos": ["nombre_proyecto", "fecha_evento"],
+      "genera_clave": true,
+      "formato_clave": "^[A-Z]{3}[0-9]{4}-[0-9]{3}$"
+    },
+    "ingreso": {
+      "campos_requeridos": ["concepto", "total", "cliente_id"],
+      "calculo_iva": 0.16
+    },
+    "gasto": {
+      "campos_requeridos": ["concepto", "total", "categoria_id"],
+      "calculo_iva": 0.16
+    }
+  }
+}

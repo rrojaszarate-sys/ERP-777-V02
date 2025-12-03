@@ -219,6 +219,7 @@ export const Layout: React.FC = () => {
       color: 'text-red-600',
       submenu: [
         { name: 'Documentación', path: '/desarrollo', icon: BookOpen },
+        { name: 'Solicitudes de Acceso', path: '/admin/usuarios', icon: Users },
         { name: 'Generador de Datos', path: '/admin/data-seeder', icon: Settings },
         { name: 'Catálogos', path: '/admin/catalogos', icon: FolderOpen }
       ]

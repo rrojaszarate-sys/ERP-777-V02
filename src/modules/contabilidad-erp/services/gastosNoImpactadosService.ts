@@ -29,77 +29,62 @@ export const fetchGastosNoImpactados = async (
   companyId: string,
   filtros?: GNIFiltros
 ) => {
-  // Supabase tiene un límite máximo de 1000 registros por request en la API REST
-  // Para obtener todos los registros, usamos paginación
-  const PAGE_SIZE = 1000;
-  let allData: GastoNoImpactadoView[] = [];
-  let from = 0;
-  let hasMore = true;
+  // OPTIMIZADO: Un solo request con límite alto
+  // En la mayoría de casos, un año tiene menos de 5000 registros
+  let query = supabase
+    .from('v_gastos_no_impactados')
+    .select('*')
+    .eq('company_id', companyId)
+    .order('fecha_gasto', { ascending: false })
+    .limit(5000); // Límite razonable para un año
 
-  while (hasMore) {
-    let query = supabase
-      .from('v_gastos_no_impactados')
-      .select('*')
-      .eq('company_id', companyId)
-      .order('fecha_gasto', { ascending: false })
-      .range(from, from + PAGE_SIZE - 1);
-
-    // Filtro por período específico (YYYY-MM)
-    if (filtros?.periodo) {
-      query = query.eq('periodo', filtros.periodo);
-    }
-    // Filtro por año completo o meses específicos del año
-    else if (filtros?.anio) {
-      if (filtros.meses && filtros.meses.length > 0 && filtros.meses.length < 12) {
-        // Filtrar meses específicos del año
-        const periodos = filtros.meses.map(m => `${filtros.anio}-${m.toString().padStart(2, '0')}`);
-        query = query.in('periodo', periodos);
-      } else {
-        // Filtrar todo el año (periodo empieza con el año)
-        query = query.like('periodo', `${filtros.anio}-%`);
-      }
-    }
-    if (filtros?.cuenta) {
-      query = query.eq('cuenta', filtros.cuenta);
-    }
-    if (filtros?.clave_gasto_id) {
-      query = query.eq('clave_gasto_id', filtros.clave_gasto_id);
-    }
-    if (filtros?.proveedor_id) {
-      query = query.eq('proveedor_id', filtros.proveedor_id);
-    }
-    if (filtros?.ejecutivo_id) {
-      query = query.eq('ejecutivo_id', filtros.ejecutivo_id);
-    }
-    if (filtros?.forma_pago_id) {
-      query = query.eq('forma_pago_id', filtros.forma_pago_id);
-    }
-    if (filtros?.validacion) {
-      query = query.eq('validacion', filtros.validacion);
-    }
-    if (filtros?.status_pago) {
-      query = query.eq('status_pago', filtros.status_pago);
-    }
-    if (filtros?.fecha_inicio) {
-      query = query.gte('fecha_gasto', filtros.fecha_inicio);
-    }
-    if (filtros?.fecha_fin) {
-      query = query.lte('fecha_gasto', filtros.fecha_fin);
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-
-    if (data && data.length > 0) {
-      allData = [...allData, ...data];
-      from += PAGE_SIZE;
-      hasMore = data.length === PAGE_SIZE;
+  // Filtro por período específico (YYYY-MM)
+  if (filtros?.periodo) {
+    query = query.eq('periodo', filtros.periodo);
+  }
+  // Filtro por año completo o meses específicos del año
+  else if (filtros?.anio) {
+    if (filtros.meses && filtros.meses.length > 0 && filtros.meses.length < 12) {
+      // Filtrar meses específicos del año
+      const periodos = filtros.meses.map(m => `${filtros.anio}-${m.toString().padStart(2, '0')}`);
+      query = query.in('periodo', periodos);
     } else {
-      hasMore = false;
+      // Filtrar todo el año (periodo empieza con el año)
+      query = query.like('periodo', `${filtros.anio}-%`);
     }
   }
+  if (filtros?.cuenta) {
+    query = query.eq('cuenta', filtros.cuenta);
+  }
+  if (filtros?.clave_gasto_id) {
+    query = query.eq('clave_gasto_id', filtros.clave_gasto_id);
+  }
+  if (filtros?.proveedor_id) {
+    query = query.eq('proveedor_id', filtros.proveedor_id);
+  }
+  if (filtros?.ejecutivo_id) {
+    query = query.eq('ejecutivo_id', filtros.ejecutivo_id);
+  }
+  if (filtros?.forma_pago_id) {
+    query = query.eq('forma_pago_id', filtros.forma_pago_id);
+  }
+  if (filtros?.validacion) {
+    query = query.eq('validacion', filtros.validacion);
+  }
+  if (filtros?.status_pago) {
+    query = query.eq('status_pago', filtros.status_pago);
+  }
+  if (filtros?.fecha_inicio) {
+    query = query.gte('fecha_gasto', filtros.fecha_inicio);
+  }
+  if (filtros?.fecha_fin) {
+    query = query.lte('fecha_gasto', filtros.fecha_fin);
+  }
 
-  return allData as GastoNoImpactadoView[];
+  const { data, error } = await query;
+  if (error) throw error;
+
+  return (data || []) as GastoNoImpactadoView[];
 };
 
 export const fetchGastoById = async (id: number) => {
@@ -366,7 +351,7 @@ export const findOrCreateProveedor = async (
     .eq('company_id', companyId)
     .ilike('razon_social', razonSocial)
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (existing) {
     return existing as Proveedor;
@@ -425,7 +410,7 @@ export const findOrCreateEjecutivo = async (
     .eq('company_id', companyId)
     .ilike('nombre', nombre)
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (existing) {
     return existing as Ejecutivo;

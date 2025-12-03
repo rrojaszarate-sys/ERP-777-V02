@@ -305,7 +305,8 @@ export const fetchEtapasProyecto = async (companyId: string) => {
     .order('secuencia', { ascending: true });
 
   if (error) throw error;
-  return data;
+  // Mapear secuencia a orden para compatibilidad con el frontend
+  return (data || []).map(e => ({ ...e, orden: e.secuencia }));
 };
 
 export const fetchEtapasTarea = async (companyId: string) => {
@@ -317,7 +318,8 @@ export const fetchEtapasTarea = async (companyId: string) => {
     .order('secuencia', { ascending: true });
 
   if (error) throw error;
-  return data;
+  // Mapear secuencia a orden para compatibilidad con el frontend
+  return (data || []).map(e => ({ ...e, orden: e.secuencia }));
 };
 
 export const updateTareaEtapa = async (tareaId: number, etapaId: number) => {
@@ -330,6 +332,98 @@ export const updateTareaEtapa = async (tareaId: number, etapaId: number) => {
 
   if (error) throw error;
   return data;
+};
+
+// CRUD para Etapas de Proyecto
+export const createEtapaProyecto = async (etapa: { nombre: string; color: string; orden: number; company_id: string }) => {
+  const { data, error } = await supabase
+    .from('proy_etapas_proyecto')
+    .insert({
+      nombre: etapa.nombre,
+      color: etapa.color,
+      secuencia: etapa.orden,
+      company_id: etapa.company_id,
+      activo: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return { ...data, orden: data.secuencia };
+};
+
+export const updateEtapaProyecto = async (id: number, etapa: { nombre?: string; color?: string; orden?: number }) => {
+  const updateData: any = { updated_at: new Date().toISOString() };
+  if (etapa.nombre !== undefined) updateData.nombre = etapa.nombre;
+  if (etapa.color !== undefined) updateData.color = etapa.color;
+  if (etapa.orden !== undefined) updateData.secuencia = etapa.orden;
+
+  const { data, error } = await supabase
+    .from('proy_etapas_proyecto')
+    .update(updateData)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return { ...data, orden: data.secuencia };
+};
+
+export const deleteEtapaProyecto = async (id: number) => {
+  const { error } = await supabase
+    .from('proy_etapas_proyecto')
+    .update({ activo: false, updated_at: new Date().toISOString() })
+    .eq('id', id);
+
+  if (error) throw error;
+};
+
+// CRUD para Etapas de Tarea (Columnas Kanban)
+export const createEtapaTarea = async (etapa: { nombre: string; color: string; orden: number; company_id: string }) => {
+  const { data, error } = await supabase
+    .from('proy_etapas_tarea')
+    .insert({
+      nombre: etapa.nombre,
+      color: etapa.color,
+      secuencia: etapa.orden,
+      company_id: etapa.company_id,
+      activo: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return { ...data, orden: data.secuencia };
+};
+
+export const updateEtapaTarea = async (id: number, etapa: { nombre?: string; color?: string; orden?: number }) => {
+  const updateData: any = { updated_at: new Date().toISOString() };
+  if (etapa.nombre !== undefined) updateData.nombre = etapa.nombre;
+  if (etapa.color !== undefined) updateData.color = etapa.color;
+  if (etapa.orden !== undefined) updateData.secuencia = etapa.orden;
+
+  const { data, error } = await supabase
+    .from('proy_etapas_tarea')
+    .update(updateData)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return { ...data, orden: data.secuencia };
+};
+
+export const deleteEtapaTarea = async (id: number) => {
+  const { error } = await supabase
+    .from('proy_etapas_tarea')
+    .update({ activo: false, updated_at: new Date().toISOString() })
+    .eq('id', id);
+
+  if (error) throw error;
 };
 
 // ============================================
@@ -557,6 +651,12 @@ export const proyectosService = {
   fetchEtapasProyecto,
   fetchEtapasTarea,
   updateTareaEtapa,
+  createEtapaProyecto,
+  updateEtapaProyecto,
+  deleteEtapaProyecto,
+  createEtapaTarea,
+  updateEtapaTarea,
+  deleteEtapaTarea,
   // Milestones (Hitos)
   fetchMilestones,
   createMilestone,

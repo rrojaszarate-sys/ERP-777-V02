@@ -48,7 +48,7 @@ async function calcularProvisionesPorCategoria(eventosIds: number[]): Promise<To
 
   const { data: provisiones, error } = await supabase
     .from('evt_provisiones_erp')
-    .select('total, categoria:cat_categorias_gasto(clave)')
+    .select('total, categoria:evt_categorias_gastos_erp(clave)')
     .in('evento_id', eventosIds)
     .eq('activo', true);
 

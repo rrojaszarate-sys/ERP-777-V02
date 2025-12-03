@@ -18,7 +18,10 @@ export function useUsers() {
         .select('id, nombre, email')
         .eq('activo', true);
 
-      if (!error) setData(data || []);
+      if (error) {
+        console.error('Error cargando usuarios:', error);
+      }
+      setData(data || []);
       setLoading(false);
     };
 

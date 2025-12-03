@@ -1406,6 +1406,13 @@ const GastosTab: React.FC<{
     secondary: paletteConfig.secondary,
   };
 
+  // Helper para calcular subtotal e IVA desde un total
+  const getSubtotalIVA = (total: number) => {
+    const subtotal = total / 1.16;
+    const iva = total - subtotal;
+    return { subtotal, iva };
+  };
+
   const handleDelete = async (gasto: any) => {
     if (confirm(`¿Está seguro de que desea eliminar este gasto de ${formatCurrency(gasto.total)}?`)) {
       try {
@@ -1788,6 +1795,13 @@ const ProvisionesTab: React.FC<{
     primaryLight: paletteConfig.shades[100],
     primaryDark: paletteConfig.shades[700],
     secondary: paletteConfig.secondary,
+  };
+
+  // Helper para calcular subtotal e IVA desde un total
+  const getSubtotalIVA = (total: number) => {
+    const subtotal = total / 1.16;
+    const iva = total - subtotal;
+    return { subtotal, iva };
   };
 
   const handleDelete = async (provision: any) => {
