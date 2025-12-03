@@ -117,17 +117,26 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
   const [nombreRecibe, setNombreRecibe] = useState('');
   const [firmaRecibe, setFirmaRecibe] = useState<string | null>(null);
 
-  // Configuración según tipo
+  // Colores del tema
+  const themeColors = useMemo(() => ({
+    primary: paletteConfig.primary,
+    secondary: paletteConfig.secondary,
+    bg: isDark ? '#1E293B' : '#FFFFFF',
+    text: isDark ? '#F8FAFC' : '#1E293B',
+    border: isDark ? '#334155' : '#E2E8F0',
+  }), [paletteConfig, isDark]);
+
+  // Configuración según tipo - USA COLORES DE LA PALETA
   const config = useMemo(() => {
     if (tipoMovimiento === 'retorno') {
       return {
         titulo: 'Retorno de Material',
         subtitulo: 'Devolución de material no utilizado',
         icono: ArrowDownLeft,
-        colorPrimario: 'emerald',
-        colorGradient: 'from-emerald-600 to-emerald-700',
-        colorBg: 'bg-emerald-50',
-        colorText: 'text-emerald-600',
+        colorPrimario: themeColors.secondary,
+        colorGradientEnd: themeColors.primary,
+        colorBg: themeColors.secondary + '15',
+        colorText: themeColors.secondary,
         mensajeFooter: 'Este monto se restará del total de gastos',
         conceptoPrefix: 'Retorno: ',
         descripcionPrefix: 'Retorno de'
@@ -137,24 +146,15 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
       titulo: 'Ingreso de Material',
       subtitulo: 'Compra/entrada de materiales',
       icono: ArrowUpRight,
-      colorPrimario: 'blue',
-      colorGradient: 'from-blue-600 to-blue-700',
-      colorBg: 'bg-blue-50',
-      colorText: 'text-blue-600',
+      colorPrimario: themeColors.primary,
+      colorGradientEnd: themeColors.secondary,
+      colorBg: themeColors.primary + '15',
+      colorText: themeColors.primary,
       mensajeFooter: 'Este monto se sumará al total de gastos de materiales',
       conceptoPrefix: 'Material: ',
       descripcionPrefix: 'Ingreso de'
     };
-  }, [tipoMovimiento]);
-
-  // Colores del tema
-  const themeColors = useMemo(() => ({
-    primary: paletteConfig.primary,
-    secondary: paletteConfig.secondary,
-    bg: isDark ? '#1E293B' : '#FFFFFF',
-    text: isDark ? '#F8FAFC' : '#1E293B',
-    border: isDark ? '#334155' : '#E2E8F0',
-  }), [paletteConfig, isDark]);
+  }, [tipoMovimiento, themeColors]);
 
   // Cargar productos del catálogo
   useEffect(() => {
@@ -483,7 +483,7 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
         style={{ backgroundColor: themeColors.bg }}
       >
         {/* Header */}
-        <div className={`flex items-center justify-between px-6 py-4 bg-gradient-to-r ${config.colorGradient}`}>
+        <div className="flex items-center justify-between px-6 py-4" style={{ background: `linear-gradient(to right, ${config.colorPrimario}, ${config.colorGradientEnd})` }}>
           <div className="flex items-center gap-3">
             <IconoTipo className="w-6 h-6 text-white" />
             <div>
@@ -517,9 +517,10 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
                 onClick={() => setTipoMovimiento('gasto')}
                 className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition-all ${
                   tipoMovimiento === 'gasto'
-                    ? 'bg-blue-600 text-white shadow-lg'
+                    ? 'text-white shadow-lg'
                     : 'text-gray-600 hover:bg-gray-200'
                 }`}
+                style={tipoMovimiento === 'gasto' ? { backgroundColor: themeColors.primary } : {}}
               >
                 <ArrowUpRight className="w-5 h-5" />
                 Ingreso de Material
@@ -528,9 +529,10 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
                 onClick={() => setTipoMovimiento('retorno')}
                 className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition-all ${
                   tipoMovimiento === 'retorno'
-                    ? 'bg-emerald-600 text-white shadow-lg'
+                    ? 'text-white shadow-lg'
                     : 'text-gray-600 hover:bg-gray-200'
                 }`}
+                style={tipoMovimiento === 'retorno' ? { backgroundColor: themeColors.secondary } : {}}
               >
                 <ArrowDownLeft className="w-5 h-5" />
                 Retorno de Material
@@ -620,7 +622,7 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
                               {producto.clave} • {producto.categoria} • {producto.unidad}
                             </div>
                           </div>
-                          <span className={`font-bold ${config.colorText}`}>
+                          <span className="font-bold" style={{ color: config.colorText }}>
                             ${producto.costo.toLocaleString('es-MX')}
                           </span>
                         </button>
@@ -720,13 +722,13 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
           {lineas.length > 0 && (
             <div className="border-2 rounded-lg overflow-hidden" style={{ borderColor: themeColors.border }}>
               <table className="w-full">
-                <thead className={config.colorBg}>
+                <thead style={{ backgroundColor: config.colorBg }}>
                   <tr>
-                    <th className={`px-4 py-2 text-left text-sm font-semibold ${config.colorText}`}>Material</th>
-                    <th className={`px-4 py-2 text-center text-sm font-semibold ${config.colorText} w-24`}>Cantidad</th>
-                    <th className={`px-4 py-2 text-center text-sm font-semibold ${config.colorText} w-20`}>Unidad</th>
-                    <th className={`px-4 py-2 text-right text-sm font-semibold ${config.colorText} w-32`}>Costo Unit.</th>
-                    <th className={`px-4 py-2 text-right text-sm font-semibold ${config.colorText} w-32`}>Subtotal</th>
+                    <th className="px-4 py-2 text-left text-sm font-semibold" style={{ color: config.colorText }}>Material</th>
+                    <th className="px-4 py-2 text-center text-sm font-semibold w-24" style={{ color: config.colorText }}>Cantidad</th>
+                    <th className="px-4 py-2 text-center text-sm font-semibold w-20" style={{ color: config.colorText }}>Unidad</th>
+                    <th className="px-4 py-2 text-right text-sm font-semibold w-32" style={{ color: config.colorText }}>Costo Unit.</th>
+                    <th className="px-4 py-2 text-right text-sm font-semibold w-32" style={{ color: config.colorText }}>Subtotal</th>
                     <th className="px-4 py-2 w-12"></th>
                   </tr>
                 </thead>
@@ -767,7 +769,7 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
                           />
                         </div>
                       </td>
-                      <td className={`px-4 py-2 text-right font-bold ${config.colorText}`}>
+                      <td className="px-4 py-2 text-right font-bold" style={{ color: config.colorText }}>
                         ${linea.subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="px-4 py-2">
@@ -792,14 +794,14 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
             <div
               className="p-4 rounded-xl border-2 space-y-4"
               style={{
-                borderColor: afectarInventario ? config.colorPrimario === 'emerald' ? '#10B981' : '#3B82F6' : themeColors.border,
-                backgroundColor: afectarInventario ? (config.colorPrimario === 'emerald' ? '#ECFDF5' : '#EFF6FF') : 'transparent'
+                borderColor: afectarInventario ? config.colorPrimario : themeColors.border,
+                backgroundColor: afectarInventario ? config.colorBg : 'transparent'
               }}
             >
               {/* Toggle principal */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Warehouse className={`w-5 h-5 ${afectarInventario ? config.colorText : 'text-gray-400'}`} />
+                  <Warehouse className="w-5 h-5" style={{ color: afectarInventario ? config.colorText : '#9CA3AF' }} />
                   <div>
                     <label className="font-semibold cursor-pointer" style={{ color: themeColors.text }}>
                       Afectar Inventario
@@ -814,11 +816,8 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
                 <button
                   type="button"
                   onClick={() => setAfectarInventario(!afectarInventario)}
-                  className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors ${
-                    afectarInventario
-                      ? config.colorPrimario === 'emerald' ? 'bg-emerald-600' : 'bg-blue-600'
-                      : 'bg-gray-300'
-                  }`}
+                  className="relative inline-flex h-7 w-14 items-center rounded-full transition-colors"
+                  style={{ backgroundColor: afectarInventario ? config.colorPrimario : '#D1D5DB' }}
                 >
                   <span
                     className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform ${
@@ -858,10 +857,10 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
                   </div>
 
                   {/* Información del documento */}
-                  <div className={`p-3 rounded-lg ${config.colorBg}`}>
+                  <div className="p-3 rounded-lg" style={{ backgroundColor: config.colorBg }}>
                     <div className="flex items-center gap-2 mb-2">
-                      <ClipboardCheck className={`w-4 h-4 ${config.colorText}`} />
-                      <span className={`text-sm font-semibold ${config.colorText}`}>
+                      <ClipboardCheck className="w-4 h-4" style={{ color: config.colorText }} />
+                      <span className="text-sm font-semibold" style={{ color: config.colorText }}>
                         Documento de {tipoMovimiento === 'gasto' ? 'Salida' : 'Entrada'}
                       </span>
                     </div>
@@ -905,7 +904,7 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
         </div>
 
         {/* Footer con totales */}
-        <div className={`px-6 py-4 border-t ${config.colorBg}`} style={{ borderColor: themeColors.border }}>
+        <div className="px-6 py-4 border-t" style={{ borderColor: themeColors.border, backgroundColor: config.colorBg }}>
           <div className="flex justify-between items-center">
             <div className="text-sm text-gray-600">
               {lineas.length} material(es) • {config.mensajeFooter}
@@ -920,10 +919,10 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
                 <div className="font-semibold">${totales.iva.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</div>
               </div>
               <div className="text-right">
-                <div className={`text-sm ${config.colorText} font-medium`}>
+                <div className="text-sm font-medium" style={{ color: config.colorText }}>
                   Total {tipoMovimiento === 'retorno' ? 'Retorno' : 'Ingreso'}
                 </div>
-                <div className={`text-2xl font-bold ${config.colorText}`}>
+                <div className="text-2xl font-bold" style={{ color: config.colorText }}>
                   ${totales.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                 </div>
               </div>

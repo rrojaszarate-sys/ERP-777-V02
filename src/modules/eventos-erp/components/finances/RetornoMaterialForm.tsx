@@ -314,7 +314,10 @@ export const RetornoMaterialForm: React.FC<RetornoMaterialFormProps> = ({
         style={{ backgroundColor: themeColors.bg }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-emerald-600 to-emerald-700">
+        <div 
+          className="flex items-center justify-between px-6 py-4"
+          style={{ background: `linear-gradient(to right, ${themeColors.primary}, ${themeColors.secondary})` }}
+        >
           <div className="flex items-center gap-3">
             <ArrowDownLeft className="w-6 h-6 text-white" />
             <h2 className="text-xl font-semibold text-white">
@@ -409,8 +412,10 @@ export const RetornoMaterialForm: React.FC<RetornoMaterialFormProps> = ({
                         <button
                           key={producto.id}
                           onClick={() => agregarLinea(producto)}
-                          className="w-full px-4 py-3 flex items-center justify-between hover:bg-emerald-50 transition-colors text-left border-b last:border-b-0"
+                          className="w-full px-4 py-3 flex items-center justify-between transition-colors text-left border-b last:border-b-0 hover:opacity-90"
                           style={{ borderColor: themeColors.border }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${themeColors.primary}15`}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                         >
                           <div>
                             <span className="font-medium" style={{ color: themeColors.text }}>
@@ -420,7 +425,7 @@ export const RetornoMaterialForm: React.FC<RetornoMaterialFormProps> = ({
                               {producto.clave} • {producto.categoria} • {producto.unidad}
                             </div>
                           </div>
-                          <span className="font-bold text-emerald-600">
+                          <span className="font-bold" style={{ color: themeColors.primary }}>
                             ${producto.costo.toLocaleString('es-MX')}
                           </span>
                         </button>
@@ -435,7 +440,8 @@ export const RetornoMaterialForm: React.FC<RetornoMaterialFormProps> = ({
                   setShowNuevoProducto(true);
                   setShowProductoDropdown(false);
                 }}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 whitespace-nowrap"
+                className="px-4 py-2 text-white rounded-lg flex items-center gap-2 whitespace-nowrap hover:opacity-90 transition-opacity"
+                style={{ backgroundColor: themeColors.secondary }}
               >
                 <Plus className="w-5 h-5" />
                 Nuevo
@@ -445,8 +451,11 @@ export const RetornoMaterialForm: React.FC<RetornoMaterialFormProps> = ({
 
           {/* Modal para nuevo producto */}
           {showNuevoProducto && (
-            <div className="p-4 border-2 border-blue-300 bg-blue-50 rounded-lg space-y-3">
-              <h4 className="font-semibold text-blue-800 flex items-center gap-2">
+            <div 
+              className="p-4 border-2 rounded-lg space-y-3"
+              style={{ borderColor: `${themeColors.secondary}60`, backgroundColor: `${themeColors.secondary}10` }}
+            >
+              <h4 className="font-semibold flex items-center gap-2" style={{ color: themeColors.secondary }}>
                 <Plus className="w-4 h-4" />
                 Agregar Nuevo Material al Catálogo
               </h4>
@@ -507,7 +516,8 @@ export const RetornoMaterialForm: React.FC<RetornoMaterialFormProps> = ({
                 </button>
                 <button
                   onClick={crearNuevoProducto}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2"
+                  className="px-4 py-2 text-white rounded-lg flex items-center gap-2 hover:opacity-90 transition-opacity"
+                  style={{ backgroundColor: themeColors.secondary }}
                 >
                   <Check className="w-4 h-4" />
                   Crear y Agregar
@@ -520,13 +530,13 @@ export const RetornoMaterialForm: React.FC<RetornoMaterialFormProps> = ({
           {lineas.length > 0 && (
             <div className="border-2 rounded-lg overflow-hidden" style={{ borderColor: themeColors.border }}>
               <table className="w-full">
-                <thead className="bg-emerald-50">
+                <thead style={{ backgroundColor: `${themeColors.primary}15` }}>
                   <tr>
-                    <th className="px-4 py-2 text-left text-sm font-semibold text-emerald-800">Material</th>
-                    <th className="px-4 py-2 text-center text-sm font-semibold text-emerald-800 w-24">Cantidad</th>
-                    <th className="px-4 py-2 text-center text-sm font-semibold text-emerald-800 w-20">Unidad</th>
-                    <th className="px-4 py-2 text-right text-sm font-semibold text-emerald-800 w-32">Costo Unit.</th>
-                    <th className="px-4 py-2 text-right text-sm font-semibold text-emerald-800 w-32">Subtotal</th>
+                    <th className="px-4 py-2 text-left text-sm font-semibold" style={{ color: themeColors.primary }}>Material</th>
+                    <th className="px-4 py-2 text-center text-sm font-semibold w-24" style={{ color: themeColors.primary }}>Cantidad</th>
+                    <th className="px-4 py-2 text-center text-sm font-semibold w-20" style={{ color: themeColors.primary }}>Unidad</th>
+                    <th className="px-4 py-2 text-right text-sm font-semibold w-32" style={{ color: themeColors.primary }}>Costo Unit.</th>
+                    <th className="px-4 py-2 text-right text-sm font-semibold w-32" style={{ color: themeColors.primary }}>Subtotal</th>
                     <th className="px-4 py-2 w-12"></th>
                   </tr>
                 </thead>
@@ -567,7 +577,7 @@ export const RetornoMaterialForm: React.FC<RetornoMaterialFormProps> = ({
                           />
                         </div>
                       </td>
-                      <td className="px-4 py-2 text-right font-bold text-emerald-600">
+                      <td className="px-4 py-2 text-right font-bold" style={{ color: themeColors.primary }}>
                         ${linea.subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="px-4 py-2">
@@ -602,7 +612,10 @@ export const RetornoMaterialForm: React.FC<RetornoMaterialFormProps> = ({
         </div>
 
         {/* Footer con totales */}
-        <div className="px-6 py-4 border-t bg-emerald-50" style={{ borderColor: themeColors.border }}>
+        <div 
+          className="px-6 py-4 border-t" 
+          style={{ borderColor: themeColors.border, backgroundColor: `${themeColors.primary}10` }}
+        >
           <div className="flex justify-between items-center">
             <div className="text-sm text-gray-600">
               {lineas.length} material(es) • Este monto se restará del total de gastos
@@ -617,8 +630,8 @@ export const RetornoMaterialForm: React.FC<RetornoMaterialFormProps> = ({
                 <div className="font-semibold">${totales.iva.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</div>
               </div>
               <div className="text-right">
-                <div className="text-sm text-emerald-600 font-medium">Total Retorno</div>
-                <div className="text-2xl font-bold text-emerald-600">
+                <div className="text-sm font-medium" style={{ color: themeColors.primary }}>Total Retorno</div>
+                <div className="text-2xl font-bold" style={{ color: themeColors.primary }}>
                   ${totales.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                 </div>
               </div>

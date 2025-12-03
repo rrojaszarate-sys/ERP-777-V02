@@ -3,16 +3,21 @@ import mochawesomeReporter from "cypress-mochawesome-reporter/plugin.js";
 
 export default defineConfig({
   e2e: {
-    baseUrl: "http://localhost:5173",
+    baseUrl: "http://localhost:5174",
     viewportWidth: 1920,
     viewportHeight: 1080,
     video: true,
+    videoCompression: 32,
+    videosFolder: "cypress/videos",
     screenshotOnRunFailure: true,
+    screenshotsFolder: "cypress/screenshots",
     defaultCommandTimeout: 15000,
     pageLoadTimeout: 30000,
     requestTimeout: 20000,
     responseTimeout: 20000,
     chromeWebSecurity: false,
+    experimentalMemoryManagement: true,
+    numTestsKeptInMemory: 0,
 
     setupNodeEvents(on, config) {
       // Implement mochawesome reporter
