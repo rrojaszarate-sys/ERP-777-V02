@@ -122,7 +122,7 @@ export async function obtenerTransferencias(filtros?: FiltrosTransferencia): Pro
         *,
         almacen_origen:almacenes_erp!transferencias_erp_almacen_origen_id_fkey(id, nombre),
         almacen_destino:almacenes_erp!transferencias_erp_almacen_destino_id_fkey(id, nombre),
-        detalles:transferencia_detalle_erp(
+        detalles:transferencias_detalle_erp(
           *,
           producto:productos_erp(id, nombre, clave, unidad)
         )
@@ -185,7 +185,7 @@ export async function obtenerTransferenciaPorId(id: string): Promise<Transferenc
         *,
         almacen_origen:almacenes_erp!transferencias_erp_almacen_origen_id_fkey(id, nombre),
         almacen_destino:almacenes_erp!transferencias_erp_almacen_destino_id_fkey(id, nombre),
-        detalles:transferencia_detalle_erp(
+        detalles:transferencias_detalle_erp(
           *,
           producto:productos_erp(id, nombre, clave, unidad)
         )
@@ -258,7 +258,7 @@ export async function crearTransferencia(
     }));
 
     const { error: errorDet } = await supabase
-      .from('transferencia_detalle_erp')
+      .from('transferencias_detalle_erp')
       .insert(detalles);
 
     if (errorDet) throw errorDet;
@@ -448,7 +448,7 @@ export async function eliminarTransferencia(id: string): Promise<void> {
   if (usarTablas) {
     // Eliminar detalles primero
     await supabase
-      .from('transferencia_detalle_erp')
+      .from('transferencias_detalle_erp')
       .delete()
       .eq('transferencia_id', id);
     

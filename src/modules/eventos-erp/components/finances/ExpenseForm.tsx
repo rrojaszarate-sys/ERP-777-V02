@@ -1,21 +1,26 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import { TrendingDown, FileText, Calculator, Loader2, AlertTriangle, Bot, Zap, Upload, CheckCircle, XCircle } from 'lucide-react';
-import { Button } from '../../../../shared/components/ui/Button';
-import { FileUpload } from '../../../../shared/components/ui/FileUpload';
+/**
+ * FORMULARIO DE GASTOS - CON TEMA DINÁMICO
+ * - Usa paleta de colores dinámica
+ * - Estilo homogéneo con IncomeForm y ProvisionForm
+ * - Soporte OCR para tickets
+ */
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import {
+  TrendingDown, FileText, Calculator, Loader2, Calendar,
+  Upload, X, Save, Bot, Zap, DollarSign, Tag, Building2
+} from 'lucide-react';
+import { useTheme } from '../../../../shared/components/theme';
 import { useFileUpload } from '../../hooks/useFileUpload';
 import { useExpenseCategories } from '../../hooks/useFinances';
-import { useAccountsGasto } from '../../hooks/useAccounts';
-import { useUsers } from '../../hooks/useUsers';
 import { formatCurrency } from '../../../../shared/utils/formatters';
 import { MEXICAN_CONFIG } from '../../../../core/config/constants';
 import { Expense } from '../../types/Finance';
 import { useOCRIntegration } from '../../../ocr/hooks/useOCRIntegration';
 import toast from 'react-hot-toast';
 
-// IVA rate from env o default
-const IVA_RATE = (parseFloat(import.meta.env.VITE_IVA_RATE) || MEXICAN_CONFIG.ivaRate) / 100;
-const IVA_PORCENTAJE = IVA_RATE * 100;
+// IVA desde config
+const IVA_PORCENTAJE = MEXICAN_CONFIG.ivaRate;
+const IVA_RATE = IVA_PORCENTAJE / 100;
 
 interface ExpenseFormProps {
   expense?: Expense | null;
@@ -25,6 +30,75 @@ interface ExpenseFormProps {
   className?: string;
 }
 
+// Componente de input de moneda
+interface CurrencyInputProps {
+  value: number;
+  onChange: (value: number) => void;
+  readOnly?: boolean;
+  className?: string;
+  placeholder?: string;
+  style?: React.CSSProperties;
+}
+
+const CurrencyInput = ({ value, onChange, readOnly = false, className = '', placeholder = '', style }: CurrencyInputProps) => {
+  const [displayValue, setDisplayValue] = useState('');
+
+  const formatCurrencyDisplay = (num: number): string => {
+    if (num === 0 || isNaN(num)) return '';
+    return num.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  const parseValue = (str: string): number => {
+    const cleaned = str.replace(/[^0-9.]/g, '');
+    const parsed = parseFloat(cleaned);
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
+  useEffect(() => {
+    setDisplayValue(value === 0 ? '' : formatCurrencyDisplay(value));
+  }, [value]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target.value;
+    const cleaned = input.replace(/[^0-9.,]/g, '');
+    const normalized = cleaned.replace(/,/g, '.');
+    const parts = normalized.split('.');
+    let finalValue = parts[0];
+    if (parts.length > 1) {
+      finalValue += '.' + parts.slice(1).join('').substring(0, 2);
+    }
+    setDisplayValue(finalValue);
+  };
+
+  const handleBlur = () => {
+    const numValue = parseValue(displayValue);
+    onChange(numValue);
+    setDisplayValue(numValue > 0 ? formatCurrencyDisplay(numValue) : '');
+  };
+
+  const handleFocus = () => {
+    if (value > 0) setDisplayValue(value.toString());
+  };
+
+  return (
+    <div className="relative">
+      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+      <input
+        type="text"
+        inputMode="decimal"
+        value={displayValue}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        onFocus={handleFocus}
+        readOnly={readOnly}
+        placeholder={placeholder || '0.00'}
+        className={`w-full pl-9 pr-4 py-2.5 border-2 rounded-lg font-mono text-right transition-all ${className}`}
+        style={style}
+      />
+    </div>
+  );
+};
+
 export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   expense,
   eventId,
@@ -32,207 +106,92 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   onCancel,
   className = ''
 }) => {
+  // Hook de tema para colores dinámicos
+  const { paletteConfig, isDark } = useTheme();
+
+  // Colores dinámicos - Rojo para gastos
+  const themeColors = useMemo(() => ({
+    primary: '#EF4444', // Rojo para gastos
+    primaryLight: '#FEE2E2',
+    primaryDark: '#DC2626',
+    bg: isDark ? '#1E293B' : '#FFFFFF',
+    text: isDark ? '#F8FAFC' : '#1E293B',
+    textSecondary: isDark ? '#CBD5E1' : '#64748B',
+    border: isDark ? '#334155' : '#E2E8F0',
+    accent: paletteConfig.accent
+  }), [paletteConfig, isDark]);
+
   const [formData, setFormData] = useState({
     concepto: expense?.concepto || '',
     descripcion: expense?.descripcion || '',
-    cantidad: expense?.cantidad || 1,
-    // Campos fiscales separados (sin auto-cálculo)
     subtotal: expense?.subtotal || 0,
     iva: expense?.iva || 0,
     total: expense?.total || 0,
-    retenciones: 0, // Campo de retenciones
-    iva_porcentaje: expense?.iva_porcentaje || MEXICAN_CONFIG.ivaRate,
+    retenciones: 0,
+    iva_porcentaje: expense?.iva_porcentaje || IVA_PORCENTAJE,
     proveedor: expense?.proveedor || '',
     rfc_proveedor: expense?.rfc_proveedor || '',
     fecha_gasto: expense?.fecha_gasto || new Date().toISOString().split('T')[0],
     categoria_id: expense?.categoria_id || '',
     forma_pago: expense?.forma_pago || 'transferencia',
     referencia: expense?.referencia || '',
-    status_aprobacion: expense?.status_aprobacion || 'aprobado',
     archivo_adjunto: expense?.archivo_adjunto || '',
     archivo_nombre: expense?.archivo_nombre || '',
-    archivo_tamaño: expense?.archivo_tamaño || 0,
-    archivo_tipo: expense?.archivo_tipo || '',
-    // Campos para control de pagos y cuentas (SIEMPRE PAGADO por defecto)
-    cuenta_id: (expense as any)?.cuenta_id || '',
-    comprobante_pago_url: (expense as any)?.comprobante_pago_url || '',
-    comprobante_pago_nombre: (expense as any)?.comprobante_pago_nombre || '',
-    fecha_pago: (expense as any)?.fecha_pago || new Date().toISOString().split('T')[0],
-    responsable_pago_id: (expense as any)?.responsable_pago_id || '',
-    pagado: true, // SIEMPRE pagado
-    comprobado: true // SIEMPRE comprobado
+    pagado: true,
+    comprobado: true
   });
 
-  // Estado de error de cuadre fiscal
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorCuadre, setErrorCuadre] = useState<string | null>(null);
 
-  // ========== VALIDACIÓN DE CUADRE FISCAL ==========
-  // Total = Subtotal + IVA - Retenciones
+  const { uploadFile, isUploading } = useFileUpload();
+  const { data: categories } = useExpenseCategories();
+  const { processOCRFile, isProcessing, error: ocrError } = useOCRIntegration(eventId);
+
+  // Validar cuadre fiscal
   useEffect(() => {
     const calculado = Math.round((formData.subtotal + formData.iva - formData.retenciones) * 100) / 100;
     const diferencia = Math.abs(calculado - formData.total);
-
     if (formData.total > 0 && diferencia > 0.01) {
-      setErrorCuadre(`No cuadra: Subtotal + IVA - Retenciones = ${calculado.toFixed(2)}, pero Total es ${formData.total.toFixed(2)}`);
+      setErrorCuadre(`No cuadra: $${formData.subtotal.toFixed(2)} + $${formData.iva.toFixed(2)} - $${formData.retenciones.toFixed(2)} = $${calculado.toFixed(2)}, pero Total es $${formData.total.toFixed(2)}`);
     } else {
       setErrorCuadre(null);
     }
   }, [formData.subtotal, formData.iva, formData.total, formData.retenciones]);
 
-  // Función para calcular IVA desde subtotal (botón opcional)
+  // Calcular IVA desde subtotal
   const calcularIvaDesdeSubtotal = useCallback(() => {
     if (formData.subtotal > 0) {
       const nuevoIva = Math.round(formData.subtotal * IVA_RATE * 100) / 100;
       const nuevoTotal = Math.round((formData.subtotal + nuevoIva - formData.retenciones) * 100) / 100;
       setFormData(prev => ({ ...prev, iva: nuevoIva, total: nuevoTotal }));
       toast.success(`IVA calculado: $${nuevoIva.toFixed(2)} (${IVA_PORCENTAJE}%)`);
-    } else {
-      toast.error('Ingrese primero el subtotal');
     }
   }, [formData.subtotal, formData.retenciones]);
 
-  // Función para calcular total desde componentes
-  const calcularTotalDesdeComponentes = useCallback(() => {
+  // Calcular total
+  const calcularTotal = useCallback(() => {
     const nuevoTotal = Math.round((formData.subtotal + formData.iva - formData.retenciones) * 100) / 100;
     setFormData(prev => ({ ...prev, total: nuevoTotal }));
     toast.success(`Total calculado: $${nuevoTotal.toFixed(2)}`);
   }, [formData.subtotal, formData.iva, formData.retenciones]);
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showOCRUpload, setShowOCRUpload] = useState(false);
-  const { uploadFile, isUploading } = useFileUpload();
-  const { data: categories } = useExpenseCategories();
-  const { processOCRFile, isProcessing, error: ocrError } = useOCRIntegration(eventId);
-
-  // Calcular totales multiplicados por cantidad (para resumen)
-  const totalConCantidad = formData.total * formData.cantidad;
-  const subtotalConCantidad = formData.subtotal * formData.cantidad;
-  const ivaConCantidad = formData.iva * formData.cantidad;
-  const precio_unitario = formData.total; // Para compatibilidad con el backend
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.concepto.trim()) {
-      newErrors.concepto = 'El concepto es requerido';
-    }
-
-    if (formData.total <= 0) {
-      newErrors.total = 'El total debe ser mayor a 0';
-    }
-
-    if (formData.cantidad <= 0) {
-      newErrors.cantidad = 'La cantidad debe ser mayor a 0';
-    }
-
-    if (!formData.fecha_gasto) {
-      newErrors.fecha_gasto = 'La fecha del gasto es requerida';
-    }
-
-    if (!formData.categoria_id) {
-      newErrors.categoria_id = 'Debe seleccionar una categoría';
-    }
-
-    // Validate RFC if provided
-    if (formData.rfc_proveedor && !validateRFC(formData.rfc_proveedor)) {
-      newErrors.rfc_proveedor = 'Formato de RFC inválido';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const validateRFC = (rfc: string): boolean => {
-    const rfcClean = rfc.toUpperCase().trim();
-    const rfcMoral = /^[A-Z&Ñ]{3}[0-9]{6}[A-Z0-9]{3}$/;
-    const rfcFisica = /^[A-Z&Ñ]{4}[0-9]{6}[A-Z0-9]{3}$/;
-    return rfcMoral.test(rfcClean) || rfcFisica.test(rfcClean);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validateForm()) return;
-
-    // ========== VALIDACIÓN DE CUADRE FISCAL ==========
-    const totalCalculado = Math.round((formData.subtotal + formData.iva - formData.retenciones) * 100) / 100;
-    const diferencia = Math.abs(totalCalculado - formData.total);
-
-    if (diferencia > 0.01) {
-      toast.error(`❌ Los montos no cuadran. Diferencia: $${diferencia.toFixed(2)}`);
-      return; // No permitir guardar
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      const dataToSave = {
-        ...formData,
-        precio_unitario, // Para compatibilidad
-        subtotal: formData.subtotal,
-        iva: formData.iva,
-        total: formData.total,
-        evento_id: eventId,
-        categoria_id: formData.categoria_id || undefined,
-        created_at: expense ? undefined : new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-
-      onSave(dataToSave);
-    } catch (error) {
-      console.error('Error saving expense:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
+    if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
   };
 
-  const handleFileUploaded = (result: any) => {
-    setFormData(prev => ({
-      ...prev,
-      archivo_adjunto: result.url,
-      archivo_nombre: result.fileName,
-      archivo_tamaño: result.fileSize,
-      archivo_tipo: result.mimeType
-    }));
-  };
-
-  const handleFileRemoved = () => {
-    setFormData(prev => ({
-      ...prev,
-      archivo_adjunto: '',
-      archivo_nombre: '',
-      archivo_tamaño: 0,
-      archivo_tipo: ''
-    }));
-  };
-
+  // Procesar archivo con OCR
   const handleOCRFile = async (file: File) => {
     try {
-      console.log('🔍 Procesando archivo OCR para prellenar formulario:', file.name);
-      console.log(`📄 Tipo: ${file.type} → ${file.type === 'application/pdf' ? 'FACTURA' : 'TICKET'}`);
-
       const result = await processOCRFile(file);
-
-      // Ahora aceptamos tanto tickets (imágenes) como facturas (PDFs)
-      // Ambos son gastos válidos
-
-      // Prellenar formulario con datos OCR
       const ocrData = result.formData;
-      const warnings = result.formData._warnings || [];
 
       setFormData(prev => ({
         ...prev,
         concepto: ocrData.concepto || prev.concepto,
         descripcion: ocrData.descripcion || prev.descripcion,
-        // Usar campos fiscales separados
         subtotal: ocrData.subtotal > 0 ? ocrData.subtotal : prev.subtotal,
         iva: ocrData.iva > 0 ? ocrData.iva : prev.iva,
         total: ocrData.total_con_iva > 0 ? ocrData.total_con_iva : prev.total,
@@ -241,486 +200,427 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         forma_pago: ocrData.forma_pago || prev.forma_pago,
         categoria_id: ocrData.categoria_id || prev.categoria_id,
         rfc_proveedor: ocrData.rfc_proveedor || prev.rfc_proveedor,
-        // Agregar notas sobre confianza OCR
         referencia: `OCR (${result.confidence}% confianza)${result.needsValidation ? ' - REVISAR' : ''}`
       }));
 
-      // Subir archivo también
-      if (file) {
-        try {
-          const uploadResult = await uploadFile({ file, type: 'expense', eventId });
-          if (uploadResult) {
-            handleFileUploaded(uploadResult);
-          }
-        } catch (uploadError) {
-          console.warn('⚠️ Error subiendo archivo, pero continuamos con OCR:', uploadError);
-          // No lanzamos error, solo advertimos
-        }
+      // Subir archivo
+      const uploadResult = await uploadFile({ file, type: 'expense', eventId });
+      if (uploadResult) {
+        setFormData(prev => ({
+          ...prev,
+          archivo_adjunto: uploadResult.url,
+          archivo_nombre: uploadResult.fileName
+        }));
       }
 
-      // Construir mensaje de alerta con warnings
-      let mensaje = `✅ Documento procesado con OCR!\n📊 Confianza: ${result.confidence}%\n\n`;
-
-      if (warnings.length > 0) {
-        mensaje += '⚠️ ADVERTENCIAS:\n';
-        warnings.forEach((w: string) => {
-          mensaje += `• ${w}\n`;
-        });
-        mensaje += '\n⚠️ Revise y complete los campos faltantes antes de guardar.';
-      } else if (result.needsValidation) {
-        mensaje += '⚠️ Revise los datos extraídos antes de guardar.';
-      } else {
-        mensaje += '✅ Alta confianza, datos listos para usar.';
-      }
-
-      alert(mensaje);
-
+      toast.success(`OCR procesado con ${result.confidence}% confianza`);
     } catch (error) {
-      console.error('❌ Error procesando OCR:', error);
-      alert('❌ Error al procesar el documento con OCR. Intente de nuevo o llene el formulario manualmente.');
+      toast.error('Error procesando OCR');
+    }
+  };
+
+  const handleFileUploaded = async (file: File) => {
+    const uploadResult = await uploadFile({ file, type: 'expense', eventId });
+    if (uploadResult) {
+      setFormData(prev => ({
+        ...prev,
+        archivo_adjunto: uploadResult.url,
+        archivo_nombre: uploadResult.fileName
+      }));
+      toast.success('Comprobante subido');
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.concepto.trim()) newErrors.concepto = 'Concepto requerido';
+    if (formData.total <= 0) newErrors.total = 'Total debe ser mayor a 0';
+    if (!formData.categoria_id) newErrors.categoria_id = 'Categoría requerida';
+    if (!formData.fecha_gasto) newErrors.fecha_gasto = 'Fecha requerida';
+
+    // Validar RFC si se proporciona
+    if (formData.rfc_proveedor) {
+      const rfcMoral = /^[A-Z&Ñ]{3}[0-9]{6}[A-Z0-9]{3}$/;
+      const rfcFisica = /^[A-Z&Ñ]{4}[0-9]{6}[A-Z0-9]{3}$/;
+      const rfcClean = formData.rfc_proveedor.toUpperCase().trim();
+      if (!rfcMoral.test(rfcClean) && !rfcFisica.test(rfcClean)) {
+        newErrors.rfc_proveedor = 'RFC inválido';
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!validateForm()) return;
+
+    // Validar cuadre
+    const totalCalculado = Math.round((formData.subtotal + formData.iva - formData.retenciones) * 100) / 100;
+    if (Math.abs(totalCalculado - formData.total) > 0.01) {
+      toast.error('Los montos no cuadran');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const dataToSave = {
+        ...formData,
+        evento_id: eventId,
+        precio_unitario: formData.total,
+        cantidad: 1,
+        updated_at: new Date().toISOString()
+      };
+      onSave(dataToSave);
+    } catch (error) {
+      toast.error('Error al guardar');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className={`bg-red-50 border border-red-200 rounded-lg p-6 ${className}`}>
-      <h3 className="text-lg font-medium text-red-900 mb-6 flex items-center">
-        <TrendingDown className="w-5 h-5 mr-2" />
-        {expense ? 'Editar Gasto' : 'Nuevo Gasto'}
-      </h3>
+    <div
+      className={`rounded-xl shadow-lg overflow-hidden ${className}`}
+      style={{ backgroundColor: themeColors.bg }}
+    >
+      {/* Header */}
+      <div
+        className="flex items-center justify-between px-6 py-4 border-b"
+        style={{
+          background: `linear-gradient(135deg, ${themeColors.primary} 0%, ${themeColors.primaryDark} 100%)`,
+          borderColor: themeColors.border
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <TrendingDown className="w-6 h-6 text-white" />
+          <h2 className="text-xl font-semibold text-white">
+            {expense ? 'Editar Gasto' : 'Nuevo Gasto'}
+          </h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleSubmit()}
+            disabled={isSubmitting}
+            className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-white font-medium"
+          >
+            {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+            <span className="hidden sm:inline">Guardar</span>
+          </button>
+          <button onClick={onCancel} className="p-2 hover:bg-white/20 rounded-lg">
+            <X className="w-5 h-5 text-white" />
+          </button>
+        </div>
+      </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* File Upload Section */}
-        <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-700">
-            Comprobante {formData.archivo_adjunto ? '' : '(Opcional)'}
-          </label>
-          <FileUpload
-            type="expense"
-            onFileUploaded={handleFileUploaded}
-            onFileRemoved={handleFileRemoved}
-            currentFile={formData.archivo_adjunto ? {
-              url: formData.archivo_adjunto,
-              name: formData.archivo_nombre,
-              size: formData.archivo_tamaño
-            } : undefined}
-            required={false}
-            disabled={isUploading || isSubmitting}
-            eventId={eventId}
-          />
-          <p className="text-xs text-gray-500">
-            Sube el comprobante de gasto (factura, ticket, recibo). Formatos aceptados: PDF, JPG, PNG.
-          </p>
-          
-          {/* OCR Button */}
-          <div className="flex items-center gap-2 pt-2">
-            <div className="flex-1 border-t border-gray-200"></div>
-            <span className="text-xs text-gray-500">o</span>
-            <div className="flex-1 border-t border-gray-200"></div>
-          </div>
-          
-          <div className="relative">
-            <input
-              type="file"
-              id="ocr-upload"
-              accept="image/*"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  handleOCRFile(file);
-                  e.target.value = ''; // Reset input
-                }
-              }}
-              className="hidden"
-              disabled={isProcessing || isSubmitting}
-            />
-            <Button
-              type="button"
-              onClick={() => document.getElementById('ocr-upload')?.click()}
-              disabled={isProcessing || isSubmitting}
-              variant="outline"
-              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200 hover:border-blue-300 text-blue-700 hover:text-blue-800"
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Procesando OCR...
-                </>
+      {/* Form */}
+      <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+
+        {/* Comprobante y OCR */}
+        <div>
+          <h3 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: themeColors.primary }}>
+            Comprobante
+          </h3>
+          <div className="grid grid-cols-2 gap-3">
+            {/* Subir comprobante */}
+            <div className="border-2 rounded-lg p-3" style={{ borderColor: formData.archivo_adjunto ? themeColors.primary : themeColors.border }}>
+              <label className="block text-xs font-medium mb-2" style={{ color: themeColors.text }}>
+                Comprobante
+              </label>
+              {!formData.archivo_adjunto ? (
+                <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+                  style={{ borderColor: themeColors.border }}>
+                  <Upload className="w-4 h-4" style={{ color: themeColors.primary }} />
+                  <span className="text-sm" style={{ color: themeColors.textSecondary }}>Subir archivo</span>
+                  <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden"
+                    onChange={(e) => e.target.files?.[0] && handleFileUploaded(e.target.files[0])} />
+                </label>
               ) : (
-                <>
-                  <Bot className="w-4 h-4" />
-                  <Zap className="w-3 h-3" />
-                  Extraer datos automáticamente (OCR)
-                </>
+                <div className="flex items-center justify-between p-2 rounded-lg" style={{ backgroundColor: themeColors.primaryLight }}>
+                  <span className="text-sm font-medium truncate" style={{ color: themeColors.primaryDark }}>{formData.archivo_nombre}</span>
+                  <button type="button" onClick={() => setFormData(prev => ({ ...prev, archivo_adjunto: '', archivo_nombre: '' }))}
+                    className="text-xs px-2 py-1 hover:bg-white/50 rounded">✕</button>
+                </div>
               )}
-            </Button>
-            <p className="text-xs text-blue-600 mt-1 text-center">
-              Sube una foto del ticket y el sistema llenará automáticamente los campos
-            </p>
-            
-            {ocrError && (
-              <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-600">
-                {ocrError}
-              </div>
-            )}
+            </div>
+
+            {/* OCR */}
+            <div className="border-2 rounded-lg p-3" style={{ borderColor: themeColors.border }}>
+              <label className="block text-xs font-medium mb-2" style={{ color: themeColors.text }}>
+                OCR Automático
+              </label>
+              <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed rounded-lg cursor-pointer transition-colors"
+                style={{ borderColor: themeColors.accent, backgroundColor: `${themeColors.accent}10` }}>
+                <Bot className="w-4 h-4" style={{ color: themeColors.accent }} />
+                <Zap className="w-3 h-3" style={{ color: themeColors.accent }} />
+                <span className="text-sm font-medium" style={{ color: themeColors.accent }}>
+                  {isProcessing ? 'Procesando...' : 'Extraer datos'}
+                </span>
+                <input type="file" accept="image/*,.pdf" className="hidden" disabled={isProcessing}
+                  onChange={(e) => e.target.files?.[0] && handleOCRFile(e.target.files[0])} />
+              </label>
+            </div>
           </div>
+          {ocrError && (
+            <div className="mt-2 p-2 rounded-lg text-sm bg-red-100 text-red-600">{ocrError}</div>
+          )}
         </div>
 
-        {/* Basic Information */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Concepto *
-            </label>
-            <input
-              type="text"
-              value={formData.concepto}
-              onChange={(e) => handleInputChange('concepto', e.target.value)}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-                errors.concepto ? 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder="Descripción del gasto"
-              disabled={isSubmitting}
-            />
-            {errors.concepto && (
-              <p className="text-red-600 text-sm mt-1">{errors.concepto}</p>
-            )}
+        {/* Proveedor y Categoría */}
+        <div>
+          <h3 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: themeColors.primary }}>
+            Proveedor y Categoría
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            {/* Proveedor */}
+            <div>
+              <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
+                <Building2 className="w-4 h-4 inline mr-1" />Proveedor
+              </label>
+              <input
+                type="text"
+                value={formData.proveedor}
+                onChange={(e) => handleInputChange('proveedor', e.target.value)}
+                placeholder="Nombre del proveedor"
+                className="w-full px-4 py-2.5 border-2 rounded-lg"
+                style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
+              />
+            </div>
+
+            {/* RFC */}
+            <div>
+              <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
+                RFC Proveedor
+              </label>
+              <input
+                type="text"
+                value={formData.rfc_proveedor}
+                onChange={(e) => handleInputChange('rfc_proveedor', e.target.value.toUpperCase())}
+                placeholder="ABC123456XYZ"
+                maxLength={13}
+                className="w-full px-4 py-2.5 border-2 rounded-lg uppercase"
+                style={{ borderColor: errors.rfc_proveedor ? '#EF4444' : themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
+              />
+              {errors.rfc_proveedor && <p className="text-red-500 text-xs mt-1">{errors.rfc_proveedor}</p>}
+            </div>
           </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Categoría *
+
+          {/* Categoría */}
+          <div className="mt-4">
+            <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
+              <Tag className="w-4 h-4 inline mr-1" />Categoría *
             </label>
             <select
               value={formData.categoria_id}
               onChange={(e) => handleInputChange('categoria_id', e.target.value)}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-                errors.categoria_id ? 'border-red-500' : 'border-gray-300'
-              }`}
-              disabled={isSubmitting}
+              className="w-full px-4 py-2.5 border-2 rounded-lg"
+              style={{ borderColor: errors.categoria_id ? '#EF4444' : themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
             >
               <option value="">Seleccionar categoría...</option>
-              {categories?.map(categoria => (
-                <option key={categoria.id} value={categoria.id}>
-                  {categoria.nombre}
-                </option>
+              {categories?.map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.nombre}</option>
               ))}
             </select>
-            {errors.categoria_id && (
-              <p className="text-red-600 text-sm mt-1">{errors.categoria_id}</p>
-            )}
+            {errors.categoria_id && <p className="text-red-500 text-xs mt-1">{errors.categoria_id}</p>}
           </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Proveedor
-            </label>
-            <input
-              type="text"
-              value={formData.proveedor}
-              onChange={(e) => handleInputChange('proveedor', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-              placeholder="Nombre del proveedor"
-              disabled={isSubmitting}
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              RFC Proveedor
-            </label>
-            <input
-              type="text"
-              value={formData.rfc_proveedor}
-              onChange={(e) => handleInputChange('rfc_proveedor', e.target.value.toUpperCase())}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-                errors.rfc_proveedor ? 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder="ABC123456XYZ"
-              maxLength={13}
-              disabled={isSubmitting}
-            />
-            {errors.rfc_proveedor && (
-              <p className="text-red-600 text-sm mt-1">{errors.rfc_proveedor}</p>
-            )}
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Cantidad *
-            </label>
-            <input
-              type="number"
-              value={formData.cantidad}
-              onChange={(e) => handleInputChange('cantidad', parseFloat(e.target.value) || 1)}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-                errors.cantidad ? 'border-red-500' : 'border-gray-300'
-              }`}
-              min="0.001"
-              step="0.001"
-              disabled={isSubmitting}
-            />
-            {errors.cantidad && (
-              <p className="text-red-600 text-sm mt-1">{errors.cantidad}</p>
-            )}
-          </div>
-          
         </div>
 
-        {/* ========== SECCIÓN DE MONTOS FISCALES ========== */}
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-          <h4 className="font-medium text-gray-900 mb-3 flex items-center">
-            <Calculator className="w-4 h-4 mr-2" />
-            Montos Fiscales
-            <span className="text-xs text-gray-500 ml-2">(Total = Subtotal + IVA - Retenciones)</span>
-          </h4>
+        {/* Concepto */}
+        <div>
+          <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
+            Concepto *
+          </label>
+          <input
+            type="text"
+            value={formData.concepto}
+            onChange={(e) => handleInputChange('concepto', e.target.value)}
+            placeholder="Descripción del gasto"
+            className="w-full px-4 py-2.5 border-2 rounded-lg"
+            style={{ borderColor: errors.concepto ? '#EF4444' : themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
+          />
+          {errors.concepto && <p className="text-red-500 text-xs mt-1">{errors.concepto}</p>}
+        </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {/* Montos */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold uppercase tracking-wide" style={{ color: themeColors.primary }}>
+              Montos
+            </h3>
+            {formData.total > 0 && (
+              <span className={`px-3 py-1 rounded-lg text-sm font-medium ${errorCuadre ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                {errorCuadre ? 'No cuadra' : 'Cuadre OK'}
+              </span>
+            )}
+          </div>
+
+          <div className="p-2 rounded-lg text-xs text-center mb-3" style={{ backgroundColor: themeColors.primaryLight, color: themeColors.primaryDark }}>
+            <strong>Fórmula:</strong> Total = Subtotal + IVA - Retenciones
+          </div>
+
+          <div className="grid grid-cols-5 gap-3">
             {/* Subtotal */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                Subtotal *
-              </label>
-              <input
-                type="number"
+              <label className="block text-xs font-medium mb-1" style={{ color: themeColors.text }}>Subtotal *</label>
+              <CurrencyInput
                 value={formData.subtotal}
-                onChange={(e) => handleInputChange('subtotal', parseFloat(e.target.value) || 0)}
-                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-                disabled={isSubmitting}
+                onChange={(v) => handleInputChange('subtotal', v)}
+                style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
               />
             </div>
 
-            {/* IVA con botón de cálculo */}
+            {/* IVA */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                IVA
-              </label>
-              <div className="flex gap-1">
-                <input
-                  type="number"
-                  value={formData.iva}
-                  onChange={(e) => handleInputChange('iva', parseFloat(e.target.value) || 0)}
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-l focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                  disabled={isSubmitting}
-                />
-                <button
-                  type="button"
-                  onClick={calcularIvaDesdeSubtotal}
-                  className="px-2 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded-r"
-                  title={`Calcular IVA (${IVA_PORCENTAJE}%)`}
-                  disabled={isSubmitting}
-                >
-                  %
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-medium" style={{ color: themeColors.text }}>IVA</label>
+                <button type="button" onClick={calcularIvaDesdeSubtotal}
+                  className="px-2 py-0.5 rounded text-xs font-medium"
+                  style={{ backgroundColor: themeColors.primaryLight, color: themeColors.primaryDark }}>
+                  <Calculator className="w-3 h-3 inline mr-1" />{IVA_PORCENTAJE}%
                 </button>
               </div>
+              <CurrencyInput
+                value={formData.iva}
+                onChange={(v) => handleInputChange('iva', v)}
+                style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
+              />
             </div>
 
             {/* Retenciones */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                Retenciones
-              </label>
-              <input
-                type="number"
+              <label className="block text-xs font-medium mb-1" style={{ color: themeColors.text }}>Retenciones</label>
+              <CurrencyInput
                 value={formData.retenciones}
-                onChange={(e) => handleInputChange('retenciones', parseFloat(e.target.value) || 0)}
-                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-                disabled={isSubmitting}
+                onChange={(v) => handleInputChange('retenciones', v)}
+                style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
               />
             </div>
 
-            {/* Total con botón de cálculo y validación visual */}
+            {/* Total */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                Total *
-              </label>
-              <div className="flex gap-1">
-                <input
-                  type="number"
-                  value={formData.total}
-                  onChange={(e) => handleInputChange('total', parseFloat(e.target.value) || 0)}
-                  className={`w-full px-2 py-1.5 text-sm border rounded-l focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-                    errors.total ? 'border-red-500' : errorCuadre ? 'border-red-400' : !errorCuadre && formData.total > 0 ? 'border-green-500' : 'border-gray-300'
-                  }`}
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                  disabled={isSubmitting}
-                />
-                <button
-                  type="button"
-                  onClick={calcularTotalDesdeComponentes}
-                  className="px-2 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs rounded-r"
-                  title="Calcular Total"
-                  disabled={isSubmitting}
-                >
-                  =
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-medium" style={{ color: themeColors.text }}>Total *</label>
+                <button type="button" onClick={calcularTotal}
+                  className="px-2 py-0.5 rounded text-xs font-medium"
+                  style={{ backgroundColor: themeColors.primaryLight, color: themeColors.primaryDark }}>
+                  <Calculator className="w-3 h-3 inline mr-1" />Calc
                 </button>
               </div>
-              {errors.total && (
-                <p className="text-red-600 text-xs mt-1">{errors.total}</p>
-              )}
+              <CurrencyInput
+                value={formData.total}
+                onChange={(v) => handleInputChange('total', v)}
+                className="font-bold"
+                style={{
+                  borderColor: errorCuadre ? '#EF4444' : '#10B981',
+                  backgroundColor: errorCuadre ? '#FEF2F2' : '#F0FDF4',
+                  color: errorCuadre ? '#EF4444' : '#10B981'
+                }}
+              />
             </div>
 
             {/* Fecha */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                Fecha *
-              </label>
-              <input
-                type="date"
-                value={formData.fecha_gasto}
-                onChange={(e) => handleInputChange('fecha_gasto', e.target.value)}
-                className={`w-full px-2 py-1.5 text-sm border rounded focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-                  errors.fecha_gasto ? 'border-red-500' : 'border-gray-300'
-                }`}
-                disabled={isSubmitting}
-              />
+              <label className="block text-xs font-medium mb-1" style={{ color: themeColors.text }}>Fecha *</label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="date"
+                  value={formData.fecha_gasto}
+                  onChange={(e) => handleInputChange('fecha_gasto', e.target.value)}
+                  className="w-full pl-9 pr-2 py-2.5 border-2 rounded-lg"
+                  style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
+                />
+              </div>
             </div>
           </div>
 
-          {/* Indicador de cuadre fiscal */}
-          {formData.total > 0 && (
-            <div
-              className={`mt-3 p-2 rounded-lg flex items-center gap-2 text-sm ${
-                errorCuadre
-                  ? 'bg-red-100 text-red-700 border border-red-200'
-                  : 'bg-green-100 text-green-700 border border-green-200'
-              }`}
-            >
-              {errorCuadre ? (
-                <>
-                  <XCircle className="w-4 h-4" />
-                  <span className="font-medium">No cuadra:</span>
-                  <span className="text-xs">{errorCuadre}</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="w-4 h-4" />
-                  <span className="font-medium">Cuadre validado</span>
-                </>
-              )}
-            </div>
+          {errorCuadre && (
+            <div className="mt-2 p-2 rounded-lg text-sm bg-red-100 text-red-600">{errorCuadre}</div>
           )}
         </div>
 
-        {/* Forma de Pago y Referencia */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Forma de Pago
-            </label>
-            <select
-              value={formData.forma_pago}
-              onChange={(e) => handleInputChange('forma_pago', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-              disabled={isSubmitting}
-            >
-              <option value="efectivo">Efectivo</option>
-              <option value="transferencia">Transferencia</option>
-              <option value="cheque">Cheque</option>
-              <option value="tarjeta">Tarjeta</option>
-            </select>
-          </div>
+        {/* Forma de Pago */}
+        <div>
+          <h3 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: themeColors.primary }}>
+            Pago
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>Forma de Pago</label>
+              <select
+                value={formData.forma_pago}
+                onChange={(e) => handleInputChange('forma_pago', e.target.value)}
+                className="w-full px-4 py-2.5 border-2 rounded-lg"
+                style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
+              >
+                <option value="efectivo">Efectivo</option>
+                <option value="transferencia">Transferencia</option>
+                <option value="cheque">Cheque</option>
+                <option value="tarjeta">Tarjeta</option>
+              </select>
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Referencia
-            </label>
-            <input
-              type="text"
-              value={formData.referencia}
-              onChange={(e) => handleInputChange('referencia', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-              placeholder="Número de factura, folio, etc."
-              disabled={isSubmitting}
-            />
+            <div>
+              <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>Referencia</label>
+              <input
+                type="text"
+                value={formData.referencia}
+                onChange={(e) => handleInputChange('referencia', e.target.value)}
+                placeholder="Número de factura, folio, etc."
+                className="w-full px-4 py-2.5 border-2 rounded-lg"
+                style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
+              />
+            </div>
           </div>
         </div>
 
+        {/* Descripción */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Descripción
+          <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
+            Descripción (opcional)
           </label>
           <textarea
             value={formData.descripcion}
             onChange={(e) => handleInputChange('descripcion', e.target.value)}
-            rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-            placeholder="Detalles adicionales del gasto..."
-            disabled={isSubmitting}
+            rows={2}
+            placeholder="Detalles adicionales..."
+            className="w-full px-4 py-2.5 border-2 rounded-lg resize-none"
+            style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
           />
         </div>
+      </form>
 
-        {/* Resumen con cantidad */}
-        {formData.cantidad > 1 && (
-          <div className="bg-white rounded-lg border p-4">
-            <h4 className="font-medium text-gray-900 mb-3 flex items-center">
-              <Calculator className="w-4 h-4 mr-2" />
-              Resumen (x{formData.cantidad} unidades)
-            </h4>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span>Subtotal ({formData.cantidad}x):</span>
-                <span className="font-medium">{formatCurrency(subtotalConCantidad)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>IVA ({formData.cantidad}x):</span>
-                <span className="font-medium">{formatCurrency(ivaConCantidad)}</span>
-              </div>
-              <div className="flex justify-between font-bold text-lg border-t pt-2">
-                <span>Total Final:</span>
-                <span className="text-red-600">{formatCurrency(totalConCantidad)}</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Approval Status */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Estado de Aprobación
-          </label>
-          <select
-            value={formData.status_aprobacion}
-            onChange={(e) => handleInputChange('status_aprobacion', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-            disabled={isSubmitting}
-          >
-            <option value="pendiente">Pendiente</option>
-            <option value="aprobado">Aprobado</option>
-            <option value="rechazado">Rechazado</option>
-          </select>
+      {/* Footer */}
+      <div
+        className="flex justify-between items-center px-6 py-4 border-t"
+        style={{ backgroundColor: `${themeColors.border}30`, borderColor: themeColors.border }}
+      >
+        <div className="text-sm" style={{ color: themeColors.textSecondary }}>
+          IVA: {IVA_PORCENTAJE}% | Total: {formatCurrency(formData.total)}
         </div>
-
-        {/* Action Buttons */}
-        <div className="flex justify-end space-x-3 pt-4 border-t">
-          <Button
+        <div className="flex gap-3">
+          <button
             type="button"
-            variant="outline"
             onClick={onCancel}
-            disabled={isSubmitting || isUploading}
+            className="px-6 py-2.5 border-2 rounded-lg font-medium transition-colors hover:bg-gray-100"
+            style={{ borderColor: themeColors.border, color: themeColors.text }}
           >
             Cancelar
-          </Button>
-          <Button
-            type="submit"
-            disabled={isSubmitting || isUploading}
-            className="bg-red-500 hover:bg-red-600"
+          </button>
+          <button
+            onClick={() => handleSubmit()}
+            disabled={isSubmitting}
+            className="px-8 py-2.5 rounded-lg font-medium flex items-center gap-2 text-white disabled:opacity-50"
+            style={{ backgroundColor: themeColors.primary }}
           >
-            {(isSubmitting || isUploading) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            {expense ? 'Actualizar' : 'Crear'} Gasto
-          </Button>
+            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {expense ? 'Actualizar' : 'Crear Gasto'}
+          </button>
         </div>
-      </form>
+      </div>
     </div>
   );
 };
+
+export default ExpenseForm;

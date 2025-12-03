@@ -1,0 +1,294 @@
+{
+  "total": 45,
+  "passed": 45,
+  "failed": 0,
+  "duration": 8161,
+  "categories": {
+    "Estructura BD": {
+      "passed": 10,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "Tabla core_companies existe",
+          "success": true,
+          "duration": 2583
+        },
+        {
+          "name": "core_companies tiene columna codigo",
+          "success": true,
+          "duration": 443
+        },
+        {
+          "name": "Tabla core_roles_empresa existe",
+          "success": true,
+          "duration": 135
+        },
+        {
+          "name": "Tabla core_modulos_sistema existe",
+          "success": true,
+          "duration": 124
+        },
+        {
+          "name": "Tabla core_company_modules existe",
+          "success": true,
+          "duration": 122
+        },
+        {
+          "name": "Tabla core_users existe",
+          "success": true,
+          "duration": 130
+        },
+        {
+          "name": "Tabla core_user_roles existe",
+          "success": true,
+          "duration": 133
+        },
+        {
+          "name": "Tabla core_invitations existe",
+          "success": true,
+          "duration": 139
+        },
+        {
+          "name": "Tabla core_access_requests existe",
+          "success": true,
+          "duration": 133
+        },
+        {
+          "name": "Tabla core_company_files existe",
+          "success": true,
+          "duration": 181
+        }
+      ]
+    },
+    "Empresas": {
+      "passed": 4,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "Empresa MADREGROUP existe",
+          "success": true,
+          "duration": 121,
+          "error": null
+        },
+        {
+          "name": "Lectura de datos de empresa",
+          "success": true,
+          "duration": 133
+        },
+        {
+          "name": "Campos de branding disponibles",
+          "success": true,
+          "duration": 139
+        },
+        {
+          "name": "Conteo de empresas activas",
+          "success": true,
+          "duration": 124
+        }
+      ]
+    },
+    "Roles": {
+      "passed": 6,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "Roles de empresa existen",
+          "success": true,
+          "duration": 129
+        },
+        {
+          "name": "Rol de administrador existe",
+          "success": true,
+          "duration": 183
+        },
+        {
+          "name": "Permisos en formato JSONB array",
+          "success": true,
+          "duration": 128
+        },
+        {
+          "name": "Diversidad de roles (admin, supervisor, operador)",
+          "success": true,
+          "duration": 125
+        },
+        {
+          "name": "Roles tienen colores asignados",
+          "success": true,
+          "duration": 130
+        },
+        {
+          "name": "RLS protege escritura de roles",
+          "success": true,
+          "duration": 127
+        }
+      ]
+    },
+    "Módulos": {
+      "passed": 4,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "Módulos del sistema existen",
+          "success": true,
+          "duration": 137
+        },
+        {
+          "name": "Categorías de módulos",
+          "success": true,
+          "duration": 131
+        },
+        {
+          "name": "Módulos asignados a empresa",
+          "success": true,
+          "duration": 142
+        },
+        {
+          "name": "Join módulos empresa con sistema",
+          "success": true,
+          "duration": -413
+        }
+      ]
+    },
+    "Usuarios": {
+      "passed": 3,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "Usuarios en el sistema",
+          "success": true,
+          "duration": 124
+        },
+        {
+          "name": "Relación usuarios-roles",
+          "success": true,
+          "duration": 131
+        },
+        {
+          "name": "Usuarios tienen company_id",
+          "success": true,
+          "duration": 125
+        }
+      ]
+    },
+    "Invitaciones": {
+      "passed": 3,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "Tabla de invitaciones accesible",
+          "success": true,
+          "duration": 137
+        },
+        {
+          "name": "Estructura de invitaciones correcta",
+          "success": true,
+          "duration": 128
+        },
+        {
+          "name": "RLS protege escritura de invitaciones",
+          "success": true,
+          "duration": 134
+        }
+      ]
+    },
+    "Solicitudes": {
+      "passed": 3,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "Tabla de solicitudes accesible",
+          "success": true,
+          "duration": 134
+        },
+        {
+          "name": "Estructura de solicitudes correcta",
+          "success": true,
+          "duration": 120
+        },
+        {
+          "name": "RLS protege escritura de solicitudes",
+          "success": true,
+          "duration": 134
+        }
+      ]
+    },
+    "Storage": {
+      "passed": 4,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "Función get_company_bucket existe",
+          "success": true,
+          "duration": 126
+        },
+        {
+          "name": "Bucket name es erp-madregroup",
+          "success": true,
+          "duration": 118
+        },
+        {
+          "name": "Tabla core_company_files accesible",
+          "success": true,
+          "duration": 126
+        },
+        {
+          "name": "Estructura de archivos correcta",
+          "success": true,
+          "duration": 123
+        }
+      ]
+    },
+    "Performance": {
+      "passed": 4,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "Query simple empresas < 500ms",
+          "success": true,
+          "duration": 131
+        },
+        {
+          "name": "Query roles por empresa < 500ms",
+          "success": true,
+          "duration": 134
+        },
+        {
+          "name": "Query módulos sistema < 500ms",
+          "success": true,
+          "duration": 125
+        },
+        {
+          "name": "Query compleja < 2000ms",
+          "success": true,
+          "duration": 129
+        }
+      ]
+    },
+    "Integridad": {
+      "passed": 4,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "Roles tienen company_id válido",
+          "success": true,
+          "duration": 132
+        },
+        {
+          "name": "Módulos empresa tienen modulo_id válido",
+          "success": true,
+          "duration": 136
+        },
+        {
+          "name": "Empresa por defecto está activa",
+          "success": true,
+          "duration": 123
+        },
+        {
+          "name": "Empresas tienen plan válido",
+          "success": true,
+          "duration": 121
+        }
+      ]
+    }
+  }
+}

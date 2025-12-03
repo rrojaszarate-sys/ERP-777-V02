@@ -1,6 +1,7 @@
 import { supabase } from '../../../core/config/supabase';
 import { isSupabaseConfiguredForRealData } from '../../../core/config/supabase';
 import { Event, EventoCompleto, Cliente, DashboardMetrics, AnalisisTemporal } from '../types/Event';
+import { logger } from '../../../core/utils/logger';
 
 export class EventsService {
   private static instance: EventsService;
@@ -23,7 +24,7 @@ export class EventsService {
     responsable?: string;
   }): Promise<EventoCompleto[]> {
     try {
-      console.log('🔍 Intentando cargar eventos desde vw_eventos_completos_erp...');
+      logger.debug('Intentando cargar eventos desde vw_eventos_completos_erp...');
       
       let query = supabase
         .from('vw_eventos_completos_erp')
@@ -57,8 +58,8 @@ export class EventsService {
       const { data, error } = await query.order('fecha_evento', { ascending: false });
 
       if (error) {
-        console.error('❌ Error en vw_eventos_completos_erp:', error);
-        console.log('🔄 Intentando cargar desde eventos_erp directamente...');
+        logger.error('Error en vw_eventos_completos_erp:', error);
+        logger.debug('Intentando cargar desde eventos_erp directamente...');
         
         // Fallback: intentar cargar directamente de eventos_erp si la vista falla
         const { data: eventosData, error: eventosError } = await supabase
@@ -68,18 +69,18 @@ export class EventsService {
           .order('fecha_evento', { ascending: false });
         
         if (eventosError) {
-          console.error('❌ Error también en eventos_erp:', eventosError);
+          logger.error('Error también en eventos_erp:', eventosError);
           throw eventosError;
         }
         
-        console.log('✅ Eventos cargados desde eventos_erp:', eventosData?.length || 0);
+        logger.info('Eventos cargados desde eventos_erp:', eventosData?.length || 0);
         return eventosData || [];
       }
       
-      console.log('✅ Eventos cargados desde vw_eventos_completos_erp:', data?.length || 0);
+      logger.info('Eventos cargados desde vw_eventos_completos_erp:', data?.length || 0);
       return data || [];
     } catch (error) {
-      console.error('❌ Error crítico al cargar eventos:', error);
+      logger.error('Error crítico al cargar eventos:', error);
       return [];
     }
   }
@@ -96,7 +97,7 @@ export class EventsService {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error fetching event:', error);
+      logger.error('Error fetching event:', error);
       return null;
     }
   }

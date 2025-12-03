@@ -169,6 +169,7 @@ export const buscarUbicacionPorCodigo = async (
 
 /**
  * Obtener mapa de ocupación de ubicaciones
+ * Cuenta productos y unidades reales usando inv_existencias
  */
 export const fetchOcupacionUbicaciones = async (
   companyId: string,
@@ -179,22 +180,46 @@ export const fetchOcupacionUbicaciones = async (
   productos_count: number;
   unidades_total: number;
 }[]> => {
-  // Esta query requiere una vista o función en la base de datos
-  // Por ahora retornamos datos básicos
-  const { data, error } = await supabase
-    .from('ubicaciones_almacen_erp')
+  // Obtener ubicaciones del almacén
+  const { data: ubicaciones, error: ubicError } = await supabase
+    .from('inv_ubicaciones')
     .select('id, codigo')
     .eq('company_id', companyId)
     .eq('almacen_id', almacenId)
     .eq('activo', true);
 
-  if (error) throw error;
+  if (ubicError) throw ubicError;
   
-  // TODO: Implementar conteo real de productos por ubicación
-  return (data || []).map(u => ({
+  if (!ubicaciones || ubicaciones.length === 0) {
+    return [];
+  }
+
+  // Obtener existencias por ubicación
+  const { data: existencias, error: existError } = await supabase
+    .from('inv_existencias')
+    .select('ubicacion_id, producto_id, cantidad')
+    .eq('company_id', companyId)
+    .in('ubicacion_id', ubicaciones.map(u => u.id))
+    .gt('cantidad', 0);
+
+  if (existError) throw existError;
+
+  // Agregar datos por ubicación
+  const ocupacionMap = new Map<number, { productos: Set<number>; unidades: number }>();
+  
+  (existencias || []).forEach(e => {
+    if (!ocupacionMap.has(e.ubicacion_id)) {
+      ocupacionMap.set(e.ubicacion_id, { productos: new Set(), unidades: 0 });
+    }
+    const data = ocupacionMap.get(e.ubicacion_id)!;
+    data.productos.add(e.producto_id);
+    data.unidades += e.cantidad || 0;
+  });
+
+  return ubicaciones.map(u => ({
     ubicacion_id: u.id,
     codigo: u.codigo,
-    productos_count: 0,
-    unidades_total: 0,
+    productos_count: ocupacionMap.get(u.id)?.productos.size || 0,
+    unidades_total: ocupacionMap.get(u.id)?.unidades || 0,
   }));
 };

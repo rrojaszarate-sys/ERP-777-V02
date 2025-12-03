@@ -6,17 +6,22 @@ import {
   Menu, Search, Bell, Settings, LogOut, Clock, ChevronDown,
   List, DollarSign, BarChart3, CreditCard, FolderOpen, Users,
   FileText, BookOpen, Receipt, Target, Truck, Warehouse, Briefcase,
-  FileSpreadsheet, FolderKanban, CheckCircle, Landmark, PieChart, Plug, Brain
+  FileSpreadsheet, FolderKanban, CheckCircle, Landmark, PieChart, Plug, Brain,
+  Building2
 } from 'lucide-react';
 import { useAuth } from '../../../core/auth/AuthProvider';
 import { APP_CONFIG } from '../../../core/config/constants';
 import { ThemePalettePicker } from '../theme/ThemePalettePicker';
 import { CompanySelector } from '../CompanySelector';
+// FASE 2.2 y 3.2: Componentes globales avanzados
+import { GlobalSearch as GlobalSearchAdvanced } from '../../../core/components/GlobalSearch';
+import { NotificationCenter } from '../../../core/components/NotificationCenter';
 
 export const Layout: React.FC = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { user, isDevelopment, logout, setCompanyId } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const modules = [
     {
@@ -35,6 +40,7 @@ export const Layout: React.FC = () => {
       color: 'text-orange-600',
       submenu: [
         { name: 'Lista de Eventos', path: '/eventos-erp', icon: List },
+        { name: 'Calendario', path: '/eventos/calendario', icon: Calendar },
         { name: 'Clientes', path: '/eventos-erp/clientes', icon: Users },
         { name: 'Proyectos y Gantt', path: '/eventos-erp/proyectos', icon: FolderKanban },
         { name: 'Análisis Financiero', path: '/eventos-erp/analisis-financiero', icon: BarChart3 },
@@ -221,7 +227,8 @@ export const Layout: React.FC = () => {
         { name: 'Documentación', path: '/desarrollo', icon: BookOpen },
         { name: 'Solicitudes de Acceso', path: '/admin/usuarios', icon: Users },
         { name: 'Generador de Datos', path: '/admin/data-seeder', icon: Settings },
-        { name: 'Catálogos', path: '/admin/catalogos', icon: FolderOpen }
+        { name: 'Catálogos', path: '/admin/catalogos', icon: FolderOpen },
+        { name: 'Admin Empresas', path: '/admin/empresas', icon: Building2 }
       ]
     }
   ];
@@ -290,8 +297,11 @@ export const Layout: React.FC = () => {
             </div>
             
             <div className="flex items-center space-x-3">
-              <GlobalSearch />
-              <NotificationBell />
+              <GlobalSearchAdvanced onNavigate={(url) => navigate(url)} />
+              <NotificationCenter
+                userId={user?.id}
+                onNotificationClick={(n) => n.link && navigate(n.link)}
+              />
               {user?.company_id && setCompanyId && (
                 <CompanySelector
                   currentCompanyId={user.company_id}
@@ -437,31 +447,8 @@ const Breadcrumbs: React.FC = () => {
   );
 };
 
-const GlobalSearch: React.FC = () => {
-  return (
-    <div className="relative">
-      <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 theme-icon-tertiary" />
-      <input
-        type="text"
-        placeholder="Búsqueda global..."
-        className="pl-10 pr-4 py-2 border theme-border-primary rounded-lg focus:ring-2 theme-bg-card theme-text-primary w-64"
-        style={{ 
-          '--tw-ring-color': 'var(--theme-primary-500)',
-          focusBorderColor: 'var(--theme-primary-500)'
-        } as React.CSSProperties}
-      />
-    </div>
-  );
-};
-
-const NotificationBell: React.FC = () => {
-  return (
-    <button className="relative theme-icon-secondary hover:theme-icon-interactive transition-colors">
-      <Bell className="w-5 h-5" />
-      <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--theme-error)' }}></div>
-    </button>
-  );
-};
+// NOTA: GlobalSearch y NotificationBell básicos reemplazados por GlobalSearchAdvanced y NotificationCenter
+// Ver imports de ../../../core/components/
 
 const UserMenu: React.FC<{
   user: any;

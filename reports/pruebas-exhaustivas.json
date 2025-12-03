@@ -1,0 +1,345 @@
+{
+  "fecha": "2025-12-03T16:22:01.698Z",
+  "resultados": {
+    "total": 51,
+    "passed": 51,
+    "failed": 0,
+    "skipped": 0,
+    "duration": 16634,
+    "categories": {
+      "Conectividad": {
+        "passed": 11,
+        "failed": 0,
+        "tests": [
+          {
+            "name": "Conexión a Supabase",
+            "success": true,
+            "duration": 472
+          },
+          {
+            "name": "Tabla evt_eventos_erp existe",
+            "success": true,
+            "duration": 558
+          },
+          {
+            "name": "Tabla evt_clientes_erp existe",
+            "success": true,
+            "duration": 194
+          },
+          {
+            "name": "Tabla evt_ingresos_erp existe",
+            "success": true,
+            "duration": 253
+          },
+          {
+            "name": "Tabla evt_gastos_erp existe",
+            "success": true,
+            "duration": 244
+          },
+          {
+            "name": "Tabla evt_provisiones_erp existe",
+            "success": true,
+            "duration": 491
+          },
+          {
+            "name": "Tabla evt_estados_erp existe",
+            "success": true,
+            "duration": 193
+          },
+          {
+            "name": "Tabla productos_erp existe",
+            "success": true,
+            "duration": 180
+          },
+          {
+            "name": "Tabla almacenes_erp existe",
+            "success": true,
+            "duration": 201
+          },
+          {
+            "name": "Tabla movimientos_inventario_erp existe",
+            "success": true,
+            "duration": 188
+          },
+          {
+            "name": "Vista vw_eventos_analisis_financiero_erp",
+            "success": true,
+            "duration": 221
+          }
+        ]
+      },
+      "Ciclo Eventos": {
+        "passed": 5,
+        "failed": 0,
+        "tests": [
+          {
+            "name": "Eventos creados en sistema",
+            "success": true,
+            "duration": 0,
+            "error": null
+          },
+          {
+            "name": "Distribución de eventos por estado",
+            "success": true,
+            "duration": 206,
+            "error": null
+          },
+          {
+            "name": "Evento BODA con ciclo completo",
+            "success": true,
+            "duration": 1250,
+            "error": null
+          },
+          {
+            "name": "Evento CORPORATIVO con provisiones",
+            "success": true,
+            "duration": 466,
+            "error": null
+          },
+          {
+            "name": "Evento CONGRESO (evento grande)",
+            "success": true,
+            "duration": 336,
+            "error": null
+          }
+        ]
+      },
+      "Financieras": {
+        "passed": 6,
+        "failed": 0,
+        "tests": [
+          {
+            "name": "Cálculo correcto de utilidad real",
+            "success": true,
+            "duration": 204,
+            "error": null
+          },
+          {
+            "name": "Balance ingresos cobrados/pendientes",
+            "success": true,
+            "duration": 174,
+            "error": null
+          },
+          {
+            "name": "Balance gastos pagados/pendientes",
+            "success": true,
+            "duration": 141,
+            "error": null
+          },
+          {
+            "name": "Distribución de gastos por categoría",
+            "success": true,
+            "duration": 251,
+            "error": null
+          },
+          {
+            "name": "Provisiones activas en sistema",
+            "success": true,
+            "duration": 142,
+            "error": null
+          },
+          {
+            "name": "Identificación de evento más rentable",
+            "success": true,
+            "duration": 138,
+            "error": null
+          }
+        ]
+      },
+      "Inventario": {
+        "passed": 7,
+        "failed": 0,
+        "tests": [
+          {
+            "name": "Productos registrados",
+            "success": true,
+            "duration": 189,
+            "error": null
+          },
+          {
+            "name": "Diversidad de categorías de productos",
+            "success": true,
+            "duration": 278,
+            "error": null
+          },
+          {
+            "name": "Almacenes configurados",
+            "success": true,
+            "duration": 338,
+            "error": null
+          },
+          {
+            "name": "Movimientos de inventario registrados",
+            "success": true,
+            "duration": 203,
+            "error": null
+          },
+          {
+            "name": "Productos con precio de venta",
+            "success": true,
+            "duration": 361,
+            "error": null
+          },
+          {
+            "name": "Tablas avanzadas de inventario existen",
+            "success": true,
+            "duration": 1958,
+            "error": null
+          },
+          {
+            "name": "Vistas alias de inventario",
+            "success": true,
+            "duration": 703,
+            "error": null
+          }
+        ]
+      },
+      "Integridad": {
+        "passed": 4,
+        "failed": 0,
+        "tests": [
+          {
+            "name": "Eventos con cliente asignado",
+            "success": true,
+            "duration": 320,
+            "error": null
+          },
+          {
+            "name": "Gastos con categoría asignada",
+            "success": true,
+            "duration": 763,
+            "error": null
+          },
+          {
+            "name": "Fechas de eventos válidas",
+            "success": true,
+            "duration": 368,
+            "error": null
+          },
+          {
+            "name": "IVA calculado correctamente en gastos",
+            "success": true,
+            "duration": 447,
+            "error": null
+          }
+        ]
+      },
+      "Performance": {
+        "passed": 4,
+        "failed": 0,
+        "tests": [
+          {
+            "name": "Query simple < 500ms",
+            "success": true,
+            "duration": 207,
+            "error": null
+          },
+          {
+            "name": "Query compleja con JOINs < 2000ms",
+            "success": true,
+            "duration": 157,
+            "error": null
+          },
+          {
+            "name": "Vista financiera < 2000ms",
+            "success": true,
+            "duration": 156,
+            "error": null
+          },
+          {
+            "name": "Agregación de gastos < 2000ms",
+            "success": true,
+            "duration": 175,
+            "error": null
+          }
+        ]
+      },
+      "CRUD": {
+        "passed": 10,
+        "failed": 0,
+        "tests": [
+          {
+            "name": "CREATE: Nuevo evento de prueba",
+            "success": true,
+            "duration": 366
+          },
+          {
+            "name": "CREATE: Gasto para evento de prueba",
+            "success": true,
+            "duration": 150
+          },
+          {
+            "name": "CREATE: Ingreso para evento de prueba",
+            "success": true,
+            "duration": 226
+          },
+          {
+            "name": "READ: Leer evento de prueba",
+            "success": true,
+            "duration": 180
+          },
+          {
+            "name": "UPDATE: Actualizar evento de prueba",
+            "success": true,
+            "duration": 141
+          },
+          {
+            "name": "UPDATE: Marcar ingreso como cobrado",
+            "success": true,
+            "duration": 177
+          },
+          {
+            "name": "UPDATE: Marcar gasto como pagado",
+            "success": true,
+            "duration": 219
+          },
+          {
+            "name": "DELETE: Eliminar gasto de prueba",
+            "success": true,
+            "duration": 194
+          },
+          {
+            "name": "DELETE: Eliminar ingreso de prueba",
+            "success": true,
+            "duration": 131
+          },
+          {
+            "name": "DELETE: Eliminar evento de prueba",
+            "success": true,
+            "duration": 325
+          }
+        ]
+      },
+      "Flujos Complejos": {
+        "passed": 4,
+        "failed": 0,
+        "tests": [
+          {
+            "name": "Flujo: Cambio de estado Prospecto → Confirmado",
+            "success": true,
+            "duration": 301,
+            "error": null
+          },
+          {
+            "name": "Flujo: Provisiones listas para convertir a gasto",
+            "success": true,
+            "duration": 165,
+            "error": null
+          },
+          {
+            "name": "Flujo: Balance financiero calculable",
+            "success": true,
+            "duration": 225,
+            "error": null
+          },
+          {
+            "name": "Flujo: Consistencia ingresos cobrados",
+            "success": true,
+            "duration": 456,
+            "error": null
+          }
+        ]
+      }
+    }
+  }
+}

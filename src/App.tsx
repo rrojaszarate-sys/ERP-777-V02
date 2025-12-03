@@ -15,6 +15,8 @@ const CatalogosPage = lazy(() => import('./modules/eventos-erp/CatalogosPage').t
 const WorkflowVisualizationPage = lazy(() => import('./modules/eventos-erp/components/workflow/WorkflowVisualizationPage').then(m => ({ default: m.WorkflowVisualizationPage })));
 const FinancialAnalysisPage = lazy(() => import('./modules/eventos-erp/FinancialAnalysisPage').then(m => ({ default: m.FinancialAnalysisPage })));
 const ProyectosEventosPage = lazy(() => import('./modules/eventos-erp/pages/ProyectosEventosPage').then(m => ({ default: m.ProyectosEventosPage })));
+// FASE 2.1: Calendario de Eventos
+const CalendarioPage = lazy(() => import('./modules/eventos-erp/pages/CalendarioPage').then(m => ({ default: m.CalendarioPage })));
 
 // MÓDULO DE CONTABILIDAD
 const ContabilidadDashboard = lazy(() => import('./modules/contabilidad-erp/pages/ContabilidadDashboard').then(m => ({ default: m.ContabilidadDashboard })));
@@ -120,6 +122,10 @@ const DataSeederPage = lazy(() => import('./modules/admin/pages/DataSeederPage')
 const CatalogosAdminPage = lazy(() => import('./modules/admin/pages/CatalogosAdminPage').then(m => ({ default: m.CatalogosAdminPage })));
 const AccessRequestsPage = lazy(() => import('./modules/admin/pages/AccessRequestsPage').then(m => ({ default: m.AccessRequestsPage })));
 
+// MÓDULO DE ADMINISTRACIÓN DE EMPRESAS (FASE 6 - Multi-tenancy)
+const EmpresasListPage = lazy(() => import('./modules/admin-empresas/pages/EmpresasListPage').then(m => ({ default: m.EmpresasListPage })));
+const EmpresaDetailPage = lazy(() => import('./modules/admin-empresas/pages/EmpresaDetailPage').then(m => ({ default: m.EmpresaDetailPage })));
+
 // PÁGINAS DE AUTENTICACIÓN
 const LoginPage = lazy(() => import('./pages/auth/LoginPage').then(m => ({ default: m.LoginPage })));
 const AuthCallbackPage = lazy(() => import('./pages/auth/AuthCallbackPage').then(m => ({ default: m.AuthCallbackPage })));
@@ -155,6 +161,7 @@ function App() {
 
                 {/* Rutas de Eventos (módulo principal) */}
                 <Route path="eventos" element={<EventosListPage />} />
+                <Route path="eventos/calendario" element={<CalendarioPage />} />
                 <Route path="eventos/clientes" element={<ClientesPage />} />
                 <Route path="eventos/analisis-financiero" element={<FinancialAnalysisPage />} />
                 <Route path="eventos/workflow" element={<WorkflowVisualizationPage />} />
@@ -258,6 +265,10 @@ function App() {
                 <Route path="admin/data-seeder" element={<DataSeederPage />} />
                 <Route path="admin/catalogos" element={<CatalogosAdminPage />} />
                 <Route path="admin/usuarios" element={<AccessRequestsPage />} />
+
+                {/* Rutas de Administración de Empresas (FASE 6) */}
+                <Route path="admin/empresas" element={<EmpresasListPage />} />
+                <Route path="admin/empresas/:id" element={<EmpresaDetailPage />} />
 
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>

@@ -1,6 +1,7 @@
 import { supabase } from '../../../core/config/supabase';
 import { Income, Expense, ExpenseCategory, FinancialSummary } from '../types/Finance';
 import { MEXICAN_CONFIG } from '../../../core/config/constants';
+import type { OCRDocument } from '../../ocr/types/OCRTypes';
 
 export class FinancesService {
   private static instance: FinancesService;
@@ -90,21 +91,30 @@ export class FinancesService {
     }
   }
 
-  async updateIncome(id: string, incomeData: Partial<Income>): Promise<Income> {
+  async updateIncome(id: string, incomeData: Partial<Income>, lastUpdatedAt?: string): Promise<Income> {
     try {
       // Recalculate totals if amounts changed
       let calculatedData = { ...incomeData };
-      
+
+      // 🔧 FIX CRÍTICO: Convertir strings vacíos a null para campos DATE
+      // PostgreSQL no acepta '' en campos DATE, debe ser null o una fecha válida
+      const dateFields = ['fecha_facturacion', 'fecha_cobro', 'fecha_compromiso_pago', 'fecha_ingreso'];
+      dateFields.forEach(field => {
+        if ((calculatedData as any)[field] === '' || (calculatedData as any)[field] === undefined) {
+          (calculatedData as any)[field] = null;
+        }
+      });
+
       if (incomeData.cantidad !== undefined || incomeData.precio_unitario !== undefined) {
         const currentIncome = await this.getIncomeById(id);
         const cantidad = incomeData.cantidad ?? currentIncome?.cantidad ?? 1;
         const precio = incomeData.precio_unitario ?? currentIncome?.precio_unitario ?? 0;
         const ivaRate = incomeData.iva_porcentaje ?? currentIncome?.iva_porcentaje ?? MEXICAN_CONFIG.ivaRate;
-        
+
         const subtotal = cantidad * precio;
         const iva = subtotal * (ivaRate / 100);
         const total = subtotal + iva;
-        
+
         calculatedData = {
           ...calculatedData,
           subtotal,
@@ -113,17 +123,29 @@ export class FinancesService {
         };
       }
 
-      const { data, error } = await supabase
+      // 🔧 FIX: Bloqueo optimista para evitar race conditions
+      let query = supabase
         .from('evt_ingresos_erp')
         .update({
           ...calculatedData,
           updated_at: new Date().toISOString()
         })
-        .eq('id', id)
-        .select()
-        .single();
+        .eq('id', id);
 
-      if (error) throw error;
+      // Si se proporciona lastUpdatedAt, verificar que no haya cambiado
+      if (lastUpdatedAt) {
+        query = query.eq('updated_at', lastUpdatedAt);
+      }
+
+      const { data, error } = await query.select().single();
+
+      if (error) {
+        // Si no se actualizó ningún registro, puede ser race condition
+        if (error.code === 'PGRST116') {
+          throw new Error('El ingreso fue modificado por otro usuario. Por favor, recarga los datos e intenta de nuevo.');
+        }
+        throw error;
+      }
       return data;
     } catch (error) {
       console.error('Error updating income:', error);
@@ -272,11 +294,15 @@ export class FinancesService {
       const camposNumericos = ['categoria_id', 'cantidad', 'precio_unitario', 'subtotal', 'iva', 'total', 'tipo_cambio'];
       camposNumericos.forEach(campo => {
         if (dataToInsert[campo] === '' || dataToInsert[campo] === null || dataToInsert[campo] === undefined) {
-          if (campo === 'cantidad' || campo === 'precio_unitario' || campo === 'tipo_cambio') {
-            // Estos tienen defaults: cantidad=1, precio_unitario=0, tipo_cambio=1
-            if (campo === 'cantidad') dataToInsert[campo] = 1;
-            else if (campo === 'tipo_cambio') dataToInsert[campo] = 1;
-            else dataToInsert[campo] = 0;
+          if (campo === 'cantidad') {
+            dataToInsert[campo] = 1;
+          } else if (campo === 'precio_unitario') {
+            dataToInsert[campo] = 0;
+          } else if (campo === 'tipo_cambio') {
+            // 🔧 FIX: tipo_cambio solo aplica para moneda extranjera
+            // Si moneda es MXN o no se especifica, tipo_cambio debe ser null
+            const esMonedaExtranjera = dataToInsert.moneda && dataToInsert.moneda !== 'MXN';
+            dataToInsert[campo] = esMonedaExtranjera ? 1 : null;
           } else {
             // categoria_id y otros pueden ser null
             dataToInsert[campo] = null;
@@ -312,17 +338,31 @@ export class FinancesService {
     }
   }
 
-  async updateExpense(id: string, expenseData: Partial<Expense>): Promise<Expense> {
+  async updateExpense(id: string, expenseData: Partial<Expense>, lastUpdatedAt?: string): Promise<Expense> {
     try {
       console.log('🔄 updateExpense - datos recibidos:', expenseData);
-      
+
       // Obtener datos actuales del gasto
       const currentExpense = await this.getExpenseById(id);
       console.log('📄 Gasto actual en BD:', currentExpense);
-      
+
       // 🎯 LÓGICA SIMPLIFICADA: Solo actualizar lo que viene en expenseData
       // Si vienen valores calculados del formulario, usarlos directamente
       let calculatedData = { ...expenseData };
+
+      // 🔧 FIX CRÍTICO: Convertir strings vacíos a null para campos DATE
+      const dateFields = ['fecha_gasto', 'fecha_pago', 'fecha_factura'];
+      dateFields.forEach(field => {
+        if ((calculatedData as any)[field] === '' || (calculatedData as any)[field] === undefined) {
+          (calculatedData as any)[field] = null;
+        }
+      });
+
+      // 🔧 FIX: tipo_cambio solo aplica para moneda extranjera
+      if (calculatedData.tipo_cambio === '' || calculatedData.tipo_cambio === undefined || calculatedData.tipo_cambio === null) {
+        const moneda = calculatedData.moneda || currentExpense?.moneda || 'MXN';
+        (calculatedData as any).tipo_cambio = moneda !== 'MXN' ? 1 : null;
+      }
       
       // ✅ REGLA: Si NO vienen campos monetarios, preservar los actuales
       // Esto evita que se recalculen incorrectamente
@@ -375,13 +415,21 @@ export class FinancesService {
         calculatedData.archivo_adjunto = currentExpense.archivo_adjunto;
       }
 
-      const { data, error} = await supabase
+      // 🔧 FIX: Bloqueo optimista para evitar race conditions
+      let query = supabase
         .from('evt_gastos_erp')
         .update({
           ...calculatedData,
           updated_at: new Date().toISOString()
         })
-        .eq('id', id)
+        .eq('id', id);
+
+      // Si se proporciona lastUpdatedAt, verificar que no haya cambiado
+      if (lastUpdatedAt) {
+        query = query.eq('updated_at', lastUpdatedAt);
+      }
+
+      const { data, error} = await query
         .select(`
           *,
           categoria:evt_categorias_gastos_erp(id, nombre, color)
@@ -389,6 +437,10 @@ export class FinancesService {
         .single();
 
       if (error) {
+        // Si no se actualizó ningún registro, puede ser race condition
+        if (error.code === 'PGRST116') {
+          throw new Error('El gasto fue modificado por otro usuario. Por favor, recarga los datos e intenta de nuevo.');
+        }
         console.error('❌ Error actualizando gasto:', error);
         throw error;
       }
@@ -653,7 +705,7 @@ export class FinancesService {
   /**
    * Crea un gasto automáticamente desde datos OCR de un ticket
    */
-  async createExpenseFromOCR(eventId: string, ocrData: any, userId: string): Promise<Expense> {
+  async createExpenseFromOCR(eventId: string, ocrData: OCRDocument, userId: string): Promise<Expense> {
     try {
       const ticketData = ocrData.datos_ticket || {};
       
@@ -722,7 +774,7 @@ export class FinancesService {
   /**
    * Crea un ingreso automáticamente desde datos OCR de una factura
    */
-  async createIncomeFromOCR(eventId: string, ocrData: any, userId: string): Promise<Income> {
+  async createIncomeFromOCR(eventId: string, ocrData: OCRDocument, userId: string): Promise<Income> {
     try {
       const facturaData = ocrData.datos_factura || {};
       

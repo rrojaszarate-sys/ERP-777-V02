@@ -40,8 +40,14 @@
     "git:commit": "bash commit-y-publicar.sh"
   },
   "dependencies": {
+    "@fullcalendar/daygrid": "^6.1.19",
+    "@fullcalendar/interaction": "^6.1.19",
+    "@fullcalendar/list": "^6.1.19",
+    "@fullcalendar/react": "^6.1.19",
+    "@fullcalendar/timegrid": "^6.1.19",
     "@google-cloud/vision": "^4.3.2",
     "@google/generative-ai": "^0.24.1",
+    "@hookform/resolvers": "^5.2.2",
     "@nextui-org/react": "^2.6.11",
     "@supabase/supabase-js": "^2.75.0",
     "@tanstack/react-query": "^5.90.2",
@@ -58,6 +64,7 @@
     "html5-qrcode": "^2.3.8",
     "jsbarcode": "^3.12.1",
     "jspdf": "^3.0.4",
+    "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.344.0",
     "mysql2": "^3.0.0",
     "node-cron": "^4.2.1",
@@ -78,7 +85,8 @@
     "resend": "^6.1.3",
     "tesseract.js": "^6.0.1",
     "uuid": "^13.0.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "zod": "^4.1.13"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",

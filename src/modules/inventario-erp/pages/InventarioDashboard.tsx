@@ -10,13 +10,12 @@ import { useProductos } from '../hooks/useProductos';
 import { HelpButton } from '../../../shared/components/ui/HelpGuide';
 import { InventarioHelpGuide } from '../components/InventarioHelpGuide';
 import { useTheme } from '../../../shared/components/theme';
-// TODO: Re-habilitar cuando los servicios estén completos
-// import { useCompany } from '../../../core/context/CompanyContext';
-// import { getEstadisticasAlertas, fetchAlertas } from '../services/alertasService';
-// import { getChecklistsPendientes } from '../services/checklistService';
-// import { fetchReservasProximas } from '../services/reservasService';
-// import { fetchLotesProximosAVencer } from '../services/lotesService';
-// import { fetchConteosPendientes } from '../services/conteosService';
+import { useCompany } from '../../../core/context/CompanyContext';
+import { getEstadisticasAlertas, fetchAlertas } from '../services/alertasService';
+import { getChecklistsPendientes } from '../services/checklistService';
+import { fetchReservasProximas } from '../services/reservasService';
+import { fetchLotesProximosAVencer } from '../services/lotesService';
+import { fetchConteosPendientes } from '../services/conteosService';
 
 export const InventarioDashboard: React.FC = () => {
   const [showHelp, setShowHelp] = useState(false);
@@ -26,20 +25,51 @@ export const InventarioDashboard: React.FC = () => {
   const { productos } = useProductos();
   const { data: productosBajoStock } = useProductosBajoStock();
   const { paletteConfig, isDark } = useTheme();
-  // TODO: Re-habilitar cuando los servicios estén completos
-  // const { selectedCompany } = useCompany();
-  // const companyId = selectedCompany?.id || '';
-  const companyId = '1'; // Hardcoded temporalmente
+  const { selectedCompany } = useCompany();
+  const companyId = selectedCompany?.id || '';
 
-  // Nuevas queries para funcionalidades avanzadas - DESHABILITADAS
-  const alertasStats = { total: 0, criticas: 0, altas: 0, medias: 0, bajas: 0 };
-  const alertasActivas: any[] = [];
-  const checklistsPendientes: any[] = [];
+  // Queries para funcionalidades avanzadas
+  const { data: alertasStats } = useQuery({
+    queryKey: ['alertas-stats', companyId],
+    queryFn: () => getEstadisticasAlertas(companyId),
+    enabled: !!companyId,
+    staleTime: 30000
+  });
 
-  // Queries de funcionalidades avanzadas - DESHABILITADAS
-  const reservasProximas: any[] = [];
-  const lotesVenciendo: any[] = [];
-  const conteosPendientes: any[] = [];
+  const { data: alertasActivas = [] } = useQuery({
+    queryKey: ['alertas-activas', companyId],
+    queryFn: () => fetchAlertas(companyId, { soloActivas: true }),
+    enabled: !!companyId,
+    staleTime: 30000
+  });
+
+  const { data: checklistsPendientes = [] } = useQuery({
+    queryKey: ['checklists-pendientes', companyId],
+    queryFn: () => getChecklistsPendientes(companyId),
+    enabled: !!companyId,
+    staleTime: 30000
+  });
+
+  const { data: reservasProximas = [] } = useQuery({
+    queryKey: ['reservas-proximas', companyId],
+    queryFn: () => fetchReservasProximas(companyId),
+    enabled: !!companyId,
+    staleTime: 30000
+  });
+
+  const { data: lotesVenciendo = [] } = useQuery({
+    queryKey: ['lotes-venciendo', companyId],
+    queryFn: () => fetchLotesProximosAVencer(companyId),
+    enabled: !!companyId,
+    staleTime: 30000
+  });
+
+  const { data: conteosPendientes = [] } = useQuery({
+    queryKey: ['conteos-pendientes', companyId],
+    queryFn: () => fetchConteosPendientes(companyId),
+    enabled: !!companyId,
+    staleTime: 30000
+  });
 
   // Colores dinámicos
   const colors = useMemo(() => ({

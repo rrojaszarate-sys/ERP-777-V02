@@ -1,0 +1,61 @@
+{
+  "fecha": "2025-12-03T03:29:31.799Z",
+  "resumen": {
+    "total": 7,
+    "criticos": 2,
+    "mayores": 4,
+    "menores": 0,
+    "info": 1
+  },
+  "problemas": [
+    {
+      "tipo": "MAYOR",
+      "modulo": "Eventos",
+      "descripcion": "3 eventos con discrepancia en cálculo de utilidad",
+      "detalles": null,
+      "solucion": "Revisar la vista vw_eventos_analisis_financiero_erp"
+    },
+    {
+      "tipo": "CRÍTICO",
+      "modulo": "Inventario",
+      "descripcion": "Tabla inv_existencias no existe",
+      "detalles": null,
+      "solucion": "Ejecutar migraciones SQL para crear la tabla"
+    },
+    {
+      "tipo": "CRÍTICO",
+      "modulo": "Inventario",
+      "descripcion": "Tabla inv_documentos no existe",
+      "detalles": null,
+      "solucion": "Ejecutar migraciones SQL para crear la tabla"
+    },
+    {
+      "tipo": "MAYOR",
+      "modulo": "Inventario",
+      "descripcion": "Tabla inv_ubicaciones no existe",
+      "detalles": null,
+      "solucion": "Ejecutar migraciones SQL para crear la tabla"
+    },
+    {
+      "tipo": "MAYOR",
+      "modulo": "Inventario",
+      "descripcion": "Tabla inv_lotes no existe",
+      "detalles": null,
+      "solucion": "Ejecutar migraciones SQL para crear la tabla"
+    },
+    {
+      "tipo": "MAYOR",
+      "modulo": "Inventario",
+      "descripcion": "Tabla inv_reservas no existe",
+      "detalles": null,
+      "solucion": "Ejecutar migraciones SQL para crear la tabla"
+    },
+    {
+      "tipo": "INFO",
+      "modulo": "Eventos",
+      "descripcion": "Campo RFC limitado a 13 caracteres",
+      "detalles": "Esto causa error al crear clientes con RFC de prueba largo",
+      "solucion": "Aumentar límite a 20 caracteres o validar entrada"
+    }
+  ]
+}
