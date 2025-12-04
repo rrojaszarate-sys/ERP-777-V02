@@ -13,13 +13,16 @@
  */
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { X, Search, Plus, Upload, FileText, Calculator, Loader2, Save, Pencil, DollarSign, Bot, Zap, FileCode } from 'lucide-react';
+import { X, Search, Plus, Upload, FileText, Calculator, Loader2, Save, Pencil, DollarSign, Bot, Zap, FileCode, Shield } from 'lucide-react';
 import { useAuth } from '../../../core/auth/AuthProvider';
 import { supabase } from '../../../core/config/supabase';
 import { useTheme } from '../../../shared/components/theme';
 import { expenseOCRIntegration } from '../../ocr/services/expenseOCRIntegration';
 // 🆕 Parser XML CFDI - Mismo motor que Eventos (100% precisión)
 import { parseCFDIXml, cfdiToExpenseData } from '../../eventos-erp/utils/cfdiXmlParser';
+// 🆕 Validación SAT para bloquear facturas apócrifas/canceladas
+import { useSATValidation } from '../../eventos-erp/hooks/useSATValidation';
+import SATStatusBadge, { SATAlertBox } from '../../eventos-erp/components/ui/SATStatusBadge';
 import {
   createGasto,
   updateGasto,
@@ -176,6 +179,17 @@ export const GastoFormModal = ({
   const [visualFile, setVisualFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [lastProcessedMethod, setLastProcessedMethod] = useState<'xml' | 'ocr' | null>(null);
+
+  // 🆕 Hook de validación SAT
+  const { validar: validarSAT, resultado: resultadoSAT, isValidating: validandoSAT, resetear: resetearSAT } = useSATValidation();
+
+  // 🆕 Estado para datos del CFDI (necesarios para validación SAT)
+  const [datosCFDI, setDatosCFDI] = useState<{
+    rfcEmisor: string;
+    rfcReceptor: string;
+    total: number;
+    uuid: string;
+  } | null>(null);
 
   // Hook de tema para colores dinámicos
   const { paletteConfig, isDark } = useTheme();
@@ -567,7 +581,52 @@ export const GastoFormModal = ({
       console.log('  - Emisor:', cfdiData.emisor.nombre);
       console.log('  - Total:', cfdiData.total);
       console.log('  - UUID:', cfdiData.timbreFiscal?.uuid);
-      
+
+      // 🆕 VALIDACIÓN SAT - Verificar que la factura esté vigente
+      const uuid = cfdiData.timbreFiscal?.uuid || '';
+      const rfcEmisor = cfdiData.emisor.rfc;
+      const rfcReceptor = cfdiData.receptor.rfc;
+      const total = cfdiData.total;
+
+      if (uuid && rfcEmisor && rfcReceptor) {
+        setOcrProgress('🔍 Validando factura con SAT...');
+
+        // Guardar datos CFDI para referencia
+        setDatosCFDI({ rfcEmisor, rfcReceptor, total, uuid });
+
+        const satResult = await validarSAT({ rfcEmisor, rfcReceptor, total, uuid });
+
+        console.log('📋 Resultado SAT:', satResult);
+
+        // Si la factura está CANCELADA, NO permitir continuar
+        if (satResult.esCancelada) {
+          setOcrProgress('');
+          setIsProcessingOCR(false);
+          toast.error(
+            `❌ FACTURA CANCELADA EN SAT\n\nNo se puede registrar esta factura porque ha sido cancelada ante el SAT.\n\nUUID: ${uuid.substring(0, 8)}...`,
+            { duration: 8000 }
+          );
+          return;
+        }
+
+        // Si la factura NO EXISTE en SAT, advertir pero permitir continuar
+        if (satResult.noEncontrada) {
+          toast.error(
+            `⚠️ FACTURA NO ENCONTRADA EN SAT\n\nEsta factura podría ser APÓCRIFA. Verifique con el proveedor.\n\nUUID: ${uuid.substring(0, 8)}...`,
+            { duration: 8000 }
+          );
+          // No retornamos - dejamos continuar con advertencia
+        }
+
+        // Si es válida, mostrar confirmación
+        if (satResult.esValida) {
+          toast.success('✅ Factura verificada con SAT - VIGENTE', { duration: 3000 });
+        }
+      } else {
+        console.warn('⚠️ No se pudo validar con SAT: faltan datos del CFDI');
+        toast.success('⚠️ No se pudo verificar con SAT (faltan datos)', { duration: 3000 });
+      }
+
       // Convertir a formato del formulario
       setOcrProgress('📋 Aplicando datos al formulario...');
       const expenseData = cfdiToExpenseData(cfdiData);
@@ -914,6 +973,24 @@ export const GastoFormModal = ({
       return;
     }
 
+    // 🆕 VALIDACIÓN SAT - Bloquear si la factura fue cargada por XML y está cancelada
+    if (lastProcessedMethod === 'xml' && resultadoSAT) {
+      if (resultadoSAT.esCancelada) {
+        toast.error(
+          '❌ No se puede guardar este gasto.\n\nLa factura está CANCELADA en el SAT.',
+          { duration: 6000 }
+        );
+        return;
+      }
+      if (resultadoSAT.noEncontrada && !resultadoSAT.permitirGuardar) {
+        toast.error(
+          '⚠️ No se puede guardar este gasto.\n\nLa factura NO existe en el SAT (posible apócrifa).',
+          { duration: 6000 }
+        );
+        return;
+      }
+    }
+
     // ✅ VALIDACIÓN DE CUADRE FISCAL - NO PERMITE GUARDAR SI NO CUADRA
     const totalCalculado = Math.round((formData.subtotal + formData.iva + retenciones) * 100) / 100;
     const diferencia = Math.abs(totalCalculado - formData.total);
@@ -1061,6 +1138,9 @@ export const GastoFormModal = ({
                       setXmlFile(null);
                       setVisualFile(null);
                       setLastProcessedMethod(null);
+                      // 🆕 Resetear estado SAT
+                      resetearSAT();
+                      setDatosCFDI(null);
                     }}
                     className="px-3 py-1.5 text-xs rounded-lg border"
                     style={{ borderColor: themeColors.border, color: themeColors.textSecondary }}
@@ -1184,6 +1264,27 @@ export const GastoFormModal = ({
             <p className="text-xs mt-2 text-center" style={{ color: themeColors.textSecondary }}>
               💡 <strong>XML CFDI:</strong> Extracción 100% precisa • <strong>OCR:</strong> Para tickets e imágenes
             </p>
+
+            {/* 🆕 Estado de validación SAT */}
+            {(validandoSAT || resultadoSAT) && lastProcessedMethod === 'xml' && (
+              <div className="mt-3 p-3 rounded-lg" style={{ backgroundColor: `${themeColors.border}20` }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <Shield className="w-4 h-4" style={{ color: themeColors.secondary }} />
+                  <span className="text-sm font-medium" style={{ color: themeColors.text }}>
+                    Validación SAT
+                  </span>
+                  <SATStatusBadge resultado={resultadoSAT} isValidating={validandoSAT} size="sm" />
+                </div>
+                {resultadoSAT && !resultadoSAT.esValida && (
+                  <SATAlertBox resultado={resultadoSAT} />
+                )}
+                {datosCFDI?.uuid && (
+                  <p className="text-xs mt-2" style={{ color: themeColors.textSecondary }}>
+                    UUID: {datosCFDI.uuid.substring(0, 8)}...{datosCFDI.uuid.substring(datosCFDI.uuid.length - 4)}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Sección: Proveedor */}

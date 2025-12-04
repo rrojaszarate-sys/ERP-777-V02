@@ -18,6 +18,8 @@ import { useTheme } from '../../../../shared/components/theme';
 import { useExpenseCategories } from '../../hooks/useFinances';
 import { parseCFDIXml } from '../../utils/cfdiXmlParser';
 import { processFileWithOCR } from '../../../ocr/services/dualOCRService';
+import { useSATValidation } from '../../hooks/useSATValidation';
+import SATStatusBadge, { SATAlertBox } from '../ui/SATStatusBadge';
 
 // IVA desde variable de entorno
 const IVA_PORCENTAJE = parseFloat(import.meta.env.VITE_IVA_PORCENTAJE || '16');
@@ -66,6 +68,18 @@ export const SimpleExpenseForm: React.FC<SimpleExpenseFormProps> = ({
   const { user } = useAuth();
   const { paletteConfig, isDark } = useTheme();
   const { data: categorias } = useExpenseCategories();
+
+  // Hook de validación SAT
+  const { validar: validarSAT, resultado: resultadoSAT, isValidating: validandoSAT, resetear: resetearSAT } = useSATValidation();
+
+  // Estado para datos CFDI necesarios para validación SAT
+  const [cfdiDataSAT, setCfdiDataSAT] = useState<{
+    rfcEmisor?: string;
+    rfcReceptor?: string;
+    total?: number;
+    uuid?: string;
+  }>({});
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const xmlInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
@@ -189,32 +203,78 @@ export const SimpleExpenseForm: React.FC<SimpleExpenseFormProps> = ({
     toast.success('Imagen de ticket seleccionada');
   };
 
-  // Procesar XML CFDI (para facturas)
-  const processXMLCFDI = async (xmlFile: File) => {
+  // Procesar XML CFDI (para facturas) + Validación SAT
+  const processXMLCFDI = async (xmlFileToProcess: File): Promise<boolean> => {
     try {
-      const text = await xmlFile.text();
+      const text = await xmlFileToProcess.text();
       const cfdiData = await parseCFDIXml(text);
 
       if (cfdiData) {
         setFormData(prev => ({
           ...prev,
-          concepto: cfdiData.concepto || prev.concepto,
+          concepto: cfdiData.conceptos?.[0]?.descripcion || prev.concepto,
           proveedor: cfdiData.emisor?.nombre || prev.proveedor,
           rfc_proveedor: cfdiData.emisor?.rfc || prev.rfc_proveedor,
           fecha: cfdiData.fecha?.split('T')[0] || prev.fecha,
           subtotal: cfdiData.subtotal || prev.subtotal,
-          iva: cfdiData.iva || prev.iva,
+          iva: cfdiData.impuestos?.totalTraslados || prev.iva,
           total: cfdiData.total || prev.total,
-          uuid_cfdi: cfdiData.uuid || prev.uuid_cfdi,
+          uuid_cfdi: cfdiData.timbreFiscal?.uuid || prev.uuid_cfdi,
           folio_fiscal: cfdiData.folio || prev.folio_fiscal,
         }));
 
+        // Guardar datos CFDI para validación SAT
+        const cfdiValidationData = {
+          rfcEmisor: cfdiData.emisor?.rfc,
+          rfcReceptor: cfdiData.receptor?.rfc,
+          total: cfdiData.total,
+          uuid: cfdiData.timbreFiscal?.uuid
+        };
+        setCfdiDataSAT(cfdiValidationData);
+
         setShowAdvanced(true);
         toast.success(`XML procesado: ${cfdiData.emisor?.nombre} - $${cfdiData.total?.toFixed(2)}`);
+
+        // ============================================================
+        // VALIDACIÓN SAT - OBLIGATORIA PARA FACTURAS
+        // ============================================================
+        if (cfdiValidationData.uuid && cfdiValidationData.rfcEmisor && cfdiValidationData.rfcReceptor && cfdiValidationData.total) {
+          toast.loading('Validando factura con SAT...', { id: 'sat' });
+
+          const satResult = await validarSAT({
+            rfcEmisor: cfdiValidationData.rfcEmisor,
+            rfcReceptor: cfdiValidationData.rfcReceptor,
+            total: cfdiValidationData.total,
+            uuid: cfdiValidationData.uuid
+          });
+
+          toast.dismiss('sat');
+
+          if (satResult.esCancelada) {
+            toast.error('FACTURA CANCELADA - No se puede registrar este gasto', { duration: 5000 });
+            return false;
+          } else if (satResult.noEncontrada) {
+            toast.error('FACTURA NO ENCONTRADA EN SAT - Posible factura apócrifa', { duration: 5000 });
+            return false;
+          } else if (satResult.esValida) {
+            toast.success('Factura vigente en SAT', { duration: 3000 });
+            return true;
+          } else if (!satResult.success && satResult.permitirGuardar) {
+            toast.error(`Advertencia: ${satResult.mensaje}`, { duration: 4000 });
+            return true; // Permitir con advertencia si hay error de conexión
+          }
+        } else {
+          console.warn('No se pudo validar SAT: faltan datos del CFDI');
+          toast.error('No se pudo validar con SAT: UUID o RFCs no encontrados en el XML');
+        }
+
+        return true;
       }
+      return false;
     } catch (error: any) {
       console.error('Error procesando XML:', error);
       toast.error(`Error procesando XML: ${error.message}`);
+      return false;
     }
   };
 
@@ -277,10 +337,15 @@ export const SimpleExpenseForm: React.FC<SimpleExpenseFormProps> = ({
         return;
       }
 
-      // Procesar XML
-      await processXMLCFDI(xmlFile);
+      // Procesar XML + Validación SAT
+      const esValido = await processXMLCFDI(xmlFile);
 
-      // Subir PDF si existe
+      // Si la factura está cancelada o es apócrifa, NO continuar
+      if (!esValido) {
+        return; // No subir PDF ni continuar
+      }
+
+      // Subir PDF si existe (solo si la factura es válida)
       if (pdfFile) {
         try {
           const fileName = `${Date.now()}_${pdfFile.name}`;
@@ -317,6 +382,8 @@ export const SimpleExpenseForm: React.FC<SimpleExpenseFormProps> = ({
   // Limpiar documentos
   const clearDocuments = () => {
     setTipoDocumento(null);
+    setCfdiDataSAT({});
+    resetearSAT();
     setXmlFile(null);
     setPdfFile(null);
     setTicketFile(null);
@@ -334,6 +401,20 @@ export const SimpleExpenseForm: React.FC<SimpleExpenseFormProps> = ({
     if (formData.total <= 0) {
       toast.error('El total debe ser mayor a 0');
       return;
+    }
+
+    // ============================================================
+    // BLOQUEO POR VALIDACIÓN SAT - Si es factura y no pasó SAT
+    // ============================================================
+    if (tipoDocumento === 'factura' && resultadoSAT) {
+      if (resultadoSAT.esCancelada) {
+        toast.error('No se puede guardar: La factura está CANCELADA en el SAT');
+        return;
+      }
+      if (resultadoSAT.noEncontrada) {
+        toast.error('No se puede guardar: La factura NO EXISTE en el SAT (posible apócrifa)');
+        return;
+      }
     }
 
     setSaving(true);
@@ -707,6 +788,21 @@ export const SimpleExpenseForm: React.FC<SimpleExpenseFormProps> = ({
                 <a href={archivoAdjunto} target="_blank" className="text-sm text-blue-600 hover:underline">
                   Ver
                 </a>
+              </div>
+            )}
+
+            {/* Estado de validación SAT */}
+            {(validandoSAT || resultadoSAT) && tipoDocumento === 'factura' && (
+              <div className="mt-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium" style={{ color: themeColors.text }}>
+                    Validación SAT:
+                  </span>
+                  <SATStatusBadge resultado={resultadoSAT} isValidating={validandoSAT} size="md" />
+                </div>
+                {resultadoSAT && !resultadoSAT.esValida && (
+                  <SATAlertBox resultado={resultadoSAT} onClose={clearDocuments} />
+                )}
               </div>
             )}
           </div>

@@ -19,6 +19,7 @@ import cron from 'node-cron';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { dailyReportService } from './services/dailyReportService.js';
+import { consultarSAT } from './services/satService.js';
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -288,7 +289,106 @@ app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
     google_vision: visionClient ? 'configured' : 'not_configured',
+    sat_service: 'available',
     timestamp: new Date().toISOString()
+  });
+});
+
+/**
+ * ============================================================================
+ * ENDPOINT SAT: Validación de CFDI
+ * ============================================================================
+ *
+ * Valida una factura CFDI contra el Web Service oficial del SAT.
+ *
+ * POST /api/sat/validar-cfdi
+ * Body: { rfcEmisor, rfcReceptor, total, uuid }
+ *
+ * Respuesta:
+ * - estado: "Vigente" | "Cancelado" | "No Encontrado"
+ * - esValida: boolean (true si está vigente)
+ * - permitirGuardar: boolean (true si se puede registrar el gasto)
+ * - mensaje: string (mensaje para mostrar al usuario)
+ *
+ * Uso:
+ * curl -X POST http://localhost:3001/api/sat/validar-cfdi \
+ *   -H "Content-Type: application/json" \
+ *   -d '{"rfcEmisor":"AAA010101AAA","rfcReceptor":"BBB020202BBB","total":1234.56,"uuid":"ABC123..."}'
+ */
+app.post('/api/sat/validar-cfdi', async (req, res) => {
+  try {
+    console.log('🔍 [SAT] Solicitud de validación recibida');
+
+    const { rfcEmisor, rfcReceptor, total, uuid } = req.body;
+
+    // Validar parámetros requeridos
+    if (!rfcEmisor) {
+      return res.status(400).json({
+        success: false,
+        error: 'RFC del emisor es requerido',
+        permitirGuardar: false
+      });
+    }
+    if (!rfcReceptor) {
+      return res.status(400).json({
+        success: false,
+        error: 'RFC del receptor es requerido',
+        permitirGuardar: false
+      });
+    }
+    if (total === undefined || total === null) {
+      return res.status(400).json({
+        success: false,
+        error: 'Total es requerido',
+        permitirGuardar: false
+      });
+    }
+    if (!uuid) {
+      return res.status(400).json({
+        success: false,
+        error: 'UUID es requerido',
+        permitirGuardar: false
+      });
+    }
+
+    // Consultar SAT
+    const resultado = await consultarSAT(rfcEmisor, rfcReceptor, total, uuid);
+
+    console.log('✅ [SAT] Validación completada:', resultado.estado);
+
+    res.json(resultado);
+
+  } catch (error) {
+    console.error('❌ [SAT] Error en validación:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      estado: 'Error',
+      esValida: false,
+      permitirGuardar: false,
+      mensaje: `❌ Error al validar: ${error.message}`
+    });
+  }
+});
+
+// GET para información del endpoint
+app.get('/api/sat/validar-cfdi', (req, res) => {
+  res.json({
+    info: 'Endpoint de validación CFDI con SAT',
+    method: 'POST',
+    endpoint: '/api/sat/validar-cfdi',
+    body: {
+      rfcEmisor: 'RFC del emisor (requerido)',
+      rfcReceptor: 'RFC del receptor (requerido)',
+      total: 'Total de la factura (requerido)',
+      uuid: 'UUID/Folio Fiscal del CFDI (requerido)'
+    },
+    respuesta: {
+      estado: 'Vigente | Cancelado | No Encontrado',
+      esValida: 'boolean - true si está vigente',
+      permitirGuardar: 'boolean - true si se puede registrar',
+      mensaje: 'Mensaje para mostrar al usuario'
+    }
   });
 });
 

@@ -20,6 +20,8 @@ import { parseCFDIXml } from '../../utils/cfdiXmlParser';
 import { processFileWithOCR } from '../../../ocr/services/dualOCRService';
 import { supabase } from '../../../../core/config/supabase';
 import { useAuth } from '../../../../core/auth/AuthProvider';
+import { useSATValidation } from '../../hooks/useSATValidation';
+import SATStatusBadge, { SATAlertBox } from '../ui/SATStatusBadge';
 import toast from 'react-hot-toast';
 
 // IVA desde config
@@ -113,6 +115,17 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   // Hook de tema para colores dinámicos
   const { paletteConfig, isDark } = useTheme();
   const { user } = useAuth();
+
+  // Hook de validación SAT
+  const { validar: validarSAT, resultado: resultadoSAT, isValidating: validandoSAT, resetear: resetearSAT } = useSATValidation();
+
+  // Estado para datos CFDI necesarios para validación SAT
+  const [cfdiData, setCfdiData] = useState<{
+    rfcEmisor?: string;
+    rfcReceptor?: string;
+    total?: number;
+    uuid?: string;
+  }>({});
 
   // Refs para inputs de archivos
   const xmlInputRef = useRef<HTMLInputElement>(null);
@@ -250,29 +263,76 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     toast.success('Imagen de ticket seleccionada');
   };
 
-  // Procesar XML CFDI (para facturas)
-  const processXMLCFDI = async (xmlFileToProcess: File) => {
+  // Procesar XML CFDI (para facturas) + Validación SAT
+  const processXMLCFDI = async (xmlFileToProcess: File): Promise<boolean> => {
     try {
       const text = await xmlFileToProcess.text();
-      const cfdiData = await parseCFDIXml(text);
+      const parsedCfdi = await parseCFDIXml(text);
 
-      if (cfdiData) {
+      if (parsedCfdi) {
+        // Actualizar formulario con datos del CFDI
         setFormData(prev => ({
           ...prev,
-          concepto: cfdiData.concepto || prev.concepto,
-          proveedor: cfdiData.emisor?.nombre || prev.proveedor,
-          rfc_proveedor: cfdiData.emisor?.rfc || prev.rfc_proveedor,
-          fecha_gasto: cfdiData.fecha?.split('T')[0] || prev.fecha_gasto,
-          subtotal: cfdiData.subtotal || prev.subtotal,
-          iva: cfdiData.iva || prev.iva,
-          total: cfdiData.total || prev.total,
+          concepto: parsedCfdi.conceptos?.[0]?.descripcion || prev.concepto,
+          proveedor: parsedCfdi.emisor?.nombre || prev.proveedor,
+          rfc_proveedor: parsedCfdi.emisor?.rfc || prev.rfc_proveedor,
+          fecha_gasto: parsedCfdi.fecha?.split('T')[0] || prev.fecha_gasto,
+          subtotal: parsedCfdi.subtotal || prev.subtotal,
+          iva: parsedCfdi.impuestos?.totalTraslados || prev.iva,
+          total: parsedCfdi.total || prev.total,
         }));
 
-        toast.success(`XML procesado: ${cfdiData.emisor?.nombre} - $${cfdiData.total?.toFixed(2)}`);
+        // Guardar datos CFDI para validación SAT
+        const cfdiValidationData = {
+          rfcEmisor: parsedCfdi.emisor?.rfc,
+          rfcReceptor: parsedCfdi.receptor?.rfc,
+          total: parsedCfdi.total,
+          uuid: parsedCfdi.timbreFiscal?.uuid
+        };
+        setCfdiData(cfdiValidationData);
+
+        toast.success(`XML procesado: ${parsedCfdi.emisor?.nombre} - $${parsedCfdi.total?.toFixed(2)}`);
+
+        // ============================================================
+        // VALIDACIÓN SAT - OBLIGATORIA PARA FACTURAS
+        // ============================================================
+        if (cfdiValidationData.uuid && cfdiValidationData.rfcEmisor && cfdiValidationData.rfcReceptor && cfdiValidationData.total) {
+          toast.loading('Validando factura con SAT...', { id: 'sat' });
+
+          const satResult = await validarSAT({
+            rfcEmisor: cfdiValidationData.rfcEmisor,
+            rfcReceptor: cfdiValidationData.rfcReceptor,
+            total: cfdiValidationData.total,
+            uuid: cfdiValidationData.uuid
+          });
+
+          toast.dismiss('sat');
+
+          if (satResult.esCancelada) {
+            toast.error('FACTURA CANCELADA - No se puede registrar este gasto', { duration: 5000 });
+            return false;
+          } else if (satResult.noEncontrada) {
+            toast.error('FACTURA NO ENCONTRADA EN SAT - Posible factura apócrifa', { duration: 5000 });
+            return false;
+          } else if (satResult.esValida) {
+            toast.success('Factura vigente en SAT', { duration: 3000 });
+            return true;
+          } else if (!satResult.success && satResult.permitirGuardar) {
+            toast.error(`Advertencia: ${satResult.mensaje}`, { duration: 4000 });
+            return true; // Permitir con advertencia si hay error de conexión
+          }
+        } else {
+          console.warn('No se pudo validar SAT: faltan datos del CFDI');
+          toast.error('No se pudo validar con SAT: UUID o RFCs no encontrados en el XML');
+        }
+
+        return true;
       }
+      return false;
     } catch (error: any) {
       console.error('Error procesando XML:', error);
       toast.error(`Error procesando XML: ${error.message}`);
+      return false;
     }
   };
 
@@ -339,10 +399,16 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
       setProcessingDoc(true);
       try {
-        // Procesar XML
-        await processXMLCFDI(xmlFile);
+        // Procesar XML + Validación SAT
+        const esValido = await processXMLCFDI(xmlFile);
 
-        // Subir PDF si existe
+        // Si la factura está cancelada o es apócrifa, NO continuar
+        if (!esValido) {
+          setProcessingDoc(false);
+          return; // No subir PDF ni continuar
+        }
+
+        // Subir PDF si existe (solo si la factura es válida)
         if (pdfFile) {
           const fileName = `${Date.now()}_${pdfFile.name}`;
           const filePath = `comprobantes/${user?.company_id}/${fileName}`;
@@ -387,6 +453,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     setXmlFile(null);
     setPdfFile(null);
     setTicketFile(null);
+    setCfdiData({});
+    resetearSAT();
     setFormData(prev => ({
       ...prev,
       archivo_adjunto: '',
@@ -424,6 +492,20 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     if (e) e.preventDefault();
     if (!validateForm()) return;
 
+    // ============================================================
+    // BLOQUEO POR VALIDACIÓN SAT - Si es factura y no pasó SAT
+    // ============================================================
+    if (tipoDocumento === 'factura' && resultadoSAT) {
+      if (resultadoSAT.esCancelada) {
+        toast.error('No se puede guardar: La factura está CANCELADA en el SAT');
+        return;
+      }
+      if (resultadoSAT.noEncontrada) {
+        toast.error('No se puede guardar: La factura NO EXISTE en el SAT (posible apócrifa)');
+        return;
+      }
+    }
+
     // Validar cuadre
     const totalCalculado = Math.round((formData.subtotal + formData.iva - formData.retenciones) * 100) / 100;
     if (Math.abs(totalCalculado - formData.total) > 0.01) {
@@ -438,6 +520,9 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         evento_id: eventId,
         precio_unitario: formData.total,
         cantidad: 1,
+        // Guardar datos de validación SAT
+        sat_estado: resultadoSAT?.estado,
+        sat_validado: resultadoSAT?.success ? true : false,
         updated_at: new Date().toISOString()
       };
       onSave(dataToSave);
@@ -675,6 +760,21 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               <a href={formData.archivo_adjunto} target="_blank" className="text-sm text-blue-600 hover:underline">
                 Ver
               </a>
+            </div>
+          )}
+
+          {/* Estado de validación SAT */}
+          {(validandoSAT || resultadoSAT) && tipoDocumento === 'factura' && (
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium" style={{ color: themeColors.text }}>
+                  Validación SAT:
+                </span>
+                <SATStatusBadge resultado={resultadoSAT} isValidating={validandoSAT} size="md" />
+              </div>
+              {resultadoSAT && !resultadoSAT.esValida && (
+                <SATAlertBox resultado={resultadoSAT} onClose={clearDocuments} />
+              )}
             </div>
           )}
         </div>
