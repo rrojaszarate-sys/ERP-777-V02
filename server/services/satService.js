@@ -24,8 +24,8 @@ import xml2js from 'xml2js';
 const SAT_ENDPOINT = 'https://consultaqr.facturaelectronica.sat.gob.mx/ConsultaCFDIService.svc';
 const SAT_SOAP_ACTION = 'http://tempuri.org/IConsultaCFDIService/Consulta';
 
-// Timeout para la consulta (10 segundos)
-const TIMEOUT_MS = 10000;
+// Timeout para la consulta (30 segundos - SAT puede ser lento)
+const TIMEOUT_MS = 30000;
 
 // Cache en memoria para evitar consultas duplicadas (5 minutos)
 const cache = new Map();

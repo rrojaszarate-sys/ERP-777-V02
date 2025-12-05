@@ -22,6 +22,7 @@ import { supabase } from '../../../../core/config/supabase';
 import { useAuth } from '../../../../core/auth/AuthProvider';
 import { useSATValidation } from '../../hooks/useSATValidation';
 import SATStatusBadge, { SATAlertBox } from '../ui/SATStatusBadge';
+import { validarQRvsXML, ResultadoValidacionQR, validarPDFConSAT, ResultadoValidacionPDFSAT } from '../../../../services/qrValidationService';
 import toast from 'react-hot-toast';
 
 // IVA desde config
@@ -127,10 +128,19 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     uuid?: string;
   }>({});
 
+  // Estado para validación QR vs XML
+  const [resultadoQR, setResultadoQR] = useState<ResultadoValidacionQR | null>(null);
+  const [validandoQR, setValidandoQR] = useState(false);
+
+  // Estado para validación de PDF solo (sin XML)
+  const [validandoPDFSolo, setValidandoPDFSolo] = useState(false);
+  const [resultadoPDFSAT, setResultadoPDFSAT] = useState<ResultadoValidacionPDFSAT | null>(null);
+
   // Refs para inputs de archivos
   const xmlInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const ticketInputRef = useRef<HTMLInputElement>(null);
+  const pdfSoloInputRef = useRef<HTMLInputElement>(null);
 
   // Estado para tipo de documento y archivos
   const [tipoDocumento, setTipoDocumento] = useState<'factura' | 'ticket' | null>(null);
@@ -398,17 +408,100 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       }
 
       setProcessingDoc(true);
-      try {
-        // Procesar XML + Validación SAT
-        const esValido = await processXMLCFDI(xmlFile);
+      setResultadoQR(null); // Limpiar resultado QR previo
 
-        // Si la factura está cancelada o es apócrifa, NO continuar
-        if (!esValido) {
+      try {
+        // PASO 1: Parsear XML CFDI
+        toast.loading('Procesando XML CFDI...', { id: 'process' });
+        const text = await xmlFile.text();
+        const parsedCfdi = await parseCFDIXml(text);
+
+        if (!parsedCfdi) {
+          toast.error('Error parseando XML CFDI', { id: 'process' });
           setProcessingDoc(false);
-          return; // No subir PDF ni continuar
+          return;
         }
 
-        // Subir PDF si existe (solo si la factura es válida)
+        // Actualizar formulario con datos del CFDI
+        setFormData(prev => ({
+          ...prev,
+          concepto: parsedCfdi.conceptos?.[0]?.descripcion || prev.concepto,
+          proveedor: parsedCfdi.emisor?.nombre || prev.proveedor,
+          rfc_proveedor: parsedCfdi.emisor?.rfc || prev.rfc_proveedor,
+          fecha_gasto: parsedCfdi.fecha?.split('T')[0] || prev.fecha_gasto,
+          subtotal: parsedCfdi.subtotal || prev.subtotal,
+          iva: parsedCfdi.impuestos?.totalTraslados || prev.iva,
+          total: parsedCfdi.total || prev.total,
+        }));
+
+        // Guardar datos CFDI para validación
+        const cfdiValidationData = {
+          rfcEmisor: parsedCfdi.emisor?.rfc,
+          rfcReceptor: parsedCfdi.receptor?.rfc,
+          total: parsedCfdi.total,
+          uuid: parsedCfdi.timbreFiscal?.uuid
+        };
+        setCfdiData(cfdiValidationData);
+
+        toast.success(`XML procesado: ${parsedCfdi.emisor?.nombre}`, { id: 'process' });
+
+        // PASO 2: Si hay PDF, validar QR vs XML
+        if (pdfFile && cfdiValidationData.uuid && cfdiValidationData.rfcEmisor && cfdiValidationData.rfcReceptor) {
+          toast.loading('Validando QR del PDF vs XML...', { id: 'qr' });
+          setValidandoQR(true);
+
+          const qrResult = await validarQRvsXML(pdfFile, {
+            uuid: cfdiValidationData.uuid,
+            rfcEmisor: cfdiValidationData.rfcEmisor,
+            rfcReceptor: cfdiValidationData.rfcReceptor,
+            total: cfdiValidationData.total || 0
+          });
+
+          setResultadoQR(qrResult);
+          setValidandoQR(false);
+
+          if (qrResult.bloqueante && !qrResult.esValida) {
+            // QR no coincide con XML - BLOQUEAR
+            toast.error('El PDF no corresponde al XML - Datos del QR no coinciden', { id: 'qr', duration: 6000 });
+            setProcessingDoc(false);
+            return;
+          } else if (qrResult.esValida) {
+            toast.success('QR del PDF coincide con XML', { id: 'qr' });
+          } else if (qrResult.advertencia) {
+            toast.error(`Advertencia QR: ${qrResult.mensaje}`, { id: 'qr', duration: 4000 });
+            // Continuar con advertencia
+          }
+        }
+
+        // PASO 3: Validar con SAT
+        if (cfdiValidationData.uuid && cfdiValidationData.rfcEmisor && cfdiValidationData.rfcReceptor && cfdiValidationData.total) {
+          toast.loading('Validando factura con SAT...', { id: 'sat' });
+
+          const satResult = await validarSAT({
+            rfcEmisor: cfdiValidationData.rfcEmisor,
+            rfcReceptor: cfdiValidationData.rfcReceptor,
+            total: cfdiValidationData.total,
+            uuid: cfdiValidationData.uuid
+          });
+
+          toast.dismiss('sat');
+
+          if (satResult.esCancelada) {
+            toast.error('FACTURA CANCELADA - No se puede registrar este gasto', { duration: 5000 });
+            setProcessingDoc(false);
+            return;
+          } else if (satResult.noEncontrada) {
+            toast.error('FACTURA NO ENCONTRADA EN SAT - Posible factura apócrifa', { duration: 5000 });
+            setProcessingDoc(false);
+            return;
+          } else if (satResult.esValida) {
+            toast.success('Factura vigente en SAT', { duration: 3000 });
+          } else if (!satResult.success && satResult.permitirGuardar) {
+            toast.error(`Advertencia: ${satResult.mensaje}`, { duration: 4000 });
+          }
+        }
+
+        // PASO 4: Subir PDF si existe (solo si pasó todas las validaciones)
         if (pdfFile) {
           const fileName = `${Date.now()}_${pdfFile.name}`;
           const filePath = `comprobantes/${user?.company_id}/${fileName}`;
@@ -428,13 +521,16 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
             archivo_adjunto: urlData.publicUrl,
             archivo_nombre: pdfFile.name
           }));
-          toast.success('XML procesado + PDF adjunto');
+          toast.success('Factura validada y PDF adjunto');
+        } else {
+          toast.success('XML procesado (sin PDF)');
         }
       } catch (error: any) {
         console.error('Error procesando factura:', error);
         toast.error(`Error: ${error.message}`);
       } finally {
         setProcessingDoc(false);
+        setValidandoQR(false);
       }
     } else if (tipoDocumento === 'ticket') {
       if (!ticketFile) {
@@ -455,11 +551,70 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     setTicketFile(null);
     setCfdiData({});
     resetearSAT();
+    setResultadoQR(null);
+    setValidandoQR(false);
+    setResultadoPDFSAT(null);
     setFormData(prev => ({
       ...prev,
       archivo_adjunto: '',
       archivo_nombre: ''
     }));
+  };
+
+  // ============================================================================
+  // VALIDACIÓN SOLO PDF (SIN XML) - Extrae datos con OCR y valida con SAT
+  // ============================================================================
+  const validarPDFSoloConSAT = async (file?: File) => {
+    const pdfFile = file || (pdfSoloInputRef.current?.files?.[0]);
+    if (!pdfFile) {
+      toast.error('Seleccione un archivo PDF');
+      return;
+    }
+
+    setValidandoPDFSolo(true);
+    setResultadoPDFSAT(null);
+    toast.loading('Extrayendo datos del PDF y validando con SAT...', { id: 'pdf-sat' });
+
+    try {
+      const resultado = await validarPDFConSAT(pdfFile);
+      setResultadoPDFSAT(resultado);
+
+      if (resultado.success && resultado.datosExtraidos) {
+        // Actualizar datos CFDI con los extraídos del PDF
+        setCfdiData({
+          uuid: resultado.datosExtraidos.uuid,
+          rfcEmisor: resultado.datosExtraidos.rfcEmisor,
+          rfcReceptor: resultado.datosExtraidos.rfcReceptor,
+          total: resultado.datosExtraidos.total
+        });
+
+        // Actualizar formulario con los datos extraídos
+        setFormData(prev => ({
+          ...prev,
+          total: resultado.datosExtraidos!.total || prev.total,
+          rfc_proveedor: resultado.datosExtraidos!.rfcEmisor || prev.rfc_proveedor
+        }));
+
+        // Mostrar resultado según validación SAT
+        if (resultado.validacionSAT?.esValida) {
+          toast.success('PDF validado con SAT - Factura VIGENTE', { id: 'pdf-sat', duration: 4000 });
+        } else if (resultado.validacionSAT?.esCancelada) {
+          toast.error('FACTURA CANCELADA en SAT', { id: 'pdf-sat', duration: 5000 });
+        } else if (resultado.validacionSAT?.noEncontrada) {
+          toast.error('Factura NO ENCONTRADA en SAT', { id: 'pdf-sat', duration: 5000 });
+        } else {
+          toast.error(`Advertencia: ${resultado.validacionSAT?.mensaje || 'Estado desconocido'}`, { id: 'pdf-sat' });
+        }
+      } else {
+        // No se pudieron extraer todos los datos
+        toast.error(resultado.error || 'No se pudieron extraer los datos fiscales del PDF', { id: 'pdf-sat' });
+      }
+    } catch (error: any) {
+      console.error('Error validando PDF solo:', error);
+      toast.error(`Error: ${error.message}`, { id: 'pdf-sat' });
+    } finally {
+      setValidandoPDFSolo(false);
+    }
   };
 
   const handleInputChange = (field: string, value: any) => {
@@ -491,6 +646,14 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!validateForm()) return;
+
+    // ============================================================
+    // BLOQUEO POR VALIDACIÓN QR - Si el PDF no coincide con XML
+    // ============================================================
+    if (tipoDocumento === 'factura' && resultadoQR && resultadoQR.bloqueante && !resultadoQR.esValida) {
+      toast.error('No se puede guardar: El PDF no corresponde al XML (QR no coincide)');
+      return;
+    }
 
     // ============================================================
     // BLOQUEO POR VALIDACIÓN SAT - Si es factura y no pasó SAT
@@ -591,50 +754,131 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
           {/* Selector de tipo de documento */}
           {!tipoDocumento ? (
-            <div className="grid grid-cols-2 gap-3">
-              {/* Opción: Factura (XML + PDF) */}
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                {/* Opción: Factura (XML + PDF) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTipoDocumento('factura');
+                    xmlInputRef.current?.click();
+                  }}
+                  className="flex flex-col items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg hover:bg-blue-50 transition-colors"
+                  style={{ borderColor: '#3B82F6' }}
+                >
+                  <FileText className="w-8 h-8 text-blue-600" />
+                  <span className="font-medium text-blue-600">Factura</span>
+                  <span className="text-xs text-gray-500">XML CFDI + PDF</span>
+                </button>
+                <input
+                  ref={xmlInputRef}
+                  type="file"
+                  accept=".xml"
+                  onChange={handleXMLSelect}
+                  className="hidden"
+                />
+
+                {/* Opción: Ticket (imagen con OCR) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTipoDocumento('ticket');
+                    ticketInputRef.current?.click();
+                  }}
+                  className="flex flex-col items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg hover:bg-amber-50 transition-colors"
+                  style={{ borderColor: '#F59E0B' }}
+                >
+                  <Camera className="w-8 h-8 text-amber-600" />
+                  <span className="font-medium text-amber-600">Ticket</span>
+                  <span className="text-xs text-gray-500">Imagen con OCR</span>
+                </button>
+                <input
+                  ref={ticketInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleTicketSelect}
+                  className="hidden"
+                />
+              </div>
+
+              {/* Opción: Validar solo PDF (sin XML) */}
               <button
                 type="button"
-                onClick={() => {
-                  setTipoDocumento('factura');
-                  xmlInputRef.current?.click();
-                }}
-                className="flex flex-col items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg hover:bg-blue-50 transition-colors"
-                style={{ borderColor: '#3B82F6' }}
+                onClick={() => pdfSoloInputRef.current?.click()}
+                disabled={validandoPDFSolo}
+                className="w-full flex items-center justify-center gap-2 p-3 border-2 border-dashed rounded-lg hover:bg-purple-50 transition-colors"
+                style={{ borderColor: '#8B5CF6' }}
               >
-                <FileText className="w-8 h-8 text-blue-600" />
-                <span className="font-medium text-blue-600">Factura</span>
-                <span className="text-xs text-gray-500">XML CFDI + PDF</span>
+                {validandoPDFSolo ? (
+                  <Loader2 className="w-5 h-5 text-purple-600 animate-spin" />
+                ) : (
+                  <FileText className="w-5 h-5 text-purple-600" />
+                )}
+                <span className="font-medium text-purple-600">
+                  {validandoPDFSolo ? 'Validando...' : 'Validar solo PDF'}
+                </span>
+                <span className="text-xs text-gray-500">(Sin XML - Extrae datos con OCR)</span>
               </button>
               <input
-                ref={xmlInputRef}
+                ref={pdfSoloInputRef}
                 type="file"
-                accept=".xml"
-                onChange={handleXMLSelect}
+                accept=".pdf"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) validarPDFSoloConSAT(file);
+                }}
                 className="hidden"
               />
 
-              {/* Opción: Ticket (imagen con OCR) */}
-              <button
-                type="button"
-                onClick={() => {
-                  setTipoDocumento('ticket');
-                  ticketInputRef.current?.click();
-                }}
-                className="flex flex-col items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg hover:bg-amber-50 transition-colors"
-                style={{ borderColor: '#F59E0B' }}
-              >
-                <Camera className="w-8 h-8 text-amber-600" />
-                <span className="font-medium text-amber-600">Ticket</span>
-                <span className="text-xs text-gray-500">Imagen con OCR</span>
-              </button>
-              <input
-                ref={ticketInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={handleTicketSelect}
-                className="hidden"
-              />
+              {/* Resultado de validación PDF solo */}
+              {resultadoPDFSAT && (
+                <div className={`p-3 rounded-lg border ${
+                  resultadoPDFSAT.validacionSAT?.esValida
+                    ? 'bg-green-50 border-green-300'
+                    : resultadoPDFSAT.validacionSAT?.esCancelada
+                    ? 'bg-red-50 border-red-300'
+                    : 'bg-yellow-50 border-yellow-300'
+                }`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-sm">
+                      {resultadoPDFSAT.validacionSAT?.esValida
+                        ? '✅ Factura VIGENTE en SAT'
+                        : resultadoPDFSAT.validacionSAT?.esCancelada
+                        ? '❌ Factura CANCELADA en SAT'
+                        : resultadoPDFSAT.validacionSAT?.noEncontrada
+                        ? '⚠️ Factura NO ENCONTRADA en SAT'
+                        : `⚠️ ${resultadoPDFSAT.error || 'Estado desconocido'}`
+                      }
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setResultadoPDFSAT(null)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  {resultadoPDFSAT.datosExtraidos && (
+                    <div className="text-xs text-gray-600 space-y-1">
+                      <p><strong>UUID:</strong> {resultadoPDFSAT.datosExtraidos.uuid}</p>
+                      <p><strong>RFC Emisor:</strong> {resultadoPDFSAT.datosExtraidos.rfcEmisor}</p>
+                      <p><strong>RFC Receptor:</strong> {resultadoPDFSAT.datosExtraidos.rfcReceptor}</p>
+                      <p><strong>Total:</strong> ${resultadoPDFSAT.datosExtraidos.total?.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
+                    </div>
+                  )}
+                  {resultadoPDFSAT.datosFaltantes && (
+                    <div className="text-xs text-red-600 mt-2">
+                      <p><strong>Datos no encontrados en el PDF:</strong></p>
+                      <ul className="list-disc list-inside">
+                        {resultadoPDFSAT.datosFaltantes.uuid && <li>UUID (Folio Fiscal)</li>}
+                        {resultadoPDFSAT.datosFaltantes.rfcEmisor && <li>RFC Emisor</li>}
+                        {resultadoPDFSAT.datosFaltantes.rfcReceptor && <li>RFC Receptor</li>}
+                        {resultadoPDFSAT.datosFaltantes.total && <li>Total</li>}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ) : tipoDocumento === 'factura' ? (
             /* Vista para FACTURA */
@@ -760,6 +1004,47 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               <a href={formData.archivo_adjunto} target="_blank" className="text-sm text-blue-600 hover:underline">
                 Ver
               </a>
+            </div>
+          )}
+
+          {/* Estado de validación QR */}
+          {(validandoQR || resultadoQR) && tipoDocumento === 'factura' && (
+            <div className="mt-3 p-3 rounded-lg border" style={{ borderColor: themeColors.border, backgroundColor: `${themeColors.border}20` }}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium" style={{ color: themeColors.text }}>
+                  Validación QR vs XML:
+                </span>
+                {validandoQR ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Validando...
+                  </span>
+                ) : resultadoQR?.esValida ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                    Coincide
+                  </span>
+                ) : resultadoQR?.bloqueante ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
+                    No coincide
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+                    {resultadoQR?.mensaje || 'Advertencia'}
+                  </span>
+                )}
+              </div>
+              {resultadoQR && !resultadoQR.esValida && resultadoQR.comparacion?.diferencias && (
+                <div className="mt-2 p-2 rounded bg-red-50 border border-red-200">
+                  <p className="text-sm font-medium text-red-700 mb-1">Diferencias encontradas:</p>
+                  <ul className="text-xs text-red-600 space-y-1">
+                    {resultadoQR.comparacion.diferencias.map((dif, idx) => (
+                      <li key={idx}>
+                        <strong>{dif.campo}:</strong> XML: {dif.valorXML} | QR: {dif.valorQR}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
 

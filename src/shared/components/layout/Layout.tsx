@@ -7,7 +7,7 @@ import {
   List, DollarSign, BarChart3, CreditCard, FolderOpen, Users,
   FileText, BookOpen, Receipt, Target, Truck, Warehouse, Briefcase,
   FileSpreadsheet, FolderKanban, CheckCircle, Landmark, PieChart, Plug, Brain,
-  Building2
+  Building2, QrCode
 } from 'lucide-react';
 import { useAuth } from '../../../core/auth/AuthProvider';
 import { APP_CONFIG } from '../../../core/config/constants';
@@ -136,7 +136,8 @@ export const Layout: React.FC = () => {
         { name: 'Kits Evento', path: '/inventario/kits', icon: FolderKanban },
         { name: 'Checklists', path: '/inventario/checklists', icon: CheckCircle },
         { name: 'Alertas', path: '/inventario/alertas', icon: Bell },
-        { name: 'Documentos', path: '/inventario/documentos', icon: FileText }
+        { name: 'Documentos', path: '/inventario/documentos', icon: FileText },
+        { name: 'Etiquetas QR', path: '/inventario/etiquetas', icon: QrCode }
       ]
     },
     {

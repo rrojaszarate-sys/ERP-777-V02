@@ -20,6 +20,14 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { dailyReportService } from './services/dailyReportService.js';
 import { consultarSAT } from './services/satService.js';
+import {
+  parsearURLQRSAT,
+  compararQRvsXML,
+  extraerQRDeImagen,
+  validarFacturaQRvsXML
+} from './services/qrExtractorService.js';
+// NUEVO: Servicio de extracción de PDF con pdfjs-dist (más confiable)
+import { extraerDatosFiscalesPDF } from './services/pdfExtractorService.js';
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -31,9 +39,18 @@ dotenv.config({ path: join(__dirname, '..', '.env') });
 const app = express();
 const PORT = process.env.OCR_API_PORT || 3001;
 
-// Configurar CORS
+// Configurar CORS - Permitir todos los puertos de desarrollo de Vite
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174'],
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:5175',
+    'http://localhost:5176',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:5174',
+    'http://127.0.0.1:5175',
+    'http://127.0.0.1:5176'
+  ],
   credentials: true
 }));
 
@@ -389,6 +406,303 @@ app.get('/api/sat/validar-cfdi', (req, res) => {
       permitirGuardar: 'boolean - true si se puede registrar',
       mensaje: 'Mensaje para mostrar al usuario'
     }
+  });
+});
+
+/**
+ * ============================================================================
+ * ENDPOINT QR: Extracción y validación de QR de facturas
+ * ============================================================================
+ *
+ * Extrae el código QR de una imagen de factura y lo compara con los datos XML.
+ *
+ * POST /api/qr/extraer
+ * Body: FormData con archivo 'file' (imagen o PDF)
+ *
+ * Respuesta:
+ * - success: boolean
+ * - qrContent: string (URL del QR)
+ * - datosExtraidos: { uuid, rfcEmisor, rfcReceptor, total }
+ */
+app.post('/api/qr/extraer', upload.single('file'), async (req, res) => {
+  try {
+    console.log('🔍 [QR] Solicitud de extracción de QR recibida');
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: 'No se recibió archivo'
+      });
+    }
+
+    console.log('📄 [QR] Procesando archivo:', req.file.originalname, `(${(req.file.size / 1024).toFixed(1)} KB)`);
+
+    if (!visionClient) {
+      return res.status(503).json({
+        success: false,
+        error: 'Google Vision no está configurado'
+      });
+    }
+
+    // Extraer QR de la imagen
+    const resultado = await extraerQRDeImagen(req.file.buffer, visionClient);
+
+    console.log('✅ [QR] Extracción completada:', resultado.success ? 'QR encontrado' : 'QR no encontrado');
+
+    res.json(resultado);
+
+  } catch (error) {
+    console.error('❌ [QR] Error extrayendo QR:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * ENDPOINT QR: Validación cruzada QR vs XML
+ *
+ * Compara los datos del QR de la imagen con los datos del XML CFDI.
+ *
+ * POST /api/qr/validar-cruzado
+ * Body: FormData con:
+ *   - file: imagen de la factura
+ *   - datosXML: JSON string con { uuid, rfcEmisor, rfcReceptor, total }
+ *
+ * Respuesta:
+ * - success: boolean
+ * - coinciden: boolean
+ * - diferencias: array de diferencias encontradas
+ * - mensaje: string descriptivo
+ */
+app.post('/api/qr/validar-cruzado', upload.single('file'), async (req, res) => {
+  try {
+    console.log('🔍 [QR] Solicitud de validación cruzada QR vs XML');
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: 'No se recibió imagen de la factura'
+      });
+    }
+
+    // Obtener datos XML del body
+    let datosXML;
+    try {
+      datosXML = typeof req.body.datosXML === 'string'
+        ? JSON.parse(req.body.datosXML)
+        : req.body.datosXML;
+    } catch (parseError) {
+      return res.status(400).json({
+        success: false,
+        error: 'datosXML debe ser un objeto JSON válido'
+      });
+    }
+
+    if (!datosXML || !datosXML.uuid) {
+      return res.status(400).json({
+        success: false,
+        error: 'Se requieren los datos del XML (uuid, rfcEmisor, rfcReceptor, total)'
+      });
+    }
+
+    console.log('📄 [QR] Validando:', req.file.originalname);
+    console.log('📋 [QR] UUID XML:', datosXML.uuid?.substring(0, 8) + '...');
+
+    if (!visionClient) {
+      return res.status(503).json({
+        success: false,
+        error: 'Google Vision no está configurado',
+        advertencia: true,
+        mensaje: 'No se pudo validar QR - Google Vision no disponible'
+      });
+    }
+
+    // Realizar validación completa
+    const resultado = await validarFacturaQRvsXML(req.file.buffer, datosXML, visionClient);
+
+    console.log('✅ [QR] Validación completada:', resultado.esValida ? 'COINCIDE' : 'DIFERENCIAS');
+
+    res.json(resultado);
+
+  } catch (error) {
+    console.error('❌ [QR] Error en validación cruzada:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      advertencia: true
+    });
+  }
+});
+
+/**
+ * ENDPOINT QR: Parsear URL del QR del SAT
+ *
+ * Parsea una URL de QR del SAT y extrae los datos de la factura.
+ *
+ * POST /api/qr/parsear-url
+ * Body: { qrUrl: string }
+ */
+app.post('/api/qr/parsear-url', (req, res) => {
+  try {
+    const { qrUrl } = req.body;
+
+    if (!qrUrl) {
+      return res.status(400).json({
+        success: false,
+        error: 'Se requiere la URL del QR'
+      });
+    }
+
+    const resultado = parsearURLQRSAT(qrUrl);
+    res.json(resultado);
+
+  } catch (error) {
+    console.error('❌ [QR] Error parseando URL:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// GET para información del endpoint QR
+app.get('/api/qr/validar-cruzado', (req, res) => {
+  res.json({
+    info: 'Endpoint de validación cruzada QR vs XML',
+    method: 'POST',
+    endpoint: '/api/qr/validar-cruzado',
+    body: {
+      file: 'Imagen o PDF de la factura (FormData)',
+      datosXML: 'JSON con { uuid, rfcEmisor, rfcReceptor, total }'
+    },
+    respuesta: {
+      success: 'boolean',
+      coinciden: 'boolean - true si QR y XML coinciden',
+      diferencias: 'array de diferencias encontradas',
+      mensaje: 'Mensaje descriptivo del resultado'
+    },
+    descripcion: 'Extrae el QR de la imagen y compara con los datos del XML para verificar autenticidad'
+  });
+});
+
+/**
+ * ============================================================================
+ * ENDPOINT: Validar PDF solo (sin XML) - Extraer datos y validar con SAT
+ * ============================================================================
+ *
+ * Permite validar una factura usando SOLO el PDF:
+ * 1. Extrae datos fiscales del PDF con OCR (UUID, RFCs, Total)
+ * 2. Valida automáticamente con el SAT
+ *
+ * POST /api/pdf/validar-sat
+ * Body: FormData con archivo 'file' (PDF de la factura)
+ *
+ * Respuesta:
+ * - success: boolean
+ * - datosExtraidos: { uuid, rfcEmisor, rfcReceptor, total }
+ * - validacionSAT: { esValida, esCancelada, noEncontrada, mensaje }
+ */
+app.post('/api/pdf/validar-sat', upload.single('file'), async (req, res) => {
+  try {
+    console.log('🔍 [PDF-SAT] Solicitud de validación de PDF recibida');
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: 'No se recibió archivo PDF'
+      });
+    }
+
+    console.log('📄 [PDF-SAT] Procesando:', req.file.originalname, `(${(req.file.size / 1024).toFixed(1)} KB)`);
+
+    if (!visionClient) {
+      return res.status(503).json({
+        success: false,
+        error: 'Google Vision no está configurado'
+      });
+    }
+
+    // PASO 1: Extraer datos fiscales del PDF con OCR
+    console.log('📝 [PDF-SAT] Paso 1: Extrayendo datos fiscales con OCR...');
+    const extraccion = await extraerDatosFiscalesPDF(req.file.buffer, visionClient);
+
+    if (!extraccion.success) {
+      return res.status(400).json({
+        success: false,
+        error: extraccion.error || 'No se pudieron extraer datos del PDF',
+        datosExtraidos: extraccion.datosExtraidos,
+        datosFaltantes: extraccion.datosFaltantes
+      });
+    }
+
+    console.log('✅ [PDF-SAT] Datos extraídos:', {
+      uuid: extraccion.datosParaSAT.uuid?.substring(0, 8) + '...',
+      rfcEmisor: extraccion.datosParaSAT.rfcEmisor,
+      total: extraccion.datosParaSAT.total
+    });
+
+    // PASO 2: Validar con SAT
+    console.log('🛡️ [PDF-SAT] Paso 2: Validando con SAT...');
+    const satResult = await consultarSAT(
+      extraccion.datosParaSAT.rfcEmisor,
+      extraccion.datosParaSAT.rfcReceptor,
+      extraccion.datosParaSAT.total,
+      extraccion.datosParaSAT.uuid
+    );
+
+    console.log('✅ [PDF-SAT] Validación completada:', satResult.estado);
+
+    // Construir respuesta completa
+    const respuesta = {
+      success: true,
+      datosExtraidos: extraccion.datosParaSAT,
+      rfcsEncontrados: extraccion.datosExtraidos?.rfcsEncontrados || [],
+      validacionSAT: {
+        success: satResult.success,
+        estado: satResult.estado,
+        esValida: satResult.esValida,
+        esCancelada: satResult.esCancelada,
+        noEncontrada: satResult.noEncontrada,
+        permitirGuardar: satResult.permitirGuardar,
+        mensaje: satResult.mensaje,
+        codigoEstatus: satResult.codigoEstatus,
+        esCancelable: satResult.esCancelable,
+        timestamp: satResult.timestamp
+      }
+    };
+
+    res.json(respuesta);
+
+  } catch (error) {
+    console.error('❌ [PDF-SAT] Error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// GET para información del endpoint PDF-SAT
+app.get('/api/pdf/validar-sat', (req, res) => {
+  res.json({
+    info: 'Endpoint de validación de factura usando SOLO PDF',
+    method: 'POST',
+    endpoint: '/api/pdf/validar-sat',
+    body: {
+      file: 'PDF de la factura (FormData)'
+    },
+    flujo: [
+      '1. Extraer datos fiscales del PDF con OCR',
+      '2. Validar automáticamente con el SAT'
+    ],
+    respuesta: {
+      success: 'boolean',
+      datosExtraidos: '{ uuid, rfcEmisor, rfcReceptor, total }',
+      validacionSAT: '{ esValida, esCancelada, noEncontrada, mensaje }'
+    },
+    descripcion: 'Valida una factura usando solo el PDF sin necesidad del XML'
   });
 });
 
