@@ -654,11 +654,18 @@ app.post('/api/pdf/validar-sat', upload.single('file'), async (req, res) => {
 
     console.log('✅ [PDF-SAT] Validación completada:', satResult.estado);
 
+    // Generar URL de verificación SAT con los datos extraídos
+    const datos = extraccion.datosParaSAT;
+    const urlVerificacionPDF = `https://verificacfdi.facturaelectronica.sat.gob.mx/default.aspx?id=${datos.uuid}&re=${datos.rfcEmisor}&rr=${datos.rfcReceptor}&tt=${datos.total}`;
+
+    console.log('🔗 [PDF-SAT] URL Verificación (PDF):', urlVerificacionPDF);
+
     // Construir respuesta completa
     const respuesta = {
       success: true,
       datosExtraidos: extraccion.datosParaSAT,
       rfcsEncontrados: extraccion.datosExtraidos?.rfcsEncontrados || [],
+      urlVerificacionPDF: urlVerificacionPDF,
       validacionSAT: {
         success: satResult.success,
         estado: satResult.estado,
@@ -704,6 +711,76 @@ app.get('/api/pdf/validar-sat', (req, res) => {
     },
     descripcion: 'Valida una factura usando solo el PDF sin necesidad del XML'
   });
+});
+
+/**
+ * ENDPOINT: Extraer datos de XML y generar URL de verificación SAT
+ *
+ * POST /api/xml/extraer-datos
+ * Body: FormData con archivo 'file' (XML del CFDI)
+ *
+ * Respuesta:
+ * - datosExtraidos: { uuid, rfcEmisor, rfcReceptor, total, sello }
+ * - urlVerificacionXML: URL del SAT con los datos
+ */
+app.post('/api/xml/extraer-datos', upload.single('file'), async (req, res) => {
+  try {
+    console.log('📄 [XML] Solicitud de extracción de XML recibida');
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: 'No se recibió archivo XML'
+      });
+    }
+
+    console.log('📄 [XML] Procesando:', req.file.originalname);
+
+    // Parsear el XML
+    const xmlContent = req.file.buffer.toString('utf-8');
+
+    // Extraer datos del CFDI usando regex (más simple que un parser XML completo)
+    const uuidMatch = xmlContent.match(/UUID="([^"]+)"/i) || xmlContent.match(/uuid="([^"]+)"/i);
+    const rfcEmisorMatch = xmlContent.match(/cfdi:Emisor[^>]*Rfc="([^"]+)"/i) || xmlContent.match(/Emisor[^>]*Rfc="([^"]+)"/i);
+    const rfcReceptorMatch = xmlContent.match(/cfdi:Receptor[^>]*Rfc="([^"]+)"/i) || xmlContent.match(/Receptor[^>]*Rfc="([^"]+)"/i);
+    const totalMatch = xmlContent.match(/Total="([^"]+)"/i);
+    const selloMatch = xmlContent.match(/SelloCFD="([^"]+)"/i) || xmlContent.match(/Sello="([^"]+)"/i);
+
+    const datosExtraidos = {
+      uuid: uuidMatch ? uuidMatch[1].toUpperCase() : null,
+      rfcEmisor: rfcEmisorMatch ? rfcEmisorMatch[1].toUpperCase() : null,
+      rfcReceptor: rfcReceptorMatch ? rfcReceptorMatch[1].toUpperCase() : null,
+      total: totalMatch ? parseFloat(totalMatch[1]) : null,
+      sello: selloMatch ? selloMatch[1] : null
+    };
+
+    console.log('✅ [XML] Datos extraídos:', {
+      uuid: datosExtraidos.uuid?.substring(0, 8) + '...',
+      rfcEmisor: datosExtraidos.rfcEmisor,
+      rfcReceptor: datosExtraidos.rfcReceptor,
+      total: datosExtraidos.total
+    });
+
+    // Generar URL de verificación SAT
+    // fe = últimos 8 caracteres del sello en base64
+    const fe = datosExtraidos.sello ? datosExtraidos.sello.slice(-8) : '';
+    const urlVerificacionXML = `https://verificacfdi.facturaelectronica.sat.gob.mx/default.aspx?id=${datosExtraidos.uuid}&re=${datosExtraidos.rfcEmisor}&rr=${datosExtraidos.rfcReceptor}&tt=${datosExtraidos.total}&fe=${fe}`;
+
+    console.log('🔗 [XML] URL Verificación (XML):', urlVerificacionXML);
+
+    res.json({
+      success: true,
+      datosExtraidos,
+      urlVerificacionXML
+    });
+
+  } catch (error) {
+    console.error('❌ [XML] Error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
 });
 
 /**
