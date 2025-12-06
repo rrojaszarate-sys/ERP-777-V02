@@ -117,6 +117,19 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
   const [nombreRecibe, setNombreRecibe] = useState('');
   const [firmaRecibe, setFirmaRecibe] = useState<string | null>(null);
 
+  // 🆕 Materiales con salida previa (para retornos)
+  const [materialesSalidos, setMaterialesSalidos] = useState<{
+    producto_id: number;
+    producto_nombre: string;
+    producto_clave: string;
+    cantidad_salida: number;
+    cantidad_retornada: number;
+    disponible_retorno: number;
+    costo_unitario: number;
+    unidad: string;
+  }[]>([]);
+  const [loadingMaterialesSalidos, setLoadingMaterialesSalidos] = useState(false);
+
   // Colores del tema
   const themeColors = useMemo(() => ({
     primary: paletteConfig.primary,
@@ -179,6 +192,120 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
 
     fetchProductos();
   }, []);
+
+  // 🆕 Cargar materiales que han salido del evento (para retornos)
+  useEffect(() => {
+    if (tipoMovimiento !== 'retorno') {
+      setMaterialesSalidos([]);
+      return;
+    }
+
+    const fetchMaterialesSalidos = async () => {
+      setLoadingMaterialesSalidos(true);
+      try {
+        // Buscar gastos de materiales (ingresos) de este evento
+        const { data: gastosIngreso, error: errorGastos } = await supabase
+          .from('evt_gastos_erp')
+          .select('id, detalle_retorno')
+          .eq('evento_id', eventoId)
+          .eq('tipo_movimiento', 'gasto')
+          .eq('categoria_id', CATEGORIA_MATERIALES_ID);
+
+        if (errorGastos) throw errorGastos;
+
+        // Buscar retornos ya hechos
+        const { data: gastosRetorno, error: errorRetornos } = await supabase
+          .from('evt_gastos_erp')
+          .select('id, detalle_retorno')
+          .eq('evento_id', eventoId)
+          .eq('tipo_movimiento', 'retorno')
+          .eq('categoria_id', CATEGORIA_MATERIALES_ID);
+
+        if (errorRetornos) throw errorRetornos;
+
+        // Calcular materiales disponibles para retorno
+        const materialesMap = new Map<number, {
+          producto_id: number;
+          producto_nombre: string;
+          producto_clave: string;
+          cantidad_salida: number;
+          cantidad_retornada: number;
+          costo_unitario: number;
+          unidad: string;
+        }>();
+
+        // Sumar salidas
+        gastosIngreso?.forEach(g => {
+          try {
+            const detalle = typeof g.detalle_retorno === 'string'
+              ? JSON.parse(g.detalle_retorno)
+              : g.detalle_retorno;
+
+            if (Array.isArray(detalle)) {
+              detalle.forEach((linea: any) => {
+                if (linea.producto_id) {
+                  const existing = materialesMap.get(linea.producto_id);
+                  if (existing) {
+                    existing.cantidad_salida += linea.cantidad || 0;
+                  } else {
+                    materialesMap.set(linea.producto_id, {
+                      producto_id: linea.producto_id,
+                      producto_nombre: linea.producto_nombre || '',
+                      producto_clave: linea.producto_clave || '',
+                      cantidad_salida: linea.cantidad || 0,
+                      cantidad_retornada: 0,
+                      costo_unitario: linea.costo_unitario || 0,
+                      unidad: linea.unidad || 'PZA'
+                    });
+                  }
+                }
+              });
+            }
+          } catch { /* ignorar errores de parseo */ }
+        });
+
+        // Restar retornos ya hechos
+        gastosRetorno?.forEach(g => {
+          try {
+            const detalle = typeof g.detalle_retorno === 'string'
+              ? JSON.parse(g.detalle_retorno)
+              : g.detalle_retorno;
+
+            if (Array.isArray(detalle)) {
+              detalle.forEach((linea: any) => {
+                if (linea.producto_id) {
+                  const existing = materialesMap.get(linea.producto_id);
+                  if (existing) {
+                    existing.cantidad_retornada += linea.cantidad || 0;
+                  }
+                }
+              });
+            }
+          } catch { /* ignorar errores de parseo */ }
+        });
+
+        // Convertir a array con disponible > 0
+        const disponibles = Array.from(materialesMap.values())
+          .map(m => ({
+            ...m,
+            disponible_retorno: m.cantidad_salida - m.cantidad_retornada
+          }))
+          .filter(m => m.disponible_retorno > 0);
+
+        setMaterialesSalidos(disponibles);
+
+        if (disponibles.length === 0) {
+          toast.error('No hay materiales disponibles para retorno en este evento', { duration: 4000 });
+        }
+      } catch (error) {
+        console.error('Error cargando materiales salidos:', error);
+      } finally {
+        setLoadingMaterialesSalidos(false);
+      }
+    };
+
+    fetchMaterialesSalidos();
+  }, [tipoMovimiento, eventoId]);
 
   // Cargar almacenes cuando se activa "Afectar Inventario"
   useEffect(() => {
@@ -345,6 +472,24 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
       return;
     }
 
+    // 🆕 Validar cantidades de retorno no excedan disponible
+    if (tipoMovimiento === 'retorno') {
+      for (const linea of lineas) {
+        const materialSalido = materialesSalidos.find(m => m.producto_id === linea.producto_id);
+        if (!materialSalido) {
+          toast.error(`El material "${linea.producto_nombre}" no tiene salida previa en este evento`);
+          return;
+        }
+        if (linea.cantidad > materialSalido.disponible_retorno) {
+          toast.error(
+            `No puedes retornar ${linea.cantidad} de "${linea.producto_nombre}". ` +
+            `Máximo disponible: ${materialSalido.disponible_retorno} ${linea.unidad}`
+          );
+          return;
+        }
+      }
+    }
+
     // Validaciones para afectar inventario (firmas son OPCIONALES)
     if (afectarInventario) {
       if (!almacenId) {
@@ -406,10 +551,16 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
 
           documentoInventarioId = documento.id;
 
-          // Confirmar documento para generar movimientos de inventario
-          await confirmarDocumento(documento.id);
+          // Solo confirmar si hay firmas completas (genera movimientos de inventario)
+          const tieneTodasLasFirmas = firmaEntrega && firmaRecibe && nombreEntrega && nombreRecibe;
 
-          toast.success(`Documento de inventario ${documento.numero_documento || documento.id} confirmado`);
+          if (tieneTodasLasFirmas) {
+            await confirmarDocumento(documento.id);
+            toast.success(`Documento ${documento.numero_documento || documento.id} confirmado con firmas`);
+          } else {
+            // Dejar en borrador para completar firmas después
+            toast.success(`Documento ${documento.numero_documento || documento.id} creado (pendiente de firmas)`);
+          }
         } catch (invError: any) {
           console.error('Error creando documento de inventario:', invError);
           toast.error(`Error en inventario: ${invError.message}`);
@@ -473,9 +624,9 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
   const IconoTipo = config.icono;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2">
       <div
-        className="rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
+        className="rounded-xl shadow-2xl w-full max-w-6xl h-[95vh] overflow-hidden flex flex-col"
         style={{ backgroundColor: themeColors.bg }}
       >
         {/* Header */}
@@ -505,17 +656,16 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* Selector de tipo - Solo si no viene predefinido o es edición */}
           {!item && (
             <div className="flex gap-4 p-1 bg-gray-100 rounded-lg">
               <button
                 onClick={() => setTipoMovimiento('gasto')}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition-all ${
-                  tipoMovimiento === 'gasto'
-                    ? 'text-white shadow-lg'
-                    : 'text-gray-600 hover:bg-gray-200'
-                }`}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition-all ${tipoMovimiento === 'gasto'
+                  ? 'text-white shadow-lg'
+                  : 'text-gray-600 hover:bg-gray-200'
+                  }`}
                 style={tipoMovimiento === 'gasto' ? { backgroundColor: themeColors.primary } : {}}
               >
                 <ArrowUpRight className="w-5 h-5" />
@@ -523,11 +673,10 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
               </button>
               <button
                 onClick={() => setTipoMovimiento('retorno')}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition-all ${
-                  tipoMovimiento === 'retorno'
-                    ? 'text-white shadow-lg'
-                    : 'text-gray-600 hover:bg-gray-200'
-                }`}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition-all ${tipoMovimiento === 'retorno'
+                  ? 'text-white shadow-lg'
+                  : 'text-gray-600 hover:bg-gray-200'
+                  }`}
                 style={tipoMovimiento === 'retorno' ? { backgroundColor: themeColors.secondary } : {}}
               >
                 <ArrowDownLeft className="w-5 h-5" />
@@ -566,80 +715,165 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
             </div>
           </div>
 
-          {/* Buscador de productos */}
-          <div className="relative">
-            <label className="block text-sm font-medium mb-2" style={{ color: themeColors.text }}>
-              <Package className="w-4 h-4 inline mr-1" />
-              Agregar Material del Catálogo
-            </label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => {
-                    setSearchTerm(e.target.value);
-                    setShowProductoDropdown(true);
-                  }}
-                  onFocus={() => setShowProductoDropdown(true)}
-                  placeholder="Buscar por nombre, clave o categoría..."
-                  className="w-full pl-10 pr-4 py-3 border-2 rounded-lg"
-                  style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
-                />
+          {/* ============================================================ */}
+          {/* SELECTOR DE MATERIALES - DIFERENTE PARA INGRESO VS RETORNO */}
+          {/* ============================================================ */}
+          {tipoMovimiento === 'gasto' ? (
+            /* INGRESO: Buscador de catálogo (como antes) */
+            <div className="relative">
+              <label className="block text-sm font-medium mb-2" style={{ color: themeColors.text }}>
+                <Package className="w-4 h-4 inline mr-1" />
+                Agregar Material del Catálogo
+              </label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setShowProductoDropdown(true);
+                    }}
+                    onFocus={() => setShowProductoDropdown(true)}
+                    placeholder="Buscar por nombre, clave o categoría..."
+                    className="w-full pl-10 pr-4 py-3 border-2 rounded-lg"
+                    style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
+                  />
 
-                {/* Dropdown de productos */}
-                {showProductoDropdown && (
-                  <div
-                    className="absolute z-20 w-full mt-1 max-h-60 overflow-y-auto border-2 rounded-lg shadow-xl"
-                    style={{ backgroundColor: themeColors.bg, borderColor: themeColors.border }}
-                  >
-                    {loadingProductos ? (
-                      <div className="p-4 text-center text-gray-500">
-                        <Loader2 className="w-5 h-5 animate-spin mx-auto" />
-                      </div>
-                    ) : productosFiltrados.length === 0 ? (
-                      <div className="p-4 text-center text-gray-500">
-                        No se encontraron productos
-                      </div>
-                    ) : (
-                      productosFiltrados.map(producto => (
-                        <button
-                          key={producto.id}
-                          onClick={() => agregarLinea(producto)}
-                          className={`w-full px-4 py-3 flex items-center justify-between hover:${config.colorBg} transition-colors text-left border-b last:border-b-0`}
-                          style={{ borderColor: themeColors.border }}
-                        >
-                          <div>
-                            <span className="font-medium" style={{ color: themeColors.text }}>
-                              {producto.nombre}
-                            </span>
-                            <div className="text-xs text-gray-500">
-                              {producto.clave} • {producto.categoria} • {producto.unidad}
+                  {/* Dropdown de productos */}
+                  {showProductoDropdown && (
+                    <div
+                      className="absolute z-20 w-full mt-1 max-h-60 overflow-y-auto border-2 rounded-lg shadow-xl"
+                      style={{ backgroundColor: themeColors.bg, borderColor: themeColors.border }}
+                    >
+                      {loadingProductos ? (
+                        <div className="p-4 text-center text-gray-500">
+                          <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+                        </div>
+                      ) : productosFiltrados.length === 0 ? (
+                        <div className="p-4 text-center text-gray-500">
+                          No se encontraron productos
+                        </div>
+                      ) : (
+                        productosFiltrados.map(producto => (
+                          <button
+                            key={producto.id}
+                            onClick={() => agregarLinea(producto)}
+                            className={`w-full px-4 py-3 flex items-center justify-between hover:${config.colorBg} transition-colors text-left border-b last:border-b-0`}
+                            style={{ borderColor: themeColors.border }}
+                          >
+                            <div>
+                              <span className="font-medium" style={{ color: themeColors.text }}>
+                                {producto.nombre}
+                              </span>
+                              <div className="text-xs text-gray-500">
+                                {producto.clave} • {producto.categoria} • {producto.unidad}
+                              </div>
                             </div>
-                          </div>
-                          <span className="font-bold" style={{ color: config.colorText }}>
-                            ${producto.costo.toLocaleString('es-MX')}
-                          </span>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
+                            <span className="font-bold" style={{ color: config.colorText }}>
+                              ${producto.costo.toLocaleString('es-MX')}
+                            </span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
 
-              <button
-                onClick={() => {
-                  setShowNuevoProducto(true);
-                  setShowProductoDropdown(false);
-                }}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded-lg flex items-center gap-2 whitespace-nowrap"
-              >
-                <Plus className="w-5 h-5" />
-                Nuevo Producto
-              </button>
+                <button
+                  onClick={() => {
+                    setShowNuevoProducto(true);
+                    setShowProductoDropdown(false);
+                  }}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded-lg flex items-center gap-2 whitespace-nowrap"
+                >
+                  <Plus className="w-5 h-5" />
+                  Nuevo Producto
+                </button>
+              </div>
             </div>
-          </div>
+          ) : (
+            /* RETORNO: Lista de materiales que han salido del evento */
+            <div>
+              <label className="block text-sm font-medium mb-2" style={{ color: themeColors.text }}>
+                <ArrowDownLeft className="w-4 h-4 inline mr-1" />
+                Seleccionar Material para Retorno
+              </label>
+              <p className="text-xs text-gray-500 mb-3">
+                Solo puedes retornar materiales que hayan tenido una salida previa en este evento.
+              </p>
+
+              {loadingMaterialesSalidos ? (
+                <div className="flex items-center justify-center p-6 border-2 border-dashed rounded-lg" style={{ borderColor: themeColors.border }}>
+                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                  <span className="text-gray-500">Cargando materiales disponibles...</span>
+                </div>
+              ) : materialesSalidos.length === 0 ? (
+                <div className="p-6 border-2 border-dashed rounded-lg text-center" style={{ borderColor: themeColors.border }}>
+                  <Package className="w-10 h-10 mx-auto text-gray-400 mb-2" />
+                  <p className="text-gray-500 font-medium">No hay materiales disponibles para retorno</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Primero debes registrar un ingreso de materiales en este evento
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-1.5 max-h-32 overflow-y-auto p-1">
+                  {materialesSalidos.map(mat => {
+                    // Verificar si ya está agregado en las líneas
+                    const yaAgregado = lineas.some(l => l.producto_id === mat.producto_id);
+                    const lineaExistente = lineas.find(l => l.producto_id === mat.producto_id);
+
+                    return (
+                      <button
+                        key={mat.producto_id}
+                        disabled={yaAgregado}
+                        onClick={() => {
+                          setLineas(prev => [...prev, {
+                            producto_id: mat.producto_id,
+                            producto_nombre: mat.producto_nombre,
+                            producto_clave: mat.producto_clave,
+                            cantidad: Math.min(1, mat.disponible_retorno),
+                            costo_unitario: mat.costo_unitario,
+                            unidad: mat.unidad,
+                            subtotal: mat.costo_unitario * Math.min(1, mat.disponible_retorno)
+                          }]);
+                          toast.success(`${mat.producto_nombre} agregado`);
+                        }}
+                        className={`px-2 py-1.5 border rounded text-left transition-all ${yaAgregado
+                          ? 'opacity-50 cursor-not-allowed bg-gray-100'
+                          : 'hover:border-green-400 hover:bg-green-50'
+                          }`}
+                        style={{ borderColor: yaAgregado ? themeColors.border : themeColors.secondary }}
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <div className="flex-1 min-w-0">
+                            <span className="font-medium text-xs block truncate" style={{ color: themeColors.text }}>
+                              {mat.producto_nombre}
+                            </span>
+                            <span className="text-[10px] text-gray-400 block truncate">
+                              {mat.producto_clave && `${mat.producto_clave} • `}Disp: {mat.disponible_retorno} {mat.unidad}
+                            </span>
+                          </div>
+                          <div className="flex flex-col items-end flex-shrink-0">
+                            <span className="text-[10px] font-semibold" style={{ color: themeColors.secondary }}>
+                              ${mat.costo_unitario.toLocaleString('es-MX')}
+                            </span>
+                            {yaAgregado && <Check className="w-3 h-3 text-green-500" />}
+                          </div>
+                        </div>
+                        {lineaExistente && (
+                          <div className="text-[10px] text-green-600 mt-0.5 truncate">
+                            ✓ {lineaExistente.cantidad} {mat.unidad}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Modal para nuevo producto */}
           {showNuevoProducto && (
@@ -714,66 +948,61 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
             </div>
           )}
 
-          {/* Tabla de líneas */}
+          {/* Tabla de líneas - COMPACTA */}
           {lineas.length > 0 && (
-            <div className="border-2 rounded-lg overflow-hidden" style={{ borderColor: themeColors.border }}>
-              <table className="w-full">
+            <div className="border rounded-lg overflow-hidden" style={{ borderColor: themeColors.border }}>
+              <table className="w-full text-sm">
                 <thead style={{ backgroundColor: config.colorBg }}>
                   <tr>
-                    <th className="px-4 py-2 text-left text-sm font-semibold" style={{ color: config.colorText }}>Material</th>
-                    <th className="px-4 py-2 text-center text-sm font-semibold w-24" style={{ color: config.colorText }}>Cantidad</th>
-                    <th className="px-4 py-2 text-center text-sm font-semibold w-20" style={{ color: config.colorText }}>Unidad</th>
-                    <th className="px-4 py-2 text-right text-sm font-semibold w-32" style={{ color: config.colorText }}>Costo Unit.</th>
-                    <th className="px-4 py-2 text-right text-sm font-semibold w-32" style={{ color: config.colorText }}>Subtotal</th>
-                    <th className="px-4 py-2 w-12"></th>
+                    <th className="px-2 py-1.5 text-left text-xs font-semibold" style={{ color: config.colorText }}>Material</th>
+                    <th className="px-2 py-1.5 text-center text-xs font-semibold w-16" style={{ color: config.colorText }}>Cant.</th>
+                    <th className="px-2 py-1.5 text-center text-xs font-semibold w-14" style={{ color: config.colorText }}>Unid.</th>
+                    <th className="px-2 py-1.5 text-right text-xs font-semibold w-24" style={{ color: config.colorText }}>$ Unit.</th>
+                    <th className="px-2 py-1.5 text-right text-xs font-semibold w-24" style={{ color: config.colorText }}>Subtotal</th>
+                    <th className="px-1 py-1.5 w-8"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {lineas.map((linea, index) => (
-                    <tr key={index} className="border-t" style={{ borderColor: themeColors.border }}>
-                      <td className="px-4 py-2">
-                        <div>
-                          <span className="font-medium" style={{ color: themeColors.text }}>
-                            {linea.producto_nombre}
-                          </span>
-                          {linea.producto_clave && (
-                            <span className="text-xs text-gray-500 ml-2">{linea.producto_clave}</span>
-                          )}
-                        </div>
+                    <tr key={index} className="border-t hover:bg-gray-50" style={{ borderColor: themeColors.border }}>
+                      <td className="px-2 py-1">
+                        <span className="font-medium text-sm" style={{ color: themeColors.text }}>
+                          {linea.producto_nombre}
+                        </span>
+                        {linea.producto_clave && (
+                          <span className="text-xs text-gray-400 ml-1">({linea.producto_clave})</span>
+                        )}
                       </td>
-                      <td className="px-4 py-2">
+                      <td className="px-1 py-1">
                         <input
                           type="number"
                           min="1"
                           value={linea.cantidad}
                           onChange={(e) => actualizarLinea(index, 'cantidad', parseInt(e.target.value) || 1)}
-                          className="w-full px-2 py-1 border rounded text-center"
+                          className="w-full px-1 py-0.5 border rounded text-center text-sm"
                         />
                       </td>
-                      <td className="px-4 py-2 text-center text-sm text-gray-600">
+                      <td className="px-1 py-1 text-center text-xs text-gray-500">
                         {linea.unidad}
                       </td>
-                      <td className="px-4 py-2">
-                        <div className="relative">
-                          <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={linea.costo_unitario}
-                            onChange={(e) => actualizarLinea(index, 'costo_unitario', parseFloat(e.target.value) || 0)}
-                            className="w-full pl-7 pr-2 py-1 border rounded text-right"
-                          />
-                        </div>
+                      <td className="px-1 py-1">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={linea.costo_unitario}
+                          onChange={(e) => actualizarLinea(index, 'costo_unitario', parseFloat(e.target.value) || 0)}
+                          className="w-full px-1 py-0.5 border rounded text-right text-sm"
+                        />
                       </td>
-                      <td className="px-4 py-2 text-right font-bold" style={{ color: config.colorText }}>
+                      <td className="px-2 py-1 text-right font-semibold text-sm" style={{ color: config.colorText }}>
                         ${linea.subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                       </td>
-                      <td className="px-4 py-2">
+                      <td className="px-1 py-1">
                         <button
                           onClick={() => eliminarLinea(index)}
-                          className="p-1 hover:bg-red-100 rounded text-red-500"
+                          className="p-0.5 hover:bg-red-100 rounded text-red-500"
                         >
-                          <X className="w-4 h-4" />
+                          <X className="w-3.5 h-3.5" />
                         </button>
                       </td>
                     </tr>
@@ -816,9 +1045,8 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
                   style={{ backgroundColor: afectarInventario ? config.colorPrimario : '#D1D5DB' }}
                 >
                   <span
-                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform ${
-                      afectarInventario ? 'translate-x-8' : 'translate-x-1'
-                    }`}
+                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform ${afectarInventario ? 'translate-x-8' : 'translate-x-1'
+                      }`}
                   />
                 </button>
               </div>
@@ -880,45 +1108,44 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
                   />
                 </div>
               )}
+
             </div>
           )}
 
-          {/* Notas */}
-          <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
-              Notas (opcional)
-            </label>
-            <textarea
+        </div>
+
+        {/* Footer con totales y notas - FIJO */}
+        <div className="px-4 py-2 border-t flex-shrink-0" style={{ borderColor: themeColors.border, backgroundColor: config.colorBg }}>
+          {/* Notas compactas */}
+          <div className="flex items-center gap-2 mb-2">
+            <input
+              type="text"
               value={notas}
               onChange={(e) => setNotas(e.target.value)}
-              rows={2}
-              placeholder="Observaciones..."
-              className="w-full px-4 py-2 border-2 rounded-lg resize-none"
+              placeholder="Notas / Observaciones (opcional)..."
+              className="flex-1 px-3 py-1.5 border rounded text-sm"
               style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
             />
           </div>
-        </div>
-
-        {/* Footer con totales */}
-        <div className="px-6 py-4 border-t" style={{ borderColor: themeColors.border, backgroundColor: config.colorBg }}>
+          {/* Totales */}
           <div className="flex justify-between items-center">
-            <div className="text-sm text-gray-600">
+            <div className="text-xs text-gray-600">
               {lineas.length} material(es) • {config.mensajeFooter}
             </div>
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-4">
               <div className="text-right">
-                <div className="text-sm text-gray-500">Subtotal</div>
-                <div className="font-semibold">${totales.subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</div>
+                <div className="text-xs text-gray-500">Subtotal</div>
+                <div className="font-semibold text-sm">${totales.subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</div>
               </div>
               <div className="text-right">
-                <div className="text-sm text-gray-500">IVA ({IVA_PORCENTAJE}%)</div>
-                <div className="font-semibold">${totales.iva.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</div>
+                <div className="text-xs text-gray-500">IVA {IVA_PORCENTAJE}%</div>
+                <div className="font-semibold text-sm">${totales.iva.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</div>
               </div>
-              <div className="text-right">
-                <div className="text-sm font-medium" style={{ color: config.colorText }}>
-                  Total {tipoMovimiento === 'retorno' ? 'Retorno' : 'Ingreso'}
+              <div className="text-right pl-2 border-l" style={{ borderColor: themeColors.border }}>
+                <div className="text-xs font-medium" style={{ color: config.colorText }}>
+                  Total
                 </div>
-                <div className="text-2xl font-bold" style={{ color: config.colorText }}>
+                <div className="text-xl font-bold" style={{ color: config.colorText }}>
                   ${totales.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                 </div>
               </div>

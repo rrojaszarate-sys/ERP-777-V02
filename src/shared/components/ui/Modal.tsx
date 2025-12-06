@@ -7,7 +7,7 @@ interface ModalProps {
   onClose: () => void;
   title?: string;
   children: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl' | 'xxl' | 'full' | '80';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'xxl' | 'full' | '80' | '95';
   closeOnBackdrop?: boolean;
 }
 
@@ -26,7 +26,8 @@ export const Modal: React.FC<ModalProps> = ({
     xl: 'max-w-4xl',
     xxl: 'max-w-6xl',
     full: 'max-w-7xl',
-    '80': 'w-[80vw] max-w-[80vw]'
+    '80': 'w-[80vw] max-w-[80vw]',
+    '95': 'w-[95vw] max-w-[95vw]'
   };
 
   const heightClasses = {
@@ -36,7 +37,8 @@ export const Modal: React.FC<ModalProps> = ({
     xl: 'max-h-[90vh]',
     xxl: 'max-h-[90vh]',
     full: 'max-h-[90vh]',
-    '80': 'h-[80vh] max-h-[80vh]'
+    '80': 'h-[80vh] max-h-[80vh]',
+    '95': 'h-[95vh] max-h-[95vh]'
   };
 
   return (

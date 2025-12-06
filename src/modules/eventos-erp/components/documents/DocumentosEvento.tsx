@@ -54,7 +54,7 @@ export const DocumentosEvento: React.FC<DocumentosEventoProps> = ({ eventoId, es
         setEffectiveUserId(user?.id || null);
       }
     };
-    
+
     checkUser();
   }, [isDevMode, user]);
 
@@ -62,7 +62,7 @@ export const DocumentosEvento: React.FC<DocumentosEventoProps> = ({ eventoId, es
     queryKey: ['documentos_evento', eventoId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('evt_documentos') // Asegúrate que la tabla es correcta
+        .from('evt_documentos_erp') // Tabla para eventos ERP
         .select('*')
         .eq('evento_id', eventoId)
         .order('created_at', { ascending: false });
@@ -125,7 +125,7 @@ export const DocumentosEvento: React.FC<DocumentosEventoProps> = ({ eventoId, es
 
       // Registrar el documento en la base de datos
       const { error: dbError } = await supabase
-        .from('evt_documentos')
+        .from('evt_documentos_erp')
         .insert([{
           evento_id: eventoId,
           nombre: result.fileName,
@@ -187,7 +187,7 @@ export const DocumentosEvento: React.FC<DocumentosEventoProps> = ({ eventoId, es
 
       // 2. Eliminar registro de la base de datos
       const { error: dbError } = await supabase
-        .from('evt_documentos')
+        .from('evt_documentos_erp')
         .delete()
         .eq('id', docId);
 

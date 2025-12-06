@@ -15,9 +15,10 @@ export interface FileUploadResult {
 
 export class FileUploadService {
   private static instance: FileUploadService;
-  private readonly BUCKET_NAME = 'event_docs';
+  // Bucket dinámico desde variable de entorno (cada empresa tiene su propio bucket)
+  private readonly BUCKET_NAME = import.meta.env.VITE_STORAGE_BUCKET || 'event_docs';
 
-  private constructor() {}
+  private constructor() { }
 
   public static getInstance(): FileUploadService {
     if (!FileUploadService.instance) {
@@ -41,10 +42,10 @@ export class FileUploadService {
       maxHeight: 2400,
       quality: 0.85
     });
-    
+
     // Validar tipo y tamaño
     const errors: string[] = [];
-    
+
     const isImage = processedFile.type.startsWith('image/');
     const isPDF = processedFile.type === 'application/pdf';
 
@@ -71,7 +72,7 @@ export class FileUploadService {
     if (errors.length > 0) {
       throw new Error(errors.join(' '));
     }
-    
+
     // Log si hubo compresión
     if (processedFile.size !== file.size) {
       fileLogger.info(`📸 Imagen comprimida: ${(file.size / 1024).toFixed(1)}KB → ${(processedFile.size / 1024).toFixed(1)}KB`);
@@ -170,7 +171,7 @@ export class FileUploadService {
     const timestamp = Date.now();
     const randomSuffix = Math.random().toString(36).substring(2, 8);
     const cleanName = file.name.replace(/[^\w.-]/g, '_');
-    
+
     // Nueva estructura: [clave_evento]/ingresos/ o [clave_evento]/gastos/
     const folder = type === 'income' ? 'ingresos' : 'gastos';
     const finalFileName = `${claveEvento}/${folder}/${timestamp}-${randomSuffix}-${cleanName}`;
@@ -210,7 +211,7 @@ export class FileUploadService {
    */
   validateFile(file: File, type: 'income' | 'expense'): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
-    
+
     // Type-specific validations
     if (type === 'income') {
       // ✅ ACTUALIZADO: Income files ahora aceptan PDF e imágenes (para orden de compra y pago)
@@ -218,7 +219,7 @@ export class FileUploadService {
       if (!allowedTypes.includes(file.type)) {
         errors.push('Los archivos de ingreso deben ser PDF, JPG, JPEG o PNG');
       }
-      
+
       const maxSize = 10 * 1024 * 1024; // 10MB
       if (file.size > maxSize) {
         errors.push(`Archivo demasiado grande: ${this.formatFileSize(file.size)} (máximo 10MB)`);
@@ -229,31 +230,31 @@ export class FileUploadService {
       if (!allowedTypes.includes(file.type)) {
         errors.push('Los gastos aceptan archivos PDF, JPG, JPEG o PNG');
       }
-      
+
       const maxSize = 5 * 1024 * 1024; // 5MB
       if (file.size > maxSize) {
         errors.push(`Archivo demasiado grande: ${this.formatFileSize(file.size)} (máximo 5MB para comprobantes)`);
       }
     }
-    
+
     // Common validations
     if (file.size === 0) {
       errors.push('El archivo está vacío');
     }
-    
+
     if (!file.name || file.name.trim().length === 0) {
       errors.push('Nombre de archivo inválido');
     }
-    
+
     if (file.name.length > 255) {
       errors.push('Nombre de archivo demasiado largo (máximo 255 caracteres)');
     }
-    
+
     const dangerousChars = /[<>:"/\\|?*\x00-\x1f]/;
     if (dangerousChars.test(file.name)) {
       errors.push('Nombre de archivo contiene caracteres no permitidos');
     }
-    
+
     return {
       valid: errors.length === 0,
       errors
@@ -279,7 +280,7 @@ export class FileUploadService {
   private formatFileSize(bytes: number): string {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     if (bytes === 0) return '0 Bytes';
-    
+
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
     return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
   }

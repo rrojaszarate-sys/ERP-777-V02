@@ -142,12 +142,21 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   const ticketInputRef = useRef<HTMLInputElement>(null);
   const pdfSoloInputRef = useRef<HTMLInputElement>(null);
 
-  // Estado para tipo de documento y archivos
+  // Estado para tipo de documento y archivos (HOMOLOGADO con GastoFormModal)
   const [tipoDocumento, setTipoDocumento] = useState<'factura' | 'ticket' | null>(null);
-  const [xmlFile, setXmlFile] = useState<File | null>(null);
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [ticketFile, setTicketFile] = useState<File | null>(null);
   const [processingDoc, setProcessingDoc] = useState(false);
+
+  // 🆕 Estados para nueva interfaz de factura (archivos pendientes antes de procesar)
+  const [pendingXmlFile, setPendingXmlFile] = useState<File | null>(null);
+  const [pendingPdfFile, setPendingPdfFile] = useState<File | null>(null);
+  const [procesandoFactura, setProcesandoFactura] = useState(false);
+  const [etapaProceso, setEtapaProceso] = useState<string>('');
+  const [lastProcessedMethod, setLastProcessedMethod] = useState<'xml' | 'ocr' | null>(null);
+
+  // 🆕 Estados para indicadores de carga
+  const [cargandoXml, setCargandoXml] = useState(false);
+  const [cargandoPdf, setCargandoPdf] = useState(false);
 
   // Colores dinámicos - Rojo para gastos
   const themeColors = useMemo(() => ({
@@ -217,13 +226,21 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   }, [formData.subtotal, formData.iva, formData.retenciones]);
 
   // ============================================================================
-  // PROCESAMIENTO DE DOCUMENTOS - HOMOLOGADO CON INCOMEFORM Y SIMPLEEXPENSEFORM
+  // PROCESAMIENTO DE DOCUMENTOS - HOMOLOGADO CON GastoFormModal
   // ============================================================================
-  // 1. FACTURA: XML CFDI + PDF (procesar XML, adjuntar PDF)
+  // 1. FACTURA: XML CFDI + PDF (archivos pendientes → procesar)
   // 2. TICKET: Solo imagen (procesar con OCR)
   // ============================================================================
 
-  // Seleccionar archivo XML para factura
+  // Limpiar archivos pendientes
+  const limpiarArchivosPendientes = () => {
+    setPendingXmlFile(null);
+    setPendingPdfFile(null);
+    setEtapaProceso('');
+    setProcesandoFactura(false);
+  };
+
+  // Seleccionar archivo XML para factura (solo guarda como pendiente)
   const handleXMLSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -233,14 +250,13 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       return;
     }
 
-    setXmlFile(file);
+    setPendingXmlFile(file);
     setTipoDocumento('factura');
-    // Limpiar ticket si había uno
     setTicketFile(null);
-    toast.success('XML seleccionado - Ahora suba el PDF');
+    toast.success(`XML seleccionado: ${file.name}`);
   };
 
-  // Seleccionar PDF para factura
+  // Seleccionar PDF para factura (solo guarda como pendiente)
   const handlePDFSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -250,8 +266,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       return;
     }
 
-    setPdfFile(file);
-    toast.success('PDF seleccionado');
+    setPendingPdfFile(file);
+    toast.success(`PDF seleccionado: ${file.name}`);
   };
 
   // Seleccionar imagen de ticket
@@ -267,9 +283,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
     setTicketFile(file);
     setTipoDocumento('ticket');
-    // Limpiar factura si había una
-    setXmlFile(null);
-    setPdfFile(null);
+    limpiarArchivosPendientes();
     toast.success('Imagen de ticket seleccionada');
   };
 
@@ -399,119 +413,124 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     }
   };
 
-  // Procesar documentos según el tipo seleccionado
-  const processDocuments = async () => {
-    if (tipoDocumento === 'factura') {
-      if (!xmlFile) {
-        toast.error('Se requiere el XML CFDI para facturas');
-        return;
+  // =============================================
+  // 🆕 FUNCIÓN UNIFICADA: PROCESAR FACTURA COMPLETA
+  // (HOMOLOGADA con GastoFormModal)
+  // =============================================
+  /**
+   * Procesa XML + PDF en un solo paso:
+   * 1. Parsea el XML CFDI
+   * 2. Valida con SAT
+   * 3. Si hay PDF, valida QR vs XML
+   * 4. Rellena el formulario con los datos
+   */
+  const procesarFacturaCompleta = async () => {
+    if (!pendingXmlFile) {
+      toast.error('Selecciona un archivo XML CFDI');
+      return;
+    }
+
+    setProcesandoFactura(true);
+    setEtapaProceso('Leyendo XML...');
+    resetearSAT();
+    setResultadoQR(null);
+
+    try {
+      // PASO 1: Leer y parsear XML
+      console.log('📄 Procesando XML CFDI:', pendingXmlFile.name);
+      const xmlContent = await pendingXmlFile.text();
+
+      setEtapaProceso('Extrayendo datos del CFDI...');
+      const parsedCfdi = await parseCFDIXml(xmlContent);
+
+      if (!parsedCfdi) {
+        throw new Error('No se pudo parsear el XML CFDI');
       }
 
-      setProcessingDoc(true);
-      setResultadoQR(null); // Limpiar resultado QR previo
+      console.log('✅ CFDI parseado:', parsedCfdi.emisor?.nombre, '- Total:', parsedCfdi.total);
 
-      try {
-        // PASO 1: Parsear XML CFDI
-        toast.loading('Procesando XML CFDI...', { id: 'process' });
-        const text = await xmlFile.text();
-        const parsedCfdi = await parseCFDIXml(text);
+      // Extraer datos para validación
+      const uuid = parsedCfdi.timbreFiscal?.uuid || '';
+      const rfcEmisor = parsedCfdi.emisor?.rfc || '';
+      const rfcReceptor = parsedCfdi.receptor?.rfc || '';
+      const total = parsedCfdi.total || 0;
 
-        if (!parsedCfdi) {
-          toast.error('Error parseando XML CFDI', { id: 'process' });
-          setProcessingDoc(false);
+      // Guardar datos CFDI para referencia
+      setCfdiData({ rfcEmisor, rfcReceptor, total, uuid });
+
+      // Actualizar formulario con datos del CFDI
+      setFormData(prev => ({
+        ...prev,
+        concepto: parsedCfdi.conceptos?.[0]?.descripcion || prev.concepto,
+        proveedor: parsedCfdi.emisor?.nombre || prev.proveedor,
+        rfc_proveedor: parsedCfdi.emisor?.rfc || prev.rfc_proveedor,
+        fecha_gasto: parsedCfdi.fecha?.split('T')[0] || prev.fecha_gasto,
+        subtotal: parsedCfdi.subtotal || prev.subtotal,
+        iva: parsedCfdi.impuestos?.totalTraslados || prev.iva,
+        total: parsedCfdi.total || prev.total,
+        referencia: uuid ? uuid.substring(0, 8) : prev.referencia
+      }));
+
+      // PASO 2: Validar con SAT
+      if (uuid && rfcEmisor && rfcReceptor) {
+        setEtapaProceso('Validando con SAT...');
+
+        const satResult = await validarSAT({ rfcEmisor, rfcReceptor, total, uuid });
+
+        console.log('📋 Resultado SAT:', satResult);
+
+        if (satResult.esCancelada) {
+          toast.error('❌ FACTURA CANCELADA EN SAT\n\nNo se puede registrar esta factura.', { duration: 6000 });
+          setProcesandoFactura(false);
+          setEtapaProceso('');
           return;
         }
 
-        // Actualizar formulario con datos del CFDI
-        setFormData(prev => ({
-          ...prev,
-          concepto: parsedCfdi.conceptos?.[0]?.descripcion || prev.concepto,
-          proveedor: parsedCfdi.emisor?.nombre || prev.proveedor,
-          rfc_proveedor: parsedCfdi.emisor?.rfc || prev.rfc_proveedor,
-          fecha_gasto: parsedCfdi.fecha?.split('T')[0] || prev.fecha_gasto,
-          subtotal: parsedCfdi.subtotal || prev.subtotal,
-          iva: parsedCfdi.impuestos?.totalTraslados || prev.iva,
-          total: parsedCfdi.total || prev.total,
-        }));
-
-        // Guardar datos CFDI para validación
-        const cfdiValidationData = {
-          rfcEmisor: parsedCfdi.emisor?.rfc,
-          rfcReceptor: parsedCfdi.receptor?.rfc,
-          total: parsedCfdi.total,
-          uuid: parsedCfdi.timbreFiscal?.uuid
-        };
-        setCfdiData(cfdiValidationData);
-
-        toast.success(`XML procesado: ${parsedCfdi.emisor?.nombre}`, { id: 'process' });
-
-        // PASO 2: Si hay PDF, validar QR vs XML
-        if (pdfFile && cfdiValidationData.uuid && cfdiValidationData.rfcEmisor && cfdiValidationData.rfcReceptor) {
-          toast.loading('Validando QR del PDF vs XML...', { id: 'qr' });
-          setValidandoQR(true);
-
-          const qrResult = await validarQRvsXML(pdfFile, {
-            uuid: cfdiValidationData.uuid,
-            rfcEmisor: cfdiValidationData.rfcEmisor,
-            rfcReceptor: cfdiValidationData.rfcReceptor,
-            total: cfdiValidationData.total || 0
-          });
-
-          setResultadoQR(qrResult);
-          setValidandoQR(false);
-
-          if (qrResult.bloqueante && !qrResult.esValida) {
-            // QR no coincide con XML - BLOQUEAR
-            toast.error('El PDF no corresponde al XML - Datos del QR no coinciden', { id: 'qr', duration: 6000 });
-            setProcessingDoc(false);
-            return;
-          } else if (qrResult.esValida) {
-            toast.success('QR del PDF coincide con XML', { id: 'qr' });
-          } else if (qrResult.advertencia) {
-            toast.error(`Advertencia QR: ${qrResult.mensaje}`, { id: 'qr', duration: 4000 });
-            // Continuar con advertencia
-          }
+        if (satResult.noEncontrada) {
+          toast.error('⚠️ FACTURA NO ENCONTRADA EN SAT\n\nPosible factura apócrifa.', { duration: 6000 });
+          // Continuar pero con advertencia
         }
 
-        // PASO 3: Validar con SAT
-        if (cfdiValidationData.uuid && cfdiValidationData.rfcEmisor && cfdiValidationData.rfcReceptor && cfdiValidationData.total) {
-          toast.loading('Validando factura con SAT...', { id: 'sat' });
+        if (satResult.esValida) {
+          toast.success('✅ Factura verificada con SAT - VIGENTE', { duration: 3000 });
+        }
+      }
 
-          const satResult = await validarSAT({
-            rfcEmisor: cfdiValidationData.rfcEmisor,
-            rfcReceptor: cfdiValidationData.rfcReceptor,
-            total: cfdiValidationData.total,
-            uuid: cfdiValidationData.uuid
-          });
+      // PASO 3: Validar QR del PDF vs XML (si hay PDF)
+      if (pendingPdfFile && uuid && rfcEmisor && rfcReceptor) {
+        setEtapaProceso('Validando QR del PDF...');
+        setValidandoQR(true);
 
-          toast.dismiss('sat');
+        const qrResult = await validarQRvsXML(pendingPdfFile, {
+          uuid, rfcEmisor, rfcReceptor, total
+        });
 
-          if (satResult.esCancelada) {
-            toast.error('FACTURA CANCELADA - No se puede registrar este gasto', { duration: 5000 });
-            setProcessingDoc(false);
-            return;
-          } else if (satResult.noEncontrada) {
-            toast.error('FACTURA NO ENCONTRADA EN SAT - Posible factura apócrifa', { duration: 5000 });
-            setProcessingDoc(false);
-            return;
-          } else if (satResult.esValida) {
-            toast.success('Factura vigente en SAT', { duration: 3000 });
-          } else if (!satResult.success && satResult.permitirGuardar) {
-            toast.error(`Advertencia: ${satResult.mensaje}`, { duration: 4000 });
-          }
+        setResultadoQR(qrResult);
+        setValidandoQR(false);
+
+        if (qrResult.bloqueante && !qrResult.esValida) {
+          toast.error('❌ El PDF NO corresponde al XML - QR no coincide', { duration: 6000 });
+          setProcesandoFactura(false);
+          setEtapaProceso('');
+          return;
         }
 
-        // PASO 4: Subir PDF si existe (solo si pasó todas las validaciones)
-        if (pdfFile) {
-          const fileName = `${Date.now()}_${pdfFile.name}`;
-          const filePath = `comprobantes/${user?.company_id}/${fileName}`;
+        if (qrResult.esValida) {
+          toast.success('✅ QR del PDF coincide con XML', { duration: 2000 });
+        }
+      }
 
-          const { error: uploadError } = await supabase.storage
-            .from('documentos')
-            .upload(filePath, pdfFile);
+      // PASO 4: Subir PDF como comprobante
+      if (pendingPdfFile && user?.company_id) {
+        setEtapaProceso('Guardando comprobante...');
+        const fileName = `${Date.now()}_${pendingPdfFile.name}`;
+        const filePath = `comprobantes/${user.company_id}/${fileName}`;
 
-          if (uploadError) throw uploadError;
+        const { error: uploadError } = await supabase.storage
+          .from('documentos')
+          .upload(filePath, pendingPdfFile);
 
+        if (!uploadError) {
           const { data: urlData } = supabase.storage
             .from('documentos')
             .getPublicUrl(filePath);
@@ -519,41 +538,53 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           setFormData(prev => ({
             ...prev,
             archivo_adjunto: urlData.publicUrl,
-            archivo_nombre: pdfFile.name
+            archivo_nombre: pendingPdfFile.name
           }));
-          toast.success('Factura validada y PDF adjunto');
-        } else {
-          toast.success('XML procesado (sin PDF)');
         }
-      } catch (error: any) {
-        console.error('Error procesando factura:', error);
-        toast.error(`Error: ${error.message}`);
-      } finally {
-        setProcessingDoc(false);
-        setValidandoQR(false);
       }
-    } else if (tipoDocumento === 'ticket') {
-      if (!ticketFile) {
-        toast.error('Se requiere una imagen del ticket');
-        return;
-      }
-      await processTicketOCR(ticketFile);
-    } else {
-      toast.error('Seleccione un tipo de documento (Factura o Ticket)');
+
+      setLastProcessedMethod('xml');
+      setEtapaProceso('');
+
+      toast.success(
+        `✅ Factura procesada correctamente\n` +
+        `Emisor: ${parsedCfdi.emisor?.nombre}\n` +
+        `Total: $${total.toFixed(2)}`,
+        { duration: 4000 }
+      );
+
+    } catch (error: any) {
+      console.error('Error procesando factura:', error);
+      toast.error(`Error: ${error.message}`);
+      setEtapaProceso('');
+    } finally {
+      setProcesandoFactura(false);
     }
   };
 
-  // Limpiar documentos
+  // Procesar ticket con OCR (cuando se presiona el botón)
+  const processTicket = async () => {
+    if (!ticketFile) {
+      toast.error('Se requiere una imagen del ticket');
+      return;
+    }
+    await processTicketOCR(ticketFile);
+  };
+
+  // Limpiar documentos (HOMOLOGADO con GastoFormModal)
   const clearDocuments = () => {
     setTipoDocumento(null);
-    setXmlFile(null);
-    setPdfFile(null);
+    setPendingXmlFile(null);
+    setPendingPdfFile(null);
     setTicketFile(null);
     setCfdiData({});
     resetearSAT();
     setResultadoQR(null);
     setValidandoQR(false);
     setResultadoPDFSAT(null);
+    setLastProcessedMethod(null);
+    setEtapaProceso('');
+    setProcesandoFactura(false);
     setFormData(prev => ({
       ...prev,
       archivo_adjunto: '',
@@ -881,49 +912,61 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               )}
             </div>
           ) : tipoDocumento === 'factura' ? (
-            /* Vista para FACTURA */
+            /* ========================================== */
+            /* Vista para FACTURA (XML + PDF) - HOMOLOGADO */
+            /* ========================================== */
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 {/* XML */}
-                <div className={`p-3 border-2 rounded-lg ${xmlFile ? 'bg-blue-50 border-blue-300' : 'border-dashed'}`}
-                  style={{ borderColor: xmlFile ? '#3B82F6' : themeColors.border }}>
+                <div className={`p-3 border-2 rounded-lg ${pendingXmlFile ? 'bg-blue-50 border-blue-300' : 'border-dashed'}`}
+                  style={{ borderColor: pendingXmlFile ? '#3B82F6' : themeColors.border }}>
                   <label className="block text-xs font-medium mb-1 text-blue-600">XML CFDI *</label>
-                  {!xmlFile ? (
+                  {!pendingXmlFile ? (
                     <button
                       type="button"
                       onClick={() => xmlInputRef.current?.click()}
+                      disabled={cargandoXml}
                       className="w-full flex items-center justify-center gap-2 p-2 rounded hover:bg-gray-50"
                     >
-                      <Upload className="w-4 h-4 text-blue-600" />
-                      <span className="text-sm text-blue-600">Seleccionar XML</span>
+                      {cargandoXml ? (
+                        <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+                      ) : (
+                        <Upload className="w-4 h-4 text-blue-600" />
+                      )}
+                      <span className="text-sm text-blue-600">{cargandoXml ? 'Cargando...' : 'Seleccionar XML'}</span>
                     </button>
                   ) : (
                     <div className="flex items-center gap-2">
                       <FileText className="w-4 h-4 text-blue-600" />
-                      <span className="text-sm text-blue-700 truncate">{xmlFile.name}</span>
-                      <button type="button" onClick={() => setXmlFile(null)} className="text-red-500 text-xs">✕</button>
+                      <span className="text-sm text-blue-700 truncate">{pendingXmlFile.name}</span>
+                      <button type="button" onClick={() => setPendingXmlFile(null)} className="text-red-500 text-xs">✕</button>
                     </div>
                   )}
                 </div>
 
                 {/* PDF */}
-                <div className={`p-3 border-2 rounded-lg ${pdfFile ? 'bg-green-50 border-green-300' : 'border-dashed'}`}
-                  style={{ borderColor: pdfFile ? '#10B981' : themeColors.border }}>
+                <div className={`p-3 border-2 rounded-lg ${pendingPdfFile ? 'bg-green-50 border-green-300' : 'border-dashed'}`}
+                  style={{ borderColor: pendingPdfFile ? '#10B981' : themeColors.border }}>
                   <label className="block text-xs font-medium mb-1 text-green-600">PDF Factura</label>
-                  {!pdfFile ? (
+                  {!pendingPdfFile ? (
                     <button
                       type="button"
                       onClick={() => pdfInputRef.current?.click()}
+                      disabled={cargandoPdf}
                       className="w-full flex items-center justify-center gap-2 p-2 rounded hover:bg-gray-50"
                     >
-                      <Upload className="w-4 h-4 text-green-600" />
-                      <span className="text-sm text-green-600">Seleccionar PDF</span>
+                      {cargandoPdf ? (
+                        <Loader2 className="w-4 h-4 text-green-600 animate-spin" />
+                      ) : (
+                        <Upload className="w-4 h-4 text-green-600" />
+                      )}
+                      <span className="text-sm text-green-600">{cargandoPdf ? 'Cargando...' : 'Seleccionar PDF'}</span>
                     </button>
                   ) : (
                     <div className="flex items-center gap-2">
                       <FileText className="w-4 h-4 text-green-600" />
-                      <span className="text-sm text-green-700 truncate">{pdfFile.name}</span>
-                      <button type="button" onClick={() => setPdfFile(null)} className="text-red-500 text-xs">✕</button>
+                      <span className="text-sm text-green-700 truncate">{pendingPdfFile.name}</span>
+                      <button type="button" onClick={() => setPendingPdfFile(null)} className="text-red-500 text-xs">✕</button>
                     </div>
                   )}
                   <input
@@ -936,25 +979,32 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                 </div>
               </div>
 
-              {xmlFile && (
+              {pendingXmlFile && (
                 <button
                   type="button"
-                  onClick={processDocuments}
-                  disabled={processingDoc}
+                  onClick={procesarFacturaCompleta}
+                  disabled={procesandoFactura}
                   className="w-full py-2.5 rounded-lg font-medium text-white flex items-center justify-center gap-2"
                   style={{ backgroundColor: '#3B82F6' }}
                 >
-                  {processingDoc ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                  {procesandoFactura ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      {etapaProceso || 'Procesando...'}
+                    </>
                   ) : (
-                    <Calculator className="w-4 h-4" />
+                    <>
+                      <Calculator className="w-4 h-4" />
+                      Procesar Factura
+                    </>
                   )}
-                  {processingDoc ? 'Procesando...' : 'Procesar Factura'}
                 </button>
               )}
             </div>
           ) : (
-            /* Vista para TICKET */
+            /* ========================================== */
+            /* Vista para TICKET (imagen con OCR) - HOMOLOGADO */
+            /* ========================================== */
             <div className="space-y-3">
               <div className={`p-3 border-2 rounded-lg ${ticketFile ? 'bg-amber-50 border-amber-300' : 'border-dashed'}`}
                 style={{ borderColor: ticketFile ? '#F59E0B' : themeColors.border }}>
@@ -980,17 +1030,22 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               {ticketFile && (
                 <button
                   type="button"
-                  onClick={processDocuments}
+                  onClick={processTicket}
                   disabled={processingDoc}
                   className="w-full py-2.5 rounded-lg font-medium text-white flex items-center justify-center gap-2"
                   style={{ backgroundColor: '#F59E0B' }}
                 >
                   {processingDoc ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Procesando OCR...
+                    </>
                   ) : (
-                    <Camera className="w-4 h-4" />
+                    <>
+                      <Camera className="w-4 h-4" />
+                      Procesar Ticket con OCR
+                    </>
                   )}
-                  {processingDoc ? 'Procesando OCR...' : 'Procesar Ticket con OCR'}
                 </button>
               )}
             </div>

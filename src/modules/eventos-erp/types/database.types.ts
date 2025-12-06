@@ -1,7 +1,7 @@
 export interface Database {
   public: {
     Tables: {
-      evt_documentos: {
+      evt_documentos_erp: {
         Row: {
           id: number
           evento_id: number

@@ -13,11 +13,13 @@
  */
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { X, Search, Plus, Upload, FileText, Calculator, Loader2, Save, Pencil, DollarSign, Bot, Zap, FileCode, Shield } from 'lucide-react';
+import { X, Search, Plus, Upload, FileText, Calculator, Loader2, Save, Pencil, DollarSign, Bot, Zap, FileCode, Shield, Camera } from 'lucide-react';
 import { useAuth } from '../../../core/auth/AuthProvider';
 import { supabase } from '../../../core/config/supabase';
 import { useTheme } from '../../../shared/components/theme';
 import { expenseOCRIntegration } from '../../ocr/services/expenseOCRIntegration';
+// 🆕 OCR con Google Vision - Mismo servicio que ExpenseForm de Eventos
+import { processFileWithOCR } from '../../ocr/services/dualOCRService';
 // 🆕 Parser XML CFDI - Mismo motor que Eventos (100% precisión)
 import { parseCFDIXml, cfdiToExpenseData } from '../../eventos-erp/utils/cfdiXmlParser';
 // 🆕 Validación SAT para bloquear facturas apócrifas/canceladas
@@ -197,6 +199,11 @@ export const GastoFormModal = ({
   const [resultadoQR, setResultadoQR] = useState<ResultadoValidacionQR | null>(null);
   const [validandoQR, setValidandoQR] = useState(false);
   const pdfInputRef = useRef<HTMLInputElement>(null);
+
+  // 🆕 SELECTOR DE TIPO DE DOCUMENTO (homologado con ExpenseForm de Eventos)
+  const [tipoDocumento, setTipoDocumento] = useState<'factura' | 'ticket' | null>(null);
+  const ticketInputRef = useRef<HTMLInputElement>(null);
+  const [ticketFile, setTicketFile] = useState<File | null>(null);
 
   // 🆕 NUEVA INTERFAZ SIMPLIFICADA: Archivos pendientes antes de procesar
   const xmlInputRef = useRef<HTMLInputElement>(null);
@@ -969,8 +976,7 @@ export const GastoFormModal = ({
           const nuevoProveedor = await createProveedor({
             razon_social: cfdiData.emisor.nombre,
             rfc: cfdiData.emisor.rfc,
-            company_id: companyId!
-          });
+          }, companyId!);
 
           if (nuevoProveedor) {
             // Agregar a la lista local de proveedores
@@ -1086,6 +1092,103 @@ export const GastoFormModal = ({
     setCargandoPdf(false);
     if (xmlInputRef.current) xmlInputRef.current.value = '';
     if (pdfFacturaInputRef.current) pdfFacturaInputRef.current.value = '';
+    if (ticketInputRef.current) ticketInputRef.current.value = '';
+    setTicketFile(null);
+    setTipoDocumento(null);
+  };
+
+  // =============================================
+  // 🆕 PROCESAR TICKET CON OCR - Google Vision (Homologado con ExpenseForm de Eventos)
+  // =============================================
+  const processTicketOCR = async (file: File) => {
+    if (!user?.id || !companyId) return;
+
+    setIsProcessingOCR(true);
+    setOcrProgress('Procesando ticket con Google Vision OCR...');
+    toast.loading('Procesando ticket con OCR...', { id: 'ocr' });
+
+    try {
+      // Subir archivo a Supabase Storage primero
+      const fechaArchivo = formData.fecha_gasto.replace(/-/g, '');
+      const tipoGasto = cuentaSeleccionada?.replace(/\s+/g, '_') || 'TICKET';
+      const consecutivo = Date.now().toString().slice(-6);
+      const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const periodoFolder = formData.fecha_gasto.substring(0, 7);
+      const fileName = `${fechaArchivo}_${tipoGasto}_${consecutivo}.${extension}`;
+      const filePath = `gni/${periodoFolder}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('event_docs')
+        .upload(filePath, file, { cacheControl: '3600', upsert: false });
+
+      if (!uploadError) {
+        const { data: urlData } = supabase.storage
+          .from('event_docs')
+          .getPublicUrl(filePath);
+
+        setFormData(prev => ({
+          ...prev,
+          documento_url: urlData.publicUrl
+        }));
+      }
+
+      // 🆕 Procesar con Google Vision OCR (mismo servicio que ExpenseForm de Eventos)
+      const ocrResult = await processFileWithOCR(file) as any;
+
+      if (ocrResult) {
+        // Los datos extraídos vienen en datos_extraidos
+        const datos = ocrResult.datos_extraidos || ocrResult;
+
+        // Buscar proveedor por RFC o nombre
+        if (datos.rfc || datos.establecimiento) {
+          let proveedorEncontrado: Proveedor | undefined;
+
+          // Buscar por RFC primero
+          if (datos.rfc) {
+            proveedorEncontrado = proveedores.find(p =>
+              p.rfc?.toUpperCase() === datos.rfc?.toUpperCase()
+            );
+          }
+
+          // Si no encuentra por RFC, buscar por nombre
+          if (!proveedorEncontrado && datos.establecimiento) {
+            proveedorEncontrado = proveedores.find(p =>
+              p.razon_social.toLowerCase().includes(datos.establecimiento!.toLowerCase().substring(0, 10))
+            );
+          }
+
+          if (proveedorEncontrado) {
+            setFormData(prev => ({ ...prev, proveedor_id: proveedorEncontrado!.id }));
+            setProveedorSearch(proveedorEncontrado.razon_social);
+          } else if (datos.establecimiento) {
+            setProveedorSearch(datos.establecimiento);
+          }
+        }
+
+        // Montos del OCR
+        setFormData(prev => ({
+          ...prev,
+          concepto: datos.concepto_sugerido || datos.establecimiento || prev.concepto,
+          fecha_gasto: datos.fecha || prev.fecha_gasto,
+          subtotal: datos.subtotal || prev.subtotal,
+          iva: datos.iva || prev.iva,
+          total: datos.total || prev.total,
+        }));
+
+        toast.success('Datos extraídos del ticket con OCR', { id: 'ocr' });
+      } else {
+        toast.success('Ticket subido (sin datos OCR detectados)', { id: 'ocr' });
+      }
+
+      setLastProcessedMethod('ocr');
+
+    } catch (error: any) {
+      console.error('❌ Error procesando ticket:', error);
+      toast.error('Error procesando ticket: ' + (error.message || 'Error desconocido'), { id: 'ocr' });
+    } finally {
+      setIsProcessingOCR(false);
+      setOcrProgress('');
+    }
   };
 
   // =============================================
@@ -1462,7 +1565,9 @@ export const GastoFormModal = ({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4">
-          {/* 🆕 NUEVA SECCIÓN: Cargar Factura (XML + PDF) - SIMPLIFICADA */}
+          {/* ============================================================== */}
+          {/* ZONA DE DOCUMENTOS - HOMOLOGADA CON ExpenseForm de Eventos */}
+          {/* ============================================================== */}
           <div
             className={`mb-4 p-4 rounded-xl border-2 transition-all ${isDragging ? 'ring-4 ring-opacity-50' : ''}`}
             style={{
@@ -1474,18 +1579,32 @@ export const GastoFormModal = ({
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           >
-            <h3
-              className="text-sm font-semibold uppercase tracking-wide mb-3 flex items-center gap-2"
-              style={{ color: themeColors.secondary }}
-            >
-              <FileCode className="w-4 h-4" />
-              Cargar Factura CFDI
-              {lastProcessedMethod === 'xml' && (
-                <span className="ml-auto text-xs font-normal px-2 py-0.5 rounded-full bg-green-100 text-green-700">
-                  ✓ Procesada
-                </span>
+            <div className="flex items-center justify-between mb-3">
+              <h3
+                className="text-sm font-semibold uppercase tracking-wide flex items-center gap-2"
+                style={{ color: themeColors.secondary }}
+              >
+                Tipo de Documento
+              </h3>
+              {(tipoDocumento || lastProcessedMethod) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    limpiarArchivosPendientes();
+                    setFormData(prev => ({ ...prev, documento_url: null }));
+                    setXmlFile(null);
+                    setVisualFile(null);
+                    setLastProcessedMethod(null);
+                    resetearSAT();
+                    setDatosCFDI(null);
+                    setResultadoQR(null);
+                  }}
+                  className="text-xs text-red-500 hover:text-red-700"
+                >
+                  Limpiar
+                </button>
               )}
-            </h3>
+            </div>
 
             {/* Inputs ocultos */}
             <input
@@ -1496,7 +1615,7 @@ export const GastoFormModal = ({
                 const file = e.target.files?.[0];
                 if (file) {
                   setCargandoXml(true);
-                  // Simular breve carga para feedback visual
+                  setTipoDocumento('factura');
                   setTimeout(() => {
                     setPendingXmlFile(file);
                     setCargandoXml(false);
@@ -1515,11 +1634,9 @@ export const GastoFormModal = ({
                 const file = e.target.files?.[0];
                 if (file) {
                   setCargandoPdf(true);
-                  // Limpiar preview anterior
                   if (pdfPreviewUrl) {
                     URL.revokeObjectURL(pdfPreviewUrl);
                   }
-                  // Crear preview URL
                   const previewUrl = URL.createObjectURL(file);
                   setTimeout(() => {
                     setPendingPdfFile(file);
@@ -1529,6 +1646,25 @@ export const GastoFormModal = ({
                   }, 300);
                 }
                 if (pdfFacturaInputRef.current) pdfFacturaInputRef.current.value = '';
+              }}
+              className="hidden"
+            />
+            {/* Input para Tickets (imagen) */}
+            <input
+              type="file"
+              ref={ticketInputRef}
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  setTicketFile(file);
+                  setTipoDocumento('ticket');
+                  // Limpiar archivos de factura
+                  setPendingXmlFile(null);
+                  setPendingPdfFile(null);
+                  toast.success('Imagen de ticket seleccionada');
+                }
+                if (ticketInputRef.current) ticketInputRef.current.value = '';
               }}
               className="hidden"
             />
@@ -1544,16 +1680,24 @@ export const GastoFormModal = ({
             {/* ========================================== */}
             {/* ESTADO: Ya procesada - Mostrar resumen */}
             {/* ========================================== */}
-            {lastProcessedMethod === 'xml' && formData.documento_url ? (
+            {(lastProcessedMethod === 'xml' || lastProcessedMethod === 'ocr') && formData.documento_url ? (
               <div className="space-y-3">
-                {/* Resumen de factura procesada */}
-                <div className="p-3 rounded-lg bg-green-50 border border-green-200">
+                {/* Resumen de documento procesado */}
+                <div className={`p-3 rounded-lg border ${lastProcessedMethod === 'xml' ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <FileCode className="w-5 h-5 text-green-600" />
+                      {lastProcessedMethod === 'xml' ? (
+                        <FileCode className="w-5 h-5 text-green-600" />
+                      ) : (
+                        <Camera className="w-5 h-5 text-amber-600" />
+                      )}
                       <div>
-                        <p className="text-sm font-medium text-green-800">Factura procesada</p>
-                        <p className="text-xs text-green-600">{xmlFile?.name}</p>
+                        <p className={`text-sm font-medium ${lastProcessedMethod === 'xml' ? 'text-green-800' : 'text-amber-800'}`}>
+                          {lastProcessedMethod === 'xml' ? 'Factura procesada' : 'Ticket procesado'}
+                        </p>
+                        <p className={`text-xs ${lastProcessedMethod === 'xml' ? 'text-green-600' : 'text-amber-600'}`}>
+                          {xmlFile?.name || ticketFile?.name || 'Documento adjunto'}
+                        </p>
                       </div>
                     </div>
                     <button
@@ -1562,497 +1706,332 @@ export const GastoFormModal = ({
                         setFormData(prev => ({ ...prev, documento_url: null }));
                         setXmlFile(null);
                         setVisualFile(null);
+                        setTicketFile(null);
                         setLastProcessedMethod(null);
+                        setTipoDocumento(null);
                         resetearSAT();
                         setDatosCFDI(null);
                         setResultadoQR(null);
                         limpiarArchivosPendientes();
                       }}
-                      className="px-3 py-1.5 text-xs rounded-lg border border-green-300 text-green-700 hover:bg-green-100"
+                      className={`px-3 py-1.5 text-xs rounded-lg border ${lastProcessedMethod === 'xml' ? 'border-green-300 text-green-700 hover:bg-green-100' : 'border-amber-300 text-amber-700 hover:bg-amber-100'}`}
                     >
                       Quitar
                     </button>
                   </div>
 
-                  {/* Indicadores de validación */}
-                  <div className="flex gap-2 mt-2">
-                    {resultadoSAT && (
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        resultadoSAT.esValida ? 'bg-green-100 text-green-700' :
-                        resultadoSAT.esCancelada ? 'bg-red-100 text-red-700' :
-                        'bg-yellow-100 text-yellow-700'
-                      }`}>
-                        SAT: {resultadoSAT.esValida ? 'Vigente' : resultadoSAT.esCancelada ? 'Cancelada' : 'No encontrada'}
-                      </span>
-                    )}
-                    {resultadoQR && (
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        resultadoQR.esValida ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                      }`}>
-                        QR: {resultadoQR.esValida ? 'Coincide' : 'No coincide'}
-                      </span>
-                    )}
-                  </div>
+                  {/* Indicadores de validación - Solo para facturas */}
+                  {lastProcessedMethod === 'xml' && (resultadoSAT || resultadoQR) && (
+                    <div className="flex gap-2 mt-2">
+                      {resultadoSAT && (
+                        <span className={`text-xs px-2 py-1 rounded-full ${
+                          resultadoSAT.esValida ? 'bg-green-100 text-green-700' :
+                          resultadoSAT.esCancelada ? 'bg-red-100 text-red-700' :
+                          'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          SAT: {resultadoSAT.esValida ? 'Vigente' : resultadoSAT.esCancelada ? 'Cancelada' : 'No encontrada'}
+                        </span>
+                      )}
+                      {resultadoQR && (
+                        <span className={`text-xs px-2 py-1 rounded-full ${
+                          resultadoQR.esValida ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                        }`}>
+                          QR: {resultadoQR.esValida ? 'Coincide' : 'No coincide'}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
-            ) : (
+            ) : !tipoDocumento ? (
               /* ========================================== */
-              /* ESTADO: Sin procesar - Zona de carga */
+              /* SELECTOR DE TIPO DE DOCUMENTO */
               /* ========================================== */
-              <div className="space-y-4">
-                {/* Instrucciones */}
-                <div className="text-center">
-                  <p className="text-sm font-medium" style={{ color: themeColors.text }}>
-                    Sube tu factura CFDI
-                  </p>
-                  <p className="text-xs mt-1" style={{ color: themeColors.textSecondary }}>
-                    XML (obligatorio) + PDF (opcional para validar QR)
-                  </p>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Opción: Factura (XML + PDF) */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTipoDocumento('factura');
+                      xmlInputRef.current?.click();
+                    }}
+                    className="flex flex-col items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg hover:bg-blue-50 transition-colors"
+                    style={{ borderColor: '#3B82F6' }}
+                  >
+                    <FileText className="w-8 h-8 text-blue-600" />
+                    <span className="font-medium text-blue-600">Factura</span>
+                    <span className="text-xs text-gray-500">XML CFDI + PDF</span>
+                  </button>
+
+                  {/* Opción: Ticket (imagen con OCR) */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTipoDocumento('ticket');
+                      ticketInputRef.current?.click();
+                    }}
+                    className="flex flex-col items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg hover:bg-amber-50 transition-colors"
+                    style={{ borderColor: '#F59E0B' }}
+                  >
+                    <Camera className="w-8 h-8 text-amber-600" />
+                    <span className="font-medium text-amber-600">Ticket</span>
+                    <span className="text-xs text-gray-500">Imagen con OCR</span>
+                  </button>
                 </div>
 
-                {/* Cards de archivos */}
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Card XML */}
-                  <div
-                    onClick={() => !cargandoXml && xmlInputRef.current?.click()}
-                    className={`relative p-4 rounded-xl border-2 transition-all cursor-pointer hover:shadow-lg ${
-                      pendingXmlFile
-                        ? 'border-green-500 bg-gradient-to-br from-green-50 to-green-100'
-                        : cargandoXml
-                          ? 'border-yellow-400 bg-yellow-50'
-                          : 'border-dashed hover:border-green-400 hover:bg-green-50/50'
-                    }`}
-                    style={{
-                      borderColor: pendingXmlFile ? '#10B981' : cargandoXml ? '#FBBF24' : themeColors.border,
-                      minHeight: '120px'
-                    }}
-                  >
-                    {/* Indicador de carga XML */}
-                    {cargandoXml && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-yellow-50/80 rounded-xl">
-                        <div className="flex flex-col items-center gap-2">
-                          <Loader2 className="w-8 h-8 animate-spin text-yellow-500" />
-                          <span className="text-xs text-yellow-700 font-medium">Cargando XML...</span>
-                        </div>
+                {/* Opción: Validar solo PDF (sin XML) */}
+                <button
+                  type="button"
+                  onClick={() => pdfSoloInputRef.current?.click()}
+                  disabled={validandoPDFSolo}
+                  className="w-full flex items-center justify-center gap-2 p-3 border-2 border-dashed rounded-lg hover:bg-purple-50 transition-colors"
+                  style={{ borderColor: '#8B5CF6' }}
+                >
+                  {validandoPDFSolo ? (
+                    <Loader2 className="w-5 h-5 text-purple-600 animate-spin" />
+                  ) : (
+                    <FileText className="w-5 h-5 text-purple-600" />
+                  )}
+                  <span className="font-medium text-purple-600">
+                    {validandoPDFSolo ? 'Validando...' : 'Validar solo PDF'}
+                  </span>
+                  <span className="text-xs text-gray-500">(Sin XML - Extrae datos con OCR)</span>
+                </button>
+                <input
+                  ref={pdfSoloInputRef}
+                  type="file"
+                  accept=".pdf"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) validarPDFSoloConSAT(file);
+                  }}
+                  className="hidden"
+                />
+
+                {/* Resultado de validación PDF solo */}
+                {resultadoPDFSAT && (
+                  <div className={`p-3 rounded-lg border ${
+                    resultadoPDFSAT.validacionSAT?.esValida
+                      ? 'bg-green-50 border-green-300'
+                      : resultadoPDFSAT.validacionSAT?.esCancelada
+                      ? 'bg-red-50 border-red-300'
+                      : 'bg-yellow-50 border-yellow-300'
+                  }`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium text-sm">
+                        {resultadoPDFSAT.validacionSAT?.esValida
+                          ? '✅ Factura VIGENTE en SAT'
+                          : resultadoPDFSAT.validacionSAT?.esCancelada
+                          ? '❌ Factura CANCELADA en SAT'
+                          : resultadoPDFSAT.validacionSAT?.noEncontrada
+                          ? '⚠️ Factura NO ENCONTRADA en SAT'
+                          : `⚠️ ${resultadoPDFSAT.error || 'Estado desconocido'}`
+                        }
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setResultadoPDFSAT(null)}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    {resultadoPDFSAT.datosExtraidos && (
+                      <div className="text-xs text-gray-600 space-y-1">
+                        <p><strong>UUID:</strong> {resultadoPDFSAT.datosExtraidos.uuid}</p>
+                        <p><strong>RFC Emisor:</strong> {resultadoPDFSAT.datosExtraidos.rfcEmisor}</p>
+                        <p><strong>Total:</strong> ${resultadoPDFSAT.datosExtraidos.total?.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
                       </div>
                     )}
-
-                    {/* Contenido XML */}
-                    {!cargandoXml && (
-                      <div className="flex flex-col items-center justify-center h-full gap-2">
-                        {pendingXmlFile ? (
-                          <>
-                            <div className="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center">
-                              <FileCode className="w-6 h-6 text-white" />
-                            </div>
-                            <div className="text-center">
-                              <p className="text-xs font-bold text-green-700 truncate max-w-full px-2">
-                                {pendingXmlFile.name.length > 20
-                                  ? pendingXmlFile.name.substring(0, 17) + '...'
-                                  : pendingXmlFile.name}
-                              </p>
-                              <p className="text-[10px] text-green-600 mt-1">
-                                ✓ XML Cargado ({(pendingXmlFile.size / 1024).toFixed(1)} KB)
-                              </p>
-                            </div>
-                          </>
+                  </div>
+                )}
+              </div>
+            ) : tipoDocumento === 'factura' ? (
+              /* ========================================== */
+              /* Vista para FACTURA (XML + PDF) */
+              /* ========================================== */
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  {/* XML */}
+                  <div className={`p-3 border-2 rounded-lg ${pendingXmlFile ? 'bg-blue-50 border-blue-300' : 'border-dashed'}`}
+                    style={{ borderColor: pendingXmlFile ? '#3B82F6' : themeColors.border }}>
+                    <label className="block text-xs font-medium mb-1 text-blue-600">XML CFDI *</label>
+                    {!pendingXmlFile ? (
+                      <button
+                        type="button"
+                        onClick={() => xmlInputRef.current?.click()}
+                        disabled={cargandoXml}
+                        className="w-full flex items-center justify-center gap-2 p-2 rounded hover:bg-gray-50"
+                      >
+                        {cargandoXml ? (
+                          <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
                         ) : (
-                          <>
-                            <div className="w-12 h-12 rounded-full border-2 border-dashed border-green-400 flex items-center justify-center bg-green-50">
-                              <FileCode className="w-6 h-6 text-green-500" />
-                            </div>
-                            <div className="text-center">
-                              <p className="text-sm font-medium text-green-700">XML CFDI</p>
-                              <p className="text-[10px] text-green-600">Click para seleccionar</p>
-                              <span className="inline-block mt-1 px-2 py-0.5 bg-green-200 text-green-800 text-[9px] rounded-full font-medium">
-                                OBLIGATORIO
-                              </span>
-                            </div>
-                          </>
+                          <Upload className="w-4 h-4 text-blue-600" />
                         )}
+                        <span className="text-sm text-blue-600">{cargandoXml ? 'Cargando...' : 'Seleccionar XML'}</span>
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-blue-600" />
+                        <span className="text-sm text-blue-700 truncate">{pendingXmlFile.name}</span>
+                        <button type="button" onClick={() => setPendingXmlFile(null)} className="text-red-500 text-xs">✕</button>
                       </div>
                     )}
                   </div>
 
-                  {/* Card PDF con Preview */}
-                  <div
-                    onClick={() => !cargandoPdf && pdfFacturaInputRef.current?.click()}
-                    className={`relative p-4 rounded-xl border-2 transition-all cursor-pointer hover:shadow-lg ${
-                      pendingPdfFile
-                        ? 'border-blue-500 bg-gradient-to-br from-blue-50 to-blue-100'
-                        : cargandoPdf
-                          ? 'border-yellow-400 bg-yellow-50'
-                          : 'border-dashed hover:border-blue-400 hover:bg-blue-50/50'
-                    }`}
-                    style={{
-                      borderColor: pendingPdfFile ? '#3B82F6' : cargandoPdf ? '#FBBF24' : themeColors.border,
-                      minHeight: '120px'
-                    }}
-                  >
-                    {/* Indicador de carga PDF */}
-                    {cargandoPdf && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-yellow-50/80 rounded-xl">
-                        <div className="flex flex-col items-center gap-2">
-                          <Loader2 className="w-8 h-8 animate-spin text-yellow-500" />
-                          <span className="text-xs text-yellow-700 font-medium">Cargando PDF...</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Contenido PDF */}
-                    {!cargandoPdf && (
-                      <div className="flex flex-col items-center justify-center h-full gap-2">
-                        {pendingPdfFile && pdfPreviewUrl ? (
-                          <>
-                            {/* Miniatura del PDF */}
-                            <div className="relative w-full h-16 rounded-lg overflow-hidden border border-blue-200 bg-white shadow-sm">
-                              <iframe
-                                src={`${pdfPreviewUrl}#page=1&view=FitH&toolbar=0&navpanes=0`}
-                                className="w-full h-full pointer-events-none"
-                                title="PDF Preview"
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-t from-blue-500/20 to-transparent"></div>
-                              <div className="absolute bottom-1 right-1 bg-blue-500 text-white text-[8px] px-1.5 py-0.5 rounded font-medium">
-                                PDF
-                              </div>
-                            </div>
-                            <div className="text-center">
-                              <p className="text-xs font-bold text-blue-700 truncate max-w-full px-2">
-                                {pendingPdfFile.name.length > 18
-                                  ? pendingPdfFile.name.substring(0, 15) + '...'
-                                  : pendingPdfFile.name}
-                              </p>
-                              <p className="text-[10px] text-blue-600">
-                                ✓ {(pendingPdfFile.size / 1024).toFixed(0)} KB
-                              </p>
-                            </div>
-                          </>
+                  {/* PDF */}
+                  <div className={`p-3 border-2 rounded-lg ${pendingPdfFile ? 'bg-green-50 border-green-300' : 'border-dashed'}`}
+                    style={{ borderColor: pendingPdfFile ? '#10B981' : themeColors.border }}>
+                    <label className="block text-xs font-medium mb-1 text-green-600">PDF Factura</label>
+                    {!pendingPdfFile ? (
+                      <button
+                        type="button"
+                        onClick={() => pdfFacturaInputRef.current?.click()}
+                        disabled={cargandoPdf}
+                        className="w-full flex items-center justify-center gap-2 p-2 rounded hover:bg-gray-50"
+                      >
+                        {cargandoPdf ? (
+                          <Loader2 className="w-4 h-4 text-green-600 animate-spin" />
                         ) : (
-                          <>
-                            <div className="w-12 h-12 rounded-full border-2 border-dashed border-blue-400 flex items-center justify-center bg-blue-50">
-                              <FileText className="w-6 h-6 text-blue-500" />
-                            </div>
-                            <div className="text-center">
-                              <p className="text-sm font-medium text-blue-700">PDF Factura</p>
-                              <p className="text-[10px] text-blue-600">Click para seleccionar</p>
-                              <span className="inline-block mt-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-[9px] rounded-full">
-                                Valida QR
-                              </span>
-                            </div>
-                          </>
+                          <Upload className="w-4 h-4 text-green-600" />
                         )}
+                        <span className="text-sm text-green-600">{cargandoPdf ? 'Cargando...' : 'Seleccionar PDF'}</span>
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-green-600" />
+                        <span className="text-sm text-green-700 truncate">{pendingPdfFile.name}</span>
+                        <button type="button" onClick={() => { setPendingPdfFile(null); if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl); setPdfPreviewUrl(null); }} className="text-red-500 text-xs">✕</button>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Botón PROCESAR - Siempre visible */}
-                <div className="space-y-2 pt-2">
+                {pendingXmlFile && (
                   <button
                     type="button"
                     onClick={procesarFacturaCompleta}
-                    disabled={!pendingXmlFile || procesandoFactura || cargandoXml || cargandoPdf}
-                    className={`w-full py-4 px-4 rounded-xl font-bold text-white flex items-center justify-center gap-3 transition-all transform ${
-                      pendingXmlFile && !procesandoFactura ? 'hover:scale-[1.02] active:scale-[0.98]' : ''
-                    } ${!pendingXmlFile ? 'opacity-40 cursor-not-allowed' : ''}`}
-                    style={{
-                      background: procesandoFactura
-                        ? `linear-gradient(135deg, ${themeColors.primary}, ${themeColors.secondary})`
-                        : pendingXmlFile
-                          ? 'linear-gradient(135deg, #10B981, #059669)'
-                          : '#9CA3AF',
-                      boxShadow: pendingXmlFile && !procesandoFactura
-                        ? '0 8px 20px rgba(16, 185, 129, 0.4)'
-                        : 'none'
-                    }}
+                    disabled={procesandoFactura}
+                    className="w-full py-2.5 rounded-lg font-medium text-white flex items-center justify-center gap-2"
+                    style={{ backgroundColor: '#3B82F6' }}
                   >
                     {procesandoFactura ? (
                       <>
-                        <Loader2 className="w-6 h-6 animate-spin" />
-                        <span className="text-base">{etapaProceso || 'Procesando...'}</span>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        {etapaProceso || 'Procesando...'}
                       </>
                     ) : (
                       <>
-                        <Shield className="w-6 h-6" />
-                        <span className="text-base">
-                          {!pendingXmlFile
-                            ? 'Selecciona un XML para continuar'
-                            : pendingPdfFile
-                              ? 'Validar y Procesar Factura'
-                              : 'Procesar Factura'}
-                        </span>
-                        {pendingPdfFile && <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">+QR</span>}
+                        <Calculator className="w-4 h-4" />
+                        Procesar Factura
                       </>
                     )}
                   </button>
-
-                  {/* Botón limpiar - solo si hay archivos */}
-                  {(pendingXmlFile || pendingPdfFile) && (
+                )}
+              </div>
+            ) : (
+              /* ========================================== */
+              /* Vista para TICKET (imagen con OCR) */
+              /* ========================================== */
+              <div className="space-y-3">
+                <div className={`p-3 border-2 rounded-lg ${ticketFile ? 'bg-amber-50 border-amber-300' : 'border-dashed'}`}
+                  style={{ borderColor: ticketFile ? '#F59E0B' : themeColors.border }}>
+                  <label className="block text-xs font-medium mb-1 text-amber-600">Imagen del Ticket *</label>
+                  {!ticketFile ? (
                     <button
                       type="button"
-                      onClick={limpiarArchivosPendientes}
-                      className="w-full py-2 text-sm rounded-lg border-2 hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-all"
-                      style={{ borderColor: themeColors.border, color: themeColors.textSecondary }}
+                      onClick={() => ticketInputRef.current?.click()}
+                      className="w-full flex items-center justify-center gap-2 p-3 rounded hover:bg-gray-50"
                     >
-                      ✕ Limpiar selección
+                      <Camera className="w-5 h-5 text-amber-600" />
+                      <span className="text-sm text-amber-600">Seleccionar imagen (JPG, PNG)</span>
                     </button>
-                  )}
-                </div>
-
-                {/* Separador para OCR/Tickets */}
-                <div className="flex items-center gap-2 pt-2">
-                  <div className="flex-1 border-t" style={{ borderColor: themeColors.border }}></div>
-                  <span className="text-xs" style={{ color: themeColors.textSecondary }}>o para tickets/imágenes</span>
-                  <div className="flex-1 border-t" style={{ borderColor: themeColors.border }}></div>
-                </div>
-
-                {/* Botón OCR secundario */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShouldProcessOCR(true);
-                    ocrFileInputRef.current?.click();
-                  }}
-                  disabled={isProcessingOCR}
-                  className="w-full py-2 px-4 rounded-lg border-2 flex items-center justify-center gap-2 text-sm transition-all"
-                  style={{
-                    borderColor: themeColors.border,
-                    color: themeColors.text,
-                    backgroundColor: isProcessingOCR ? `${themeColors.primary}10` : 'transparent'
-                  }}
-                >
-                  {isProcessingOCR ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      {ocrProgress || 'Procesando OCR...'}
-                    </>
                   ) : (
-                    <>
-                      <Bot className="w-4 h-4" />
-                      Procesar Ticket/Imagen con OCR
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
-
-            {/* 🆕 BOTÓN VALIDAR CON SAT - Siempre visible cuando hay datos CFDI */}
-            {datosCFDI?.uuid && (
-              <div className="mt-4">
-                <button
-                  type="button"
-                  onClick={validarConSATManual}
-                  disabled={validandoSAT}
-                  className="w-full py-3 px-4 rounded-xl font-semibold flex items-center justify-center gap-3 transition-all border-2"
-                  style={{
-                    borderColor: validandoSAT ? themeColors.primary : '#3B82F6',
-                    backgroundColor: validandoSAT ? `${themeColors.primary}10` : '#EFF6FF',
-                    color: validandoSAT ? themeColors.primary : '#1D4ED8'
-                  }}
-                >
-                  {validandoSAT ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      <span>Consultando SAT...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Shield className="w-5 h-5" />
-                      <span>Validar con SAT</span>
-                      <span className="text-xs opacity-70">(Web Service Oficial)</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
-
-            {/* 🆕 BOTÓN VALIDAR SOLO PDF - Sin necesidad de XML */}
-            <div className="mt-4">
-              <input
-                ref={pdfSoloInputRef}
-                type="file"
-                accept=".pdf,application/pdf"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) validarPDFSoloConSAT(file);
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => pdfSoloInputRef.current?.click()}
-                disabled={validandoPDFSolo}
-                className="w-full py-3 px-4 rounded-xl font-semibold flex items-center justify-center gap-3 transition-all border-2"
-                style={{
-                  borderColor: '#8B5CF6',
-                  backgroundColor: validandoPDFSolo ? '#F3E8FF' : '#FAF5FF',
-                  color: '#7C3AED'
-                }}
-              >
-                {validandoPDFSolo ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>Extrayendo y validando...</span>
-                  </>
-                ) : (
-                  <>
-                    <FileText className="w-5 h-5" />
-                    <span>Validar solo PDF</span>
-                    <span className="text-xs opacity-70">(OCR + SAT automático)</span>
-                  </>
-                )}
-              </button>
-              <p className="text-xs text-center mt-1" style={{ color: themeColors.textSecondary }}>
-                Extrae datos del PDF y valida automáticamente con el SAT
-              </p>
-            </div>
-
-            {/* Resultado de validación PDF solo */}
-            {resultadoPDFSAT && (
-              <div className={`mt-4 p-4 rounded-xl border-2 ${
-                resultadoPDFSAT.validacionSAT?.esValida ? 'bg-green-50 border-green-400' :
-                resultadoPDFSAT.validacionSAT?.esCancelada ? 'bg-red-50 border-red-400' :
-                resultadoPDFSAT.validacionSAT?.noEncontrada ? 'bg-yellow-50 border-yellow-400' :
-                'bg-gray-50 border-gray-300'
-              }`}>
-                <div className="flex items-start gap-3">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                    resultadoPDFSAT.validacionSAT?.esValida ? 'bg-green-500' :
-                    resultadoPDFSAT.validacionSAT?.esCancelada ? 'bg-red-500' :
-                    resultadoPDFSAT.validacionSAT?.noEncontrada ? 'bg-yellow-500' :
-                    'bg-gray-400'
-                  }`}>
-                    <FileText className="w-6 h-6 text-white" />
-                  </div>
-
-                  <div className="flex-1">
-                    <h4 className={`font-bold text-lg ${
-                      resultadoPDFSAT.validacionSAT?.esValida ? 'text-green-800' :
-                      resultadoPDFSAT.validacionSAT?.esCancelada ? 'text-red-800' :
-                      resultadoPDFSAT.validacionSAT?.noEncontrada ? 'text-yellow-800' :
-                      'text-gray-700'
-                    }`}>
-                      {resultadoPDFSAT.validacionSAT?.esValida && '✅ FACTURA VIGENTE (PDF)'}
-                      {resultadoPDFSAT.validacionSAT?.esCancelada && '❌ FACTURA CANCELADA'}
-                      {resultadoPDFSAT.validacionSAT?.noEncontrada && '⚠️ NO ENCONTRADA EN SAT'}
-                      {!resultadoPDFSAT.validacionSAT?.esValida && !resultadoPDFSAT.validacionSAT?.esCancelada && !resultadoPDFSAT.validacionSAT?.noEncontrada && '⚠️ VALIDACIÓN FALLIDA'}
-                    </h4>
-
-                    {resultadoPDFSAT.datosExtraidos && (
-                      <div className="mt-2 text-xs space-y-0.5" style={{ color: themeColors.textSecondary }}>
-                        <p><span className="font-medium">UUID:</span> {resultadoPDFSAT.datosExtraidos.uuid}</p>
-                        <p><span className="font-medium">RFC Emisor:</span> {resultadoPDFSAT.datosExtraidos.rfcEmisor}</p>
-                        <p><span className="font-medium">RFC Receptor:</span> {resultadoPDFSAT.datosExtraidos.rfcReceptor}</p>
-                        <p><span className="font-medium">Total:</span> ${resultadoPDFSAT.datosExtraidos.total?.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
-                        {resultadoPDFSAT.validacionSAT?.codigoEstatus && (
-                          <p><span className="font-medium">Código SAT:</span> {resultadoPDFSAT.validacionSAT.codigoEstatus}</p>
-                        )}
-                      </div>
-                    )}
-
-                    {resultadoPDFSAT.error && (
-                      <p className="text-sm text-red-600 mt-1">{resultadoPDFSAT.error}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Indicadores de validación SAT y QR (cuando hay resultados) */}
-            {(resultadoSAT || resultadoQR) && (
-              <div className="mt-4 space-y-3">
-                {/* RESULTADO SAT - Card grande y clara */}
-                {resultadoSAT && (
-                  <div className={`p-4 rounded-xl border-2 ${
-                    resultadoSAT.esValida ? 'bg-green-50 border-green-400' :
-                    resultadoSAT.esCancelada ? 'bg-red-50 border-red-400' :
-                    resultadoSAT.noEncontrada ? 'bg-yellow-50 border-yellow-400' :
-                    'bg-gray-50 border-gray-300'
-                  }`}>
-                    <div className="flex items-start gap-3">
-                      {/* Icono grande */}
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                        resultadoSAT.esValida ? 'bg-green-500' :
-                        resultadoSAT.esCancelada ? 'bg-red-500' :
-                        resultadoSAT.noEncontrada ? 'bg-yellow-500' :
-                        'bg-gray-400'
-                      }`}>
-                        <Shield className="w-6 h-6 text-white" />
-                      </div>
-
-                      <div className="flex-1">
-                        <h4 className={`font-bold text-lg ${
-                          resultadoSAT.esValida ? 'text-green-800' :
-                          resultadoSAT.esCancelada ? 'text-red-800' :
-                          resultadoSAT.noEncontrada ? 'text-yellow-800' :
-                          'text-gray-700'
-                        }`}>
-                          {resultadoSAT.esValida && '✅ FACTURA VIGENTE'}
-                          {resultadoSAT.esCancelada && '❌ FACTURA CANCELADA'}
-                          {resultadoSAT.noEncontrada && '⚠️ NO ENCONTRADA'}
-                          {!resultadoSAT.esValida && !resultadoSAT.esCancelada && !resultadoSAT.noEncontrada && '⚠️ ERROR'}
-                        </h4>
-
-                        <p className={`text-sm mt-1 ${
-                          resultadoSAT.esValida ? 'text-green-700' :
-                          resultadoSAT.esCancelada ? 'text-red-700' :
-                          resultadoSAT.noEncontrada ? 'text-yellow-700' :
-                          'text-gray-600'
-                        }`}>
-                          {resultadoSAT.mensaje || (
-                            resultadoSAT.esValida ? 'La factura está vigente y es válida ante el SAT' :
-                            resultadoSAT.esCancelada ? 'Esta factura fue cancelada. NO puede ser deducida.' :
-                            resultadoSAT.noEncontrada ? 'La factura no existe en el SAT. Posible apócrifa.' :
-                            'No se pudo verificar el estado'
-                          )}
-                        </p>
-
-                        {/* Detalles */}
-                        <div className="mt-2 text-xs space-y-0.5" style={{ color: themeColors.textSecondary }}>
-                          {datosCFDI?.uuid && (
-                            <p><span className="font-medium">UUID:</span> {datosCFDI.uuid}</p>
-                          )}
-                          {resultadoSAT.codigoEstatus && (
-                            <p><span className="font-medium">Código:</span> {resultadoSAT.codigoEstatus}</p>
-                          )}
-                          {resultadoSAT.esCancelable && (
-                            <p><span className="font-medium">Cancelable:</span> {resultadoSAT.esCancelable}</p>
-                          )}
-                          {resultadoSAT.timestamp && (
-                            <p><span className="font-medium">Consultado:</span> {new Date(resultadoSAT.timestamp).toLocaleString('es-MX')}</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Validación QR */}
-                {resultadoQR && (
-                  <div className={`p-3 rounded-lg border ${
-                    resultadoQR.esValida ? 'bg-green-50 border-green-300' :
-                    resultadoQR.bloqueante ? 'bg-red-50 border-red-300' :
-                    'bg-yellow-50 border-yellow-300'
-                  }`}>
                     <div className="flex items-center gap-2">
-                      <FileText className={`w-5 h-5 ${
-                        resultadoQR.esValida ? 'text-green-600' :
-                        resultadoQR.bloqueante ? 'text-red-600' :
-                        'text-yellow-600'
-                      }`} />
-                      <span className="text-sm font-medium" style={{ color: themeColors.text }}>
-                        Validación QR vs XML:
-                      </span>
-                      <span className={`text-sm font-semibold ${
-                        resultadoQR.esValida ? 'text-green-700' :
-                        resultadoQR.bloqueante ? 'text-red-700' :
-                        'text-yellow-700'
-                      }`}>
-                        {resultadoQR.esValida ? '✓ PDF coincide con XML' : resultadoQR.bloqueante ? '✕ PDF NO coincide' : '⚠ Advertencia'}
-                      </span>
+                      <Camera className="w-4 h-4 text-amber-600" />
+                      <span className="text-sm text-amber-700 truncate">{ticketFile.name}</span>
+                      <button type="button" onClick={() => setTicketFile(null)} className="text-red-500 text-xs">✕</button>
                     </div>
-                  </div>
+                  )}
+                </div>
+
+                {ticketFile && (
+                  <button
+                    type="button"
+                    onClick={() => processTicketOCR(ticketFile)}
+                    disabled={isProcessingOCR}
+                    className="w-full py-2.5 rounded-lg font-medium text-white flex items-center justify-center gap-2"
+                    style={{ backgroundColor: '#F59E0B' }}
+                  >
+                    {isProcessingOCR ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        {ocrProgress || 'Procesando OCR...'}
+                      </>
+                    ) : (
+                      <>
+                        <Camera className="w-4 h-4" />
+                        Procesar Ticket con OCR
+                      </>
+                    )}
+                  </button>
                 )}
+              </div>
+            )}
+
+            {/* Archivo adjunto procesado */}
+            {formData.documento_url && !lastProcessedMethod && (
+              <div className="mt-3 flex items-center gap-2 p-2 bg-green-50 rounded-lg border border-green-200">
+                <FileText className="w-4 h-4 text-green-600" />
+                <span className="text-sm text-green-700 truncate flex-1">Documento adjunto</span>
+                <a href={formData.documento_url} target="_blank" className="text-sm text-blue-600 hover:underline">
+                  Ver
+                </a>
+              </div>
+            )}
+
+            {/* Estado de validación SAT - Solo cuando hay datos CFDI */}
+            {(validandoSAT || resultadoSAT) && tipoDocumento === 'factura' && (
+              <div className="mt-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium" style={{ color: themeColors.text }}>
+                    Validación SAT:
+                  </span>
+                  <SATStatusBadge resultado={resultadoSAT} isValidating={validandoSAT} size="md" />
+                </div>
+                {resultadoSAT && !resultadoSAT.esValida && (
+                  <SATAlertBox resultado={resultadoSAT} onClose={() => { resetearSAT(); limpiarArchivosPendientes(); }} />
+                )}
+              </div>
+            )}
+
+            {/* Estado de validación QR */}
+            {(validandoQR || resultadoQR) && tipoDocumento === 'factura' && (
+              <div className="mt-3 p-3 rounded-lg border" style={{ borderColor: themeColors.border, backgroundColor: `${themeColors.border}20` }}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium" style={{ color: themeColors.text }}>
+                    Validación QR vs XML:
+                  </span>
+                  {validandoQR ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Validando...
+                    </span>
+                  ) : resultadoQR?.esValida ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                      Coincide
+                    </span>
+                  ) : resultadoQR?.bloqueante ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
+                      No coincide
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+                      {resultadoQR?.mensaje || 'Advertencia'}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -2502,7 +2481,7 @@ export const GastoFormModal = ({
                   value={formData.folio_factura}
                   onChange={(e) => setFormData({ ...formData, folio_factura: e.target.value })}
                   className="w-full px-4 py-2.5 border-2 rounded-lg"
-                  placeholder="FACT-12345, N/A, etc."
+                  placeholder="UUID o folio de la factura"
                   style={{
                     borderColor: themeColors.border,
                     backgroundColor: themeColors.bg,
@@ -2511,158 +2490,115 @@ export const GastoFormModal = ({
                 />
               </div>
 
+              {/* Ver documento adjunto */}
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
+                  Documento Adjunto
+                </label>
+                {formData.documento_url ? (
+                  <a
+                    href={formData.documento_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-4 py-2.5 border-2 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"
+                    style={{ borderColor: themeColors.border }}
+                  >
+                    <FileText className="w-4 h-4" />
+                    <span>Ver documento</span>
+                  </a>
+                ) : (
+                  <div
+                    className="flex items-center gap-2 px-4 py-2.5 border-2 rounded-lg text-gray-400"
+                    style={{ borderColor: themeColors.border }}
+                  >
+                    <FileText className="w-4 h-4" />
+                    <span>Sin documento</span>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-
-          {/* Notas */}
-          <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
-              Notas adicionales
-            </label>
-            <textarea
-              value={formData.notas}
-              onChange={(e) => setFormData({ ...formData, notas: e.target.value })}
-              rows={2}
-              className="w-full px-4 py-2.5 border-2 rounded-lg resize-none"
-              placeholder="Observaciones o comentarios..."
-              style={{
-                borderColor: themeColors.border,
-                backgroundColor: themeColors.bg,
-                color: themeColors.text
-              }}
-            />
           </div>
         </form>
+      </div>
 
-        {/* Footer */}
-        <div
-          className="flex justify-between items-center px-6 py-4 border-t"
-          style={{
-            backgroundColor: `${themeColors.border}30`,
-            borderColor: themeColors.border
-          }}
-        >
-          <div className="text-sm" style={{ color: themeColors.textSecondary }}>
-            IVA configurado: {IVA_PORCENTAJE}%
-          </div>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-6 py-2.5 border-2 rounded-lg font-medium transition-colors"
-              style={{
-                borderColor: themeColors.border,
-                color: themeColors.text
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${themeColors.border}40`}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={() => handleSubmit()}
-              disabled={saving}
-              className="px-8 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors text-white disabled:opacity-50"
-              style={{
-                backgroundColor: themeColors.primary,
-                color: isDark ? '#1E293B' : '#FFFFFF'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = themeColors.secondary}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = themeColors.primary}
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Guardando...
-                </>
-              ) : gasto ? (
-                <>
-                  <Save className="w-4 h-4" />
-                  Actualizar
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  Crear Gasto
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* Modal nuevo proveedor */}
-        {showNuevoProveedor && (
-          <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-30">
-            <div
-              className="rounded-xl p-6 w-[400px] shadow-2xl"
-              style={{ backgroundColor: themeColors.bg }}
-            >
-              <h3 className="text-lg font-semibold mb-4" style={{ color: themeColors.text }}>
+      {/* Modal Nuevo Proveedor */}
+      {showNuevoProveedor && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div
+            className="rounded-xl shadow-xl max-w-md w-full p-6"
+            style={{ backgroundColor: themeColors.bg }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold" style={{ color: themeColors.text }}>
                 Nuevo Proveedor
               </h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
-                    Razón Social *
-                  </label>
-                  <input
-                    type="text"
-                    value={nuevoProveedorData.razon_social}
-                    onChange={(e) => setNuevoProveedorData({ ...nuevoProveedorData, razon_social: e.target.value })}
-                    className="w-full px-4 py-2.5 border-2 rounded-lg"
-                    style={{
-                      borderColor: themeColors.border,
-                      backgroundColor: themeColors.bg,
-                      color: themeColors.text
-                    }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
-                    RFC
-                  </label>
-                  <input
-                    type="text"
-                    value={nuevoProveedorData.rfc}
-                    onChange={(e) => setNuevoProveedorData({ ...nuevoProveedorData, rfc: e.target.value.toUpperCase() })}
-                    className="w-full px-4 py-2.5 border-2 rounded-lg"
-                    maxLength={13}
-                    style={{
-                      borderColor: themeColors.border,
-                      backgroundColor: themeColors.bg,
-                      color: themeColors.text
-                    }}
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowNuevoProveedor(false)}
-                  className="px-4 py-2 border-2 rounded-lg transition-colors"
+              <button
+                onClick={() => setShowNuevoProveedor(false)}
+                className="p-1 rounded hover:bg-gray-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
+                  Razón Social *
+                </label>
+                <input
+                  type="text"
+                  value={nuevoProveedorData.razon_social}
+                  onChange={(e) => setNuevoProveedorData({ ...nuevoProveedorData, razon_social: e.target.value })}
+                  className="w-full px-4 py-2.5 border-2 rounded-lg"
                   style={{
                     borderColor: themeColors.border,
+                    backgroundColor: themeColors.bg,
                     color: themeColors.text
                   }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCrearNuevoProveedor}
-                  className="px-4 py-2 rounded-lg text-white transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
+                  RFC
+                </label>
+                <input
+                  type="text"
+                  value={nuevoProveedorData.rfc}
+                  onChange={(e) => setNuevoProveedorData({ ...nuevoProveedorData, rfc: e.target.value.toUpperCase() })}
+                  className="w-full px-4 py-2.5 border-2 rounded-lg uppercase"
+                  maxLength={13}
                   style={{
-                    backgroundColor: themeColors.primary,
-                    color: isDark ? '#1E293B' : '#FFFFFF'
+                    borderColor: themeColors.border,
+                    backgroundColor: themeColors.bg,
+                    color: themeColors.text
                   }}
-                >
-                  Crear Proveedor
-                </button>
+                />
               </div>
             </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => setShowNuevoProveedor(false)}
+                className="px-4 py-2 border-2 rounded-lg"
+                style={{ borderColor: themeColors.border, color: themeColors.text }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCrearNuevoProveedor}
+                className="px-4 py-2 rounded-lg text-white font-medium"
+                style={{ backgroundColor: themeColors.primary }}
+              >
+                Crear Proveedor
+              </button>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
+
+export default GastoFormModal;

@@ -314,7 +314,7 @@ export const RetornoMaterialForm: React.FC<RetornoMaterialFormProps> = ({
         style={{ backgroundColor: themeColors.bg }}
       >
         {/* Header */}
-        <div 
+        <div
           className="flex items-center justify-between px-6 py-4"
           style={{ background: `linear-gradient(to right, ${themeColors.primary}, ${themeColors.secondary})` }}
         >
@@ -451,7 +451,7 @@ export const RetornoMaterialForm: React.FC<RetornoMaterialFormProps> = ({
 
           {/* Modal para nuevo producto */}
           {showNuevoProducto && (
-            <div 
+            <div
               className="p-4 border-2 rounded-lg space-y-3"
               style={{ borderColor: `${themeColors.secondary}60`, backgroundColor: `${themeColors.secondary}10` }}
             >
@@ -526,66 +526,67 @@ export const RetornoMaterialForm: React.FC<RetornoMaterialFormProps> = ({
             </div>
           )}
 
-          {/* Tabla de líneas */}
+          {/* Tabla de líneas - COMPACTA (homogénea con MaterialAlmacenForm) */}
           {lineas.length > 0 && (
-            <div className="border-2 rounded-lg overflow-hidden" style={{ borderColor: themeColors.border }}>
-              <table className="w-full">
-                <thead style={{ backgroundColor: `${themeColors.primary}15` }}>
+            <div className="border rounded-lg overflow-hidden" style={{ borderColor: themeColors.border }}>
+              <table className="w-full text-sm">
+                <thead style={{ backgroundColor: `${themeColors.secondary}15` }}>
                   <tr>
-                    <th className="px-4 py-2 text-left text-sm font-semibold" style={{ color: themeColors.primary }}>Material</th>
-                    <th className="px-4 py-2 text-center text-sm font-semibold w-24" style={{ color: themeColors.primary }}>Cantidad</th>
-                    <th className="px-4 py-2 text-center text-sm font-semibold w-20" style={{ color: themeColors.primary }}>Unidad</th>
-                    <th className="px-4 py-2 text-right text-sm font-semibold w-32" style={{ color: themeColors.primary }}>Costo Unit.</th>
-                    <th className="px-4 py-2 text-right text-sm font-semibold w-32" style={{ color: themeColors.primary }}>Subtotal</th>
-                    <th className="px-4 py-2 w-12"></th>
+                    <th className="px-2 py-1.5 text-left text-xs font-semibold" style={{ color: themeColors.secondary }}>Material</th>
+                    <th className="px-2 py-1.5 text-center text-xs font-semibold w-16" style={{ color: themeColors.secondary }}>Cant.</th>
+                    <th className="px-2 py-1.5 text-center text-xs font-semibold w-14" style={{ color: themeColors.secondary }}>Unid.</th>
+                    <th className="px-2 py-1.5 text-right text-xs font-semibold w-24" style={{ color: themeColors.secondary }}>$ Unit.</th>
+                    <th className="px-2 py-1.5 text-right text-xs font-semibold w-24" style={{ color: themeColors.secondary }}>Subtotal</th>
+                    <th className="px-1 py-1.5 w-8"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {lineas.map((linea, index) => (
-                    <tr key={index} className="border-t" style={{ borderColor: themeColors.border }}>
-                      <td className="px-4 py-2">
-                        <div>
-                          <span className="font-medium" style={{ color: themeColors.text }}>
+                    <tr key={index} className="border-t hover:bg-gray-50" style={{ borderColor: themeColors.border }}>
+                      <td className="px-2 py-1">
+                        <div className="flex items-center gap-1">
+                          <Package className="w-3 h-3 text-emerald-500 flex-shrink-0" />
+                          <span className="font-medium text-xs" style={{ color: themeColors.text }}>
                             {linea.producto_nombre}
                           </span>
                           {linea.producto_clave && (
-                            <span className="text-xs text-gray-500 ml-2">{linea.producto_clave}</span>
+                            <span className="text-[10px] text-gray-400">({linea.producto_clave})</span>
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-2">
+                      <td className="px-2 py-1">
                         <input
                           type="number"
                           min="1"
                           value={linea.cantidad}
                           onChange={(e) => actualizarLinea(index, 'cantidad', parseInt(e.target.value) || 1)}
-                          className="w-full px-2 py-1 border rounded text-center"
+                          className="w-full px-1 py-0.5 border rounded text-center text-xs"
                         />
                       </td>
-                      <td className="px-4 py-2 text-center text-sm text-gray-600">
+                      <td className="px-2 py-1 text-center text-xs text-gray-600">
                         {linea.unidad}
                       </td>
-                      <td className="px-4 py-2">
+                      <td className="px-2 py-1">
                         <div className="relative">
-                          <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <span className="absolute left-1 top-1/2 -translate-y-1/2 text-xs text-gray-400">$</span>
                           <input
                             type="number"
                             step="0.01"
                             value={linea.costo_unitario}
                             onChange={(e) => actualizarLinea(index, 'costo_unitario', parseFloat(e.target.value) || 0)}
-                            className="w-full pl-7 pr-2 py-1 border rounded text-right"
+                            className="w-full pl-3 pr-1 py-0.5 border rounded text-right text-xs"
                           />
                         </div>
                       </td>
-                      <td className="px-4 py-2 text-right font-bold" style={{ color: themeColors.primary }}>
+                      <td className="px-2 py-1 text-right text-xs font-bold" style={{ color: themeColors.secondary }}>
                         ${linea.subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                       </td>
-                      <td className="px-4 py-2">
+                      <td className="px-1 py-1">
                         <button
                           onClick={() => eliminarLinea(index)}
-                          className="p-1 hover:bg-red-100 rounded text-red-500"
+                          className="p-0.5 hover:bg-red-100 rounded text-red-500"
                         >
-                          <X className="w-4 h-4" />
+                          <X className="w-3 h-3" />
                         </button>
                       </td>
                     </tr>
@@ -612,8 +613,8 @@ export const RetornoMaterialForm: React.FC<RetornoMaterialFormProps> = ({
         </div>
 
         {/* Footer con totales */}
-        <div 
-          className="px-6 py-4 border-t" 
+        <div
+          className="px-6 py-4 border-t"
           style={{ borderColor: themeColors.border, backgroundColor: `${themeColors.primary}10` }}
         >
           <div className="flex justify-between items-center">

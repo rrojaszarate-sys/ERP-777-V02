@@ -331,7 +331,8 @@ export const useEventosFinancialList = (filters?: EventosFinancialFilters) => {
       }
     },
     refetchOnWindowFocus: false,
-    staleTime: 30000, // 30 segundos
+    staleTime: 60000, // 60 segundos - evitar consultas frecuentes
+    gcTime: 300000, // 5 minutos en cache (anteriormente cacheTime)
   });
 };
 
@@ -523,6 +524,7 @@ export const useEventosFinancialDashboard = (filters?: EventosFinancialFilters) 
       }
     },
     refetchOnWindowFocus: false,
-    staleTime: 30000, // 30 segundos
+    staleTime: 60000, // 60 segundos - evitar consultas frecuentes
+    gcTime: 300000, // 5 minutos en cache
   });
 };

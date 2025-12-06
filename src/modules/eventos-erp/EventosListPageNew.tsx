@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Plus, Eye, Edit, Trash2, Calendar,
@@ -108,6 +108,21 @@ export const EventosListPage: React.FC = () => {
 
   // Filtro adicional para color de KPI (no incluido en EventosFinancialFilters)
   const [kpiColorFilter, setKpiColorFilter] = useState<string>('');
+
+  // 🔍 Estado local para búsqueda con debounce (evita recargar en cada tecla)
+  const [searchTerm, setSearchTerm] = useState<string>(filters.search || '');
+
+  // Debounce del término de búsqueda (800ms para dar más tiempo al usuario)
+  useEffect(() => {
+    // No hacer nada si el valor no cambió
+    if (searchTerm === (filters.search || '')) return;
+
+    const timer = setTimeout(() => {
+      setFilters(prev => ({ ...prev, search: searchTerm || undefined }));
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm, filters.search]);
 
   const { canCreate, canUpdate, canDelete } = usePermissions();
 
@@ -299,6 +314,7 @@ export const EventosListPage: React.FC = () => {
       cliente_id: undefined,
       search: undefined,
     });
+    setSearchTerm(''); // Limpiar también el estado local del buscador
   };
 
   // Definición de columnas fuera del render principal
@@ -583,28 +599,55 @@ export const EventosListPage: React.FC = () => {
         </div>
         
         <div className="flex gap-2">
-          {/* Botón de formato de números (Miles/Millones/Normal) */}
-          <Button
-            onClick={() => {
-              if (moneyFormat === 'normal') setMoneyFormat('miles');
-              else if (moneyFormat === 'miles') setMoneyFormat('millones');
-              else setMoneyFormat('normal');
-            }}
-            variant="outline"
-            className="border-gray-300 font-semibold"
-          >
-            💲 {moneyFormat === 'miles' ? 'K' : moneyFormat === 'millones' ? 'M' : '$'}
-          </Button>
+          {/* Selector de formato de números - Estilo homologado con GastosNoImpactados */}
+          <div className="flex items-center border rounded-lg overflow-hidden" style={{ borderColor: themeColors.border }}>
+            <button
+              onClick={() => setMoneyFormat('normal')}
+              className="px-3 py-2 text-sm font-medium transition-all"
+              style={{
+                backgroundColor: moneyFormat === 'normal' ? themeColors.primary : themeColors.cardBg,
+                color: moneyFormat === 'normal' ? '#fff' : themeColors.textSecondary
+              }}
+              title="Sin agrupación"
+            >
+              $
+            </button>
+            <button
+              onClick={() => setMoneyFormat('miles')}
+              className="px-3 py-2 text-sm font-medium transition-all border-x"
+              style={{
+                backgroundColor: moneyFormat === 'miles' ? themeColors.primary : themeColors.cardBg,
+                color: moneyFormat === 'miles' ? '#fff' : themeColors.textSecondary,
+                borderColor: themeColors.border
+              }}
+              title="Agrupar en miles (K)"
+            >
+              K
+            </button>
+            <button
+              onClick={() => setMoneyFormat('millones')}
+              className="px-3 py-2 text-sm font-medium transition-all"
+              style={{
+                backgroundColor: moneyFormat === 'millones' ? themeColors.primary : themeColors.cardBg,
+                color: moneyFormat === 'millones' ? '#fff' : themeColors.textSecondary
+              }}
+              title="Agrupar en millones (M)"
+            >
+              M
+            </button>
+          </div>
 
-          <Button
-            onClick={toggleCentavos}
-            variant="outline"
-            className="border-gray-300"
-            disabled={moneyFormat !== 'normal'}
-            title="Mostrar/ocultar centavos"
-          >
-            {showCentavos ? '💲 .00' : '💲'}
-          </Button>
+          {/* Botón centavos - Solo cuando está en formato normal */}
+          {moneyFormat === 'normal' && (
+            <Button
+              onClick={toggleCentavos}
+              variant="outline"
+              className="border-gray-300"
+              title="Mostrar/ocultar centavos"
+            >
+              {showCentavos ? '.00' : '.--'}
+            </Button>
+          )}
 
           <Button
             onClick={() => setShowFilters(!showFilters)}
@@ -755,8 +798,8 @@ export const EventosListPage: React.FC = () => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4" style={{ color: themeColors.textSecondary }} />
                 <input
                   type="text"
-                  value={filters.search || ''}
-                  onChange={(e) => setFilters({ ...filters, search: e.target.value || undefined })}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Clave, proyecto, cliente..."
                   className="w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent"
                   style={{ borderColor: themeColors.border, backgroundColor: themeColors.cardBg, color: themeColors.textPrimary }}
