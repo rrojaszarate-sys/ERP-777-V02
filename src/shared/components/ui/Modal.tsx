@@ -9,6 +9,7 @@ interface ModalProps {
   children: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'xxl' | 'full' | '80' | '95';
   closeOnBackdrop?: boolean;
+  className?: string;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -17,7 +18,8 @@ export const Modal: React.FC<ModalProps> = ({
   title,
   children,
   size = 'md',
-  closeOnBackdrop = true
+  closeOnBackdrop = true,
+  className = ''
 }) => {
   const sizeClasses = {
     sm: 'max-w-sm',
@@ -62,7 +64,7 @@ export const Modal: React.FC<ModalProps> = ({
 
           {/* Modal Content */}
           <motion.div
-            className={`relative bg-white rounded-xl shadow-2xl w-full ${sizeClasses[size]} ${heightClasses[size]} overflow-hidden flex flex-col`}
+            className={`relative bg-white rounded-xl shadow-2xl w-full ${sizeClasses[size]} ${heightClasses[size]} overflow-hidden flex flex-col ${className}`}
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}

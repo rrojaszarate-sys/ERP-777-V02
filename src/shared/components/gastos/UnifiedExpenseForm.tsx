@@ -1,15 +1,9 @@
 /**
- * FORMULARIO UNIFICADO DE GASTOS
- * ================================
- * Usado en: Eventos ERP y Gastos No Impactados
- * 
- * Características:
- * - Parseo XML CFDI (100% precisión)
- * - Validación SAT
- * - OCR para tickets
- * - 4 tipos de documentos
- * - Campo Responsable
- * - Flujo: Provisión → Gasto
+ * FORMULARIO UNIFICADO DE GASTOS - COMPACTO
+ * ==========================================
+ * - Todos los campos caben sin scroll
+ * - Campos y botones pequeños
+ * - Mensajes homologados con GastoFormModal
  */
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
@@ -19,71 +13,53 @@ import {
 import { useTheme } from '../theme';
 import { useAuth } from '../../../core/auth/AuthProvider';
 import { supabase } from '../../../core/config/supabase';
-import { parseCFDIXml } from '../../../modules/eventos-erp/utils/cfdiXmlParser';
 import { useSATValidation } from '../../../modules/eventos-erp/hooks/useSATValidation';
-import { processFileWithOCR } from '../../../modules/ocr/services/dualOCRService';
 import { DocumentUploader } from './DocumentUploader';
-import type { GastoFormData, EstadoGasto, TipoDocumento } from './types';
+import type { GastoFormData, EstadoGasto } from './types';
 import toast from 'react-hot-toast';
 
-// IVA desde config
 const IVA_PORCENTAJE = parseFloat(import.meta.env.VITE_IVA_PORCENTAJE || '16');
 const IVA_RATE = IVA_PORCENTAJE / 100;
 
-// Props del componente
 interface UnifiedExpenseFormProps {
-    // Datos
     gasto?: Partial<GastoFormData> | null;
     eventoId?: number | null;
-    claveEvento?: string;       // Ej: DOT2025-003
-
-    // Catálogos
+    claveEvento?: string;
     categorias?: { id: number; nombre: string; color?: string }[];
     proveedores?: { id: number; razon_social: string; rfc?: string }[];
     usuarios?: { id: string; nombre: string; email?: string }[];
-
-    // Callbacks
+    formasPago?: { id: number; nombre: string }[];  // Formas de pago
+    ejecutivos?: { id: number; nombre: string }[];  // Ejecutivos
     onSave: (data: GastoFormData) => Promise<void>;
     onCancel: () => void;
-
-    // Config
     modo?: 'evento' | 'gni' | 'provision';
     className?: string;
 }
 
-// Input de moneda
+// Input compacto de moneda
 const CurrencyInput = ({ value, onChange, readOnly = false, placeholder = '0.00', style }: {
-    value: number;
-    onChange: (v: number) => void;
-    readOnly?: boolean;
-    placeholder?: string;
+    value: number; onChange: (v: number) => void; readOnly?: boolean; placeholder?: string;
     style?: React.CSSProperties;
 }) => {
     const [display, setDisplay] = useState('');
-
     useEffect(() => {
         setDisplay(value > 0 ? value.toLocaleString('es-MX', { minimumFractionDigits: 2 }) : '');
     }, [value]);
-
     const handleBlur = () => {
         const num = parseFloat(display.replace(/[^0-9.]/g, '')) || 0;
         onChange(num);
         setDisplay(num > 0 ? num.toLocaleString('es-MX', { minimumFractionDigits: 2 }) : '');
     };
-
     return (
         <div className="relative">
-            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
             <input
-                type="text"
-                inputMode="decimal"
-                value={display}
+                type="text" inputMode="decimal" value={display}
                 onChange={(e) => setDisplay(e.target.value.replace(/[^0-9.,]/g, ''))}
                 onBlur={handleBlur}
                 onFocus={() => value > 0 && setDisplay(value.toString())}
-                readOnly={readOnly}
-                placeholder={placeholder}
-                className="w-full pl-9 pr-4 py-2.5 border-2 rounded-lg font-mono text-right"
+                readOnly={readOnly} placeholder={placeholder}
+                className="w-full pl-6 pr-2 py-1.5 border rounded text-sm font-mono text-right"
                 style={style}
             />
         </div>
@@ -91,24 +67,15 @@ const CurrencyInput = ({ value, onChange, readOnly = false, placeholder = '0.00'
 };
 
 export const UnifiedExpenseForm: React.FC<UnifiedExpenseFormProps> = ({
-    gasto,
-    eventoId,
-    claveEvento = 'SIN-EVENTO',
-    categorias = [],
-    proveedores: _proveedores = [],
-    usuarios = [],
-    onSave,
-    onCancel,
-    modo = 'evento',
-    className = ''
+    gasto, eventoId, claveEvento = 'SIN-EVENTO',
+    categorias = [], proveedores: _proveedores = [], usuarios: _usuarios = [],
+    formasPago = [], ejecutivos = [],
+    onSave, onCancel, modo = 'evento', className = ''
 }) => {
     const { paletteConfig, isDark } = useTheme();
     const { user } = useAuth();
+    const { validar: validarSAT, resultado: resultadoSAT, isValidating: validandoSAT } = useSATValidation();
 
-    // Validación SAT
-    const { validar: validarSAT, resultado: resultadoSAT, isValidating: validandoSAT, resetear: resetearSAT } = useSATValidation();
-
-    // Estados
     const [formData, setFormData] = useState<GastoFormData>({
         concepto: gasto?.concepto || '',
         subtotal: gasto?.subtotal || 0,
@@ -129,182 +96,52 @@ export const UnifiedExpenseForm: React.FC<UnifiedExpenseFormProps> = ({
         ticket_url: gasto?.ticket_url || null,
         folio_fiscal: gasto?.folio_fiscal || null,
         notas: gasto?.notas || '',
-        evento_id: eventoId || null
+        evento_id: eventoId || null,
+        clave_gasto_id: gasto?.clave_gasto_id || null,
+        ejecutivo_id: gasto?.ejecutivo_id || null
     });
 
     const [saving, setSaving] = useState(false);
-    const [procesandoXml, setProcesandoXml] = useState(false);
-    const [procesandoOcr, setProcesandoOcr] = useState(false);
-    const [tipoDoc, setTipoDoc] = useState<TipoDocumento>(
-        formData.factura_xml_url || formData.factura_pdf_url ? 'factura' :
-            formData.ticket_url ? 'ticket' : null
-    );
-
-    // Archivos pendientes
     const [pendingXml, setPendingXml] = useState<File | null>(null);
     const [pendingPdf, setPendingPdf] = useState<File | null>(null);
     const [pendingTicket, setPendingTicket] = useState<File | null>(null);
     const [pendingComprobante, setPendingComprobante] = useState<File | null>(null);
 
-    // Colores
     const themeColors = useMemo(() => ({
-        primary: '#EF4444', // Rojo para gastos
-        primaryLight: '#FEE2E2',
+        primary: '#EF4444',
         primaryDark: '#DC2626',
         bg: isDark ? '#1E293B' : '#FFFFFF',
         text: isDark ? '#F8FAFC' : '#1E293B',
-        textSecondary: isDark ? '#CBD5E1' : '#64748B',
         border: isDark ? '#334155' : '#E2E8F0',
         accent: paletteConfig.accent
     }), [paletteConfig, isDark]);
 
-    // Calcular IVA
     const calcularIva = useCallback(() => {
         if (formData.subtotal > 0) {
             const iva = Math.round(formData.subtotal * IVA_RATE * 100) / 100;
             const total = Math.round((formData.subtotal + iva) * 100) / 100;
             setFormData(prev => ({ ...prev, iva, total }));
-            toast.success(`IVA: $${iva.toFixed(2)}`);
+            toast.success(`IVA calculado: $${iva.toFixed(2)}`);
         }
     }, [formData.subtotal]);
 
-    // Calcular total
-    const calcularTotal = useCallback(() => {
-        const total = Math.round((formData.subtotal + formData.iva) * 100) / 100;
-        setFormData(prev => ({ ...prev, total }));
-    }, [formData.subtotal, formData.iva]);
-
-    // Procesar XML CFDI
-    const procesarXml = async (file: File) => {
-        setProcesandoXml(true);
-        resetearSAT();
-
-        try {
-            const content = await file.text();
-            const cfdi = await parseCFDIXml(content);
-
-            if (!cfdi) throw new Error('XML no válido');
-
-            // Extraer datos
-            const uuid = cfdi.timbreFiscal?.uuid || '';
-            const rfcEmisor = cfdi.emisor?.rfc || '';
-            const rfcReceptor = cfdi.receptor?.rfc || '';
-
-            // Actualizar formulario
-            setFormData(prev => ({
-                ...prev,
-                concepto: cfdi.conceptos?.[0]?.descripcion || prev.concepto,
-                proveedor_nombre: cfdi.emisor?.nombre || '',
-                rfc_proveedor: rfcEmisor,
-                fecha_gasto: cfdi.fecha?.split('T')[0] || prev.fecha_gasto,
-                subtotal: cfdi.subtotal || 0,
-                iva: cfdi.impuestos?.totalTraslados || 0,
-                total: cfdi.total || 0,
-                folio_fiscal: uuid
-            }));
-
-            // Validar con SAT
-            if (uuid && rfcEmisor && rfcReceptor) {
-                const satResult = await validarSAT({
-                    uuid, rfcEmisor, rfcReceptor, total: cfdi.total || 0
-                });
-
-                if (satResult.esCancelada) {
-                    toast.error('❌ FACTURA CANCELADA EN SAT', { duration: 5000 });
-                    setProcesandoXml(false);
-                    return;
-                }
-
-                if (satResult.esValida) {
-                    toast.success('✅ Factura verificada - VIGENTE');
-                }
-            }
-
-            setPendingXml(file);
-            setTipoDoc('factura');
-            toast.success(`XML procesado: ${cfdi.emisor?.nombre}`);
-
-        } catch (error: any) {
-            toast.error(`Error: ${error.message}`);
-        } finally {
-            setProcesandoXml(false);
-        }
-    };
-
-    // Procesar Ticket con OCR
-    const procesarTicket = async (file: File) => {
-        setProcesandoOcr(true);
-
-        try {
-            const ocrResult = await processFileWithOCR(file) as any;
-
-            if (ocrResult) {
-                // Soportar ambos formatos: datos_extraidos (ocrService.v2) o directo
-                const datos = ocrResult.datos_extraidos || ocrResult;
-                setFormData(prev => ({
-                    ...prev,
-                    concepto: datos.establecimiento || prev.concepto,
-                    proveedor_nombre: datos.establecimiento || '',
-                    rfc_proveedor: datos.rfc || '',
-                    fecha_gasto: datos.fecha || prev.fecha_gasto,
-                    subtotal: datos.subtotal || 0,
-                    iva: datos.iva || 0,
-                    total: datos.total || 0
-                }));
-                toast.success('Datos extraídos del ticket');
-            }
-
-            setPendingTicket(file);
-            setTipoDoc('ticket');
-
-        } catch (error: any) {
-            toast.error(`Error OCR: ${error.message}`);
-        } finally {
-            setProcesandoOcr(false);
-        }
-    };
-
-    // Función para subir archivos con estructura de carpetas por gasto
-    // Formato: eventos/{clave}/gastos/{seq}/{CLAVE}_{SEQ}_{NombreOriginal}.ext
     const subirArchivo = async (file: File, _tipo: string): Promise<string | null> => {
         if (!user?.company_id) return null;
-
         try {
-            // Obtener secuencia del gasto (si es nuevo, usar timestamp)
-            const secuencia = gasto?.id
-                ? parseInt(String(gasto.id).slice(-3)) || 1
-                : Math.floor(Date.now() / 1000) % 1000; // Temporal para nuevos
-
+            const secuencia = gasto?.id ? parseInt(String(gasto.id).slice(-3)) || 1 : Math.floor(Date.now() / 1000) % 1000;
             const secStr = String(secuencia).padStart(3, '0');
-
-            // Sanitizar nombre original del archivo
-            const nombreOriginal = file.name
-                .replace(/[^a-zA-Z0-9._-]/g, '_')
-                .replace(/_+/g, '_');
-
+            const nombreOriginal = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/_+/g, '_');
             let path: string;
-
             if (modo === 'evento' && claveEvento && claveEvento !== 'SIN-EVENTO') {
-                // eventos/DOT2025-003/gastos/001/DOT2025-003_001_Factura_Proveedor.pdf
-                const nombreFinal = `${claveEvento}_${secStr}_${nombreOriginal}`;
-                path = `eventos/${claveEvento}/gastos/${secStr}/${nombreFinal}`;
+                path = `eventos/${claveEvento}/gastos/${secStr}/${claveEvento}_${secStr}_${nombreOriginal}`;
             } else {
-                // contabilidad/gastos_externos/2025-12/001/GNI-2025-12_001_Factura.pdf
                 const periodo = new Date().toISOString().slice(0, 7);
-                const clave = `GNI-${periodo}`;
-                const nombreFinal = `${clave}_${secStr}_${nombreOriginal}`;
-                path = `contabilidad/gastos_externos/${periodo}/${secStr}/${nombreFinal}`;
+                path = `contabilidad/gastos_externos/${periodo}/${secStr}/GNI-${periodo}_${secStr}_${nombreOriginal}`;
             }
-
-            const { error } = await supabase.storage
-                .from('event_docs')
-                .upload(path, file, { cacheControl: '3600', upsert: true });
-
+            const { error } = await supabase.storage.from('event_docs').upload(path, file, { cacheControl: '3600', upsert: true });
             if (error) throw error;
-
             const { data } = supabase.storage.from('event_docs').getPublicUrl(path);
             return data.publicUrl;
-
         } catch (error: any) {
             console.error('Error subiendo archivo:', error);
             toast.error(`Error al subir ${file.name}`);
@@ -312,83 +149,81 @@ export const UnifiedExpenseForm: React.FC<UnifiedExpenseFormProps> = ({
         }
     };
 
-    // Validar formulario
     const validar = (): boolean => {
+        // Validaciones básicas
         if (!formData.concepto.trim()) {
-            toast.error('Concepto requerido');
+            toast.error('El concepto es requerido');
             return false;
         }
         if (formData.total <= 0) {
-            toast.error('Total debe ser mayor a 0');
+            toast.error('El total debe ser mayor a $0');
             return false;
         }
 
-        // Si es gasto (no provisión), requiere documentos
-        if (modo !== 'provision' && formData.estado !== 'provision') {
-            if (!pendingXml && !pendingTicket && !formData.factura_xml_url && !formData.ticket_url) {
-                toast.error('Requiere factura o ticket');
-                return false;
-            }
-            if (!pendingComprobante && !formData.comprobante_pago_url) {
-                toast.error('Requiere comprobante de pago');
-                return false;
-            }
+        // Categoría es OBLIGATORIA
+        if (categorias.length > 0 && !formData.categoria_id) {
+            toast.error('La categoría de gasto es obligatoria');
+            return false;
         }
 
-        // Bloquear si factura cancelada
+        // Forma de Pago es OBLIGATORIA (si hay formas de pago disponibles)
+        if (formasPago.length > 0 && !formData.forma_pago_id) {
+            toast.error('La forma de pago es obligatoria');
+            return false;
+        }
+
+        // Validar que subtotal + IVA = total (con tolerancia de 1 centavo)
+        const totalCalculado = (formData.subtotal || 0) + (formData.iva || 0);
+        const diferencia = Math.abs(totalCalculado - formData.total);
+        if (diferencia > 0.01) {
+            toast.error(`Subtotal ($${formData.subtotal?.toFixed(2)}) + IVA ($${formData.iva?.toFixed(2)}) no coincide con Total ($${formData.total?.toFixed(2)})`);
+            return false;
+        }
+
+        // Validar documentos (excepto provisión) - COMPROBANTE NO ES OBLIGATORIO
+        if (modo !== 'provision' && formData.estado !== 'provision') {
+            if (!pendingXml && !pendingTicket && !formData.factura_xml_url && !formData.ticket_url) {
+                toast.error('Por favor adjunta factura XML o ticket');
+                return false;
+            }
+            // NOTA: Comprobante de pago NO es obligatorio - removida validación
+        }
+
+        // Validar que la factura no esté cancelada en SAT
         if (resultadoSAT?.esCancelada) {
-            toast.error('No se puede guardar: factura CANCELADA');
+            toast.error('❌ No se puede guardar: la factura está CANCELADA en el SAT');
             return false;
         }
 
         return true;
     };
 
-    // Guardar
     const handleSave = async () => {
         if (!validar()) return;
-
         setSaving(true);
-
         try {
-            // Subir archivos pendientes
             let xmlUrl = formData.factura_xml_url;
             let pdfUrl = formData.factura_pdf_url;
             let ticketUrl = formData.ticket_url;
             let comprobanteUrl = formData.comprobante_pago_url;
+            if (pendingXml) xmlUrl = await subirArchivo(pendingXml, 'xml') || xmlUrl;
+            if (pendingPdf) pdfUrl = await subirArchivo(pendingPdf, 'pdf') || pdfUrl;
+            if (pendingTicket) ticketUrl = await subirArchivo(pendingTicket, 'ticket') || ticketUrl;
+            if (pendingComprobante) comprobanteUrl = await subirArchivo(pendingComprobante, 'comprobante') || comprobanteUrl;
 
-            if (pendingXml) {
-                xmlUrl = await subirArchivo(pendingXml, 'xml') || xmlUrl;
-            }
-            if (pendingPdf) {
-                pdfUrl = await subirArchivo(pendingPdf, 'pdf') || pdfUrl;
-            }
-            if (pendingTicket) {
-                ticketUrl = await subirArchivo(pendingTicket, 'ticket') || ticketUrl;
-            }
-            if (pendingComprobante) {
-                comprobanteUrl = await subirArchivo(pendingComprobante, 'comprobante') || comprobanteUrl;
-            }
-
-            // Determinar estado
             let estado: EstadoGasto = formData.estado;
-            if (modo !== 'provision' && (xmlUrl || ticketUrl) && comprobanteUrl) {
+            // El estado depende del documento fiscal (XML o ticket), NO del comprobante
+            if (modo !== 'provision' && (xmlUrl || ticketUrl)) {
                 estado = formData.pagado ? 'pagado' : 'pendiente';
             }
 
-            const dataToSave: GastoFormData = {
+            await onSave({
                 ...formData,
-                factura_xml_url: xmlUrl,
-                factura_pdf_url: pdfUrl,
-                ticket_url: ticketUrl,
-                comprobante_pago_url: comprobanteUrl,
-                estado,
-                evento_id: eventoId || null
-            };
-
-            await onSave(dataToSave);
-            toast.success('Gasto guardado');
-
+                factura_xml_url: xmlUrl, factura_pdf_url: pdfUrl,
+                ticket_url: ticketUrl, comprobante_pago_url: comprobanteUrl,
+                estado, evento_id: eventoId || null
+            });
+            toast.success('✅ Gasto guardado correctamente');
         } catch (error: any) {
             toast.error(`Error: ${error.message}`);
         } finally {
@@ -397,127 +232,118 @@ export const UnifiedExpenseForm: React.FC<UnifiedExpenseFormProps> = ({
     };
 
     return (
-        <div
-            className={`rounded-xl shadow-lg overflow-hidden ${className}`}
-            style={{ backgroundColor: themeColors.bg }}
-        >
-            {/* Header */}
-            <div
-                className="flex items-center justify-between px-6 py-4"
-                style={{
-                    background: `linear-gradient(135deg, ${themeColors.primary} 0%, ${themeColors.primaryDark} 100%)`
-                }}
-            >
-                <div className="flex items-center gap-3">
-                    <TrendingDown className="w-6 h-6 text-white" />
-                    <h2 className="text-xl font-semibold text-white">
+        <div className={`rounded-lg shadow-lg overflow-hidden ${className}`} style={{ backgroundColor: themeColors.bg, maxWidth: '600px' }}>
+            {/* Header compacto */}
+            <div className="flex items-center justify-between px-3 py-2" style={{ background: `linear-gradient(135deg, ${themeColors.primary} 0%, ${themeColors.primaryDark} 100%)` }}>
+                <div className="flex items-center gap-2">
+                    <TrendingDown className="w-4 h-4 text-white" />
+                    <h2 className="text-sm font-semibold text-white">
                         {gasto?.id ? 'Editar Gasto' : modo === 'provision' ? 'Nueva Provisión' : 'Nuevo Gasto'}
                     </h2>
                 </div>
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={handleSave}
-                        disabled={saving}
-                        className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-white font-medium"
-                    >
-                        {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                <div className="flex items-center gap-1">
+                    <button onClick={handleSave} disabled={saving} className="flex items-center gap-1 px-2 py-1 bg-white/20 hover:bg-white/30 rounded text-white text-xs font-medium">
+                        {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
                         Guardar
                     </button>
-                    <button onClick={onCancel} className="p-2 hover:bg-white/20 rounded-lg">
-                        <X className="w-5 h-5 text-white" />
+                    <button onClick={onCancel} className="p-1 hover:bg-white/20 rounded">
+                        <X className="w-4 h-4 text-white" />
                     </button>
                 </div>
             </div>
 
-            {/* Form Content */}
-            <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
-
-                {/* Estado SAT */}
+            {/* Form Content - Ultra compacto */}
+            <div className="p-3 space-y-2">
+                {/* SAT Alert */}
                 {resultadoSAT && (
-                    <div className={`p-3 rounded-lg flex items-center gap-2 ${resultadoSAT.esValida ? 'bg-green-50 text-green-700' :
-                        resultadoSAT.esCancelada ? 'bg-red-50 text-red-700' :
-                            'bg-orange-50 text-orange-700'
+                    <div className={`px-2 py-1 rounded text-xs flex items-center gap-1 ${resultadoSAT.esValida ? 'bg-green-50 text-green-700' :
+                        resultadoSAT.esCancelada ? 'bg-red-50 text-red-700' : 'bg-orange-50 text-orange-700'
                         }`}>
-                        {resultadoSAT.esValida ? <Check className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
-                        <span className="font-medium">
-                            {resultadoSAT.esValida ? 'Factura vigente en SAT' :
-                                resultadoSAT.esCancelada ? 'FACTURA CANCELADA' :
-                                    'Factura no encontrada en SAT'}
-                        </span>
+                        {resultadoSAT.esValida ? <Check className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                        {resultadoSAT.esValida ? 'Factura vigente en SAT' : resultadoSAT.esCancelada ? 'FACTURA CANCELADA EN SAT' : 'No encontrada en SAT'}
                     </div>
                 )}
 
-                {/* Documentos */}
-                {modo !== 'provision' && (
-                    <DocumentUploader
-                        facturaPdfUrl={formData.factura_pdf_url}
-                        facturaXmlUrl={formData.factura_xml_url}
-                        ticketUrl={formData.ticket_url}
-                        comprobantePagoUrl={formData.comprobante_pago_url}
-                        onFacturaPdfChange={(file) => setPendingPdf(file)}
-                        onFacturaXmlChange={(file) => file && procesarXml(file)}
-                        onTicketChange={(file) => file && procesarTicket(file)}
-                        onComprobantePagoChange={(file) => setPendingComprobante(file)}
-                        procesandoXml={procesandoXml}
-                        validandoSat={validandoSAT}
-                        satResult={resultadoSAT}
-                        themeColors={themeColors}
-                    />
-                )}
+                {/* Documentos - Compacto */}
+                <DocumentUploader
+                    facturaPdfUrl={formData.factura_pdf_url}
+                    facturaXmlUrl={formData.factura_xml_url}
+                    ticketUrl={formData.ticket_url}
+                    comprobantePagoUrl={formData.comprobante_pago_url}
+                    pendingXml={pendingXml} pendingPdf={pendingPdf}
+                    pendingTicket={pendingTicket} pendingComprobante={pendingComprobante}
+                    onXmlChange={setPendingXml} onPdfChange={setPendingPdf}
+                    onTicketChange={setPendingTicket} onComprobanteChange={setPendingComprobante}
+                    onDatosExtraidos={(datos) => {
+                        setFormData(prev => ({
+                            ...prev,
+                            concepto: datos.concepto || prev.concepto,
+                            proveedor_nombre: datos.proveedor || prev.proveedor_nombre,
+                            rfc_proveedor: datos.rfc || prev.rfc_proveedor,
+                            fecha_gasto: datos.fecha || prev.fecha_gasto,
+                            subtotal: datos.subtotal || prev.subtotal,
+                            iva: datos.iva || prev.iva,
+                            total: datos.total || prev.total,
+                            folio_fiscal: datos.uuid || prev.folio_fiscal
+                        }));
+                        toast.success('✅ Datos aplicados automáticamente');
+                    }}
+                    validandoSat={validandoSAT}
+                    satResult={resultadoSAT}
+                    onSatValidation={async (datos) => {
+                        const result = await validarSAT(datos);
+                        if (result.esCancelada) toast.error('❌ FACTURA CANCELADA EN SAT - No se puede usar');
+                        else if (result.esValida) toast.success('✅ Factura verificada y VIGENTE en SAT');
+                        else toast.error('⚠️ Factura no encontrada en SAT');
+                    }}
+                    modo={modo}
+                    themeColors={themeColors}
+                />
 
-                {/* Concepto */}
+                {/* Concepto - Campo pequeño */}
                 <div>
-                    <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
-                        <FileText className="w-4 h-4 inline mr-1" />
-                        Concepto *
+                    <label className="text-xs font-medium flex items-center gap-1 mb-0.5" style={{ color: themeColors.text }}>
+                        <FileText className="w-3 h-3" /> Concepto *
                     </label>
                     <input
-                        type="text"
-                        value={formData.concepto}
+                        type="text" value={formData.concepto}
                         onChange={(e) => setFormData(prev => ({ ...prev, concepto: e.target.value }))}
                         placeholder="Descripción del gasto..."
-                        className="w-full px-4 py-2.5 border-2 rounded-lg"
+                        className="w-full px-2 py-1.5 border rounded text-sm"
                         style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
                     />
                 </div>
 
-                {/* Proveedor */}
-                <div className="grid grid-cols-2 gap-4">
+                {/* Proveedor + RFC en una fila */}
+                <div className="grid grid-cols-2 gap-2">
                     <div>
-                        <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
-                            <Building2 className="w-4 h-4 inline mr-1" />
-                            Proveedor
+                        <label className="text-xs font-medium flex items-center gap-1 mb-0.5" style={{ color: themeColors.text }}>
+                            <Building2 className="w-3 h-3" /> Proveedor
                         </label>
                         <input
-                            type="text"
-                            value={formData.proveedor_nombre}
+                            type="text" value={formData.proveedor_nombre}
                             onChange={(e) => setFormData(prev => ({ ...prev, proveedor_nombre: e.target.value }))}
-                            placeholder="Nombre del proveedor..."
-                            className="w-full px-4 py-2.5 border-2 rounded-lg"
+                            placeholder="Nombre..."
+                            className="w-full px-2 py-1.5 border rounded text-sm"
                             style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
-                            RFC
-                        </label>
+                        <label className="text-xs font-medium mb-0.5 block" style={{ color: themeColors.text }}>RFC</label>
                         <input
-                            type="text"
-                            value={formData.rfc_proveedor || ''}
+                            type="text" value={formData.rfc_proveedor || ''}
                             onChange={(e) => setFormData(prev => ({ ...prev, rfc_proveedor: e.target.value.toUpperCase() }))}
-                            placeholder="RFC del proveedor"
-                            className="w-full px-4 py-2.5 border-2 rounded-lg uppercase"
+                            placeholder="RFC..."
+                            className="w-full px-2 py-1.5 border rounded text-sm uppercase"
                             style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
                         />
                     </div>
                 </div>
 
-                {/* Montos */}
-                <div className="grid grid-cols-3 gap-4">
+                {/* Montos en fila de 3 */}
+                <div className="grid grid-cols-3 gap-2">
                     <div>
-                        <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
-                            Subtotal
-                        </label>
+                        <label className="text-xs font-medium mb-0.5 block" style={{ color: themeColors.text }}>Subtotal</label>
                         <CurrencyInput
                             value={formData.subtotal}
                             onChange={(v) => setFormData(prev => ({ ...prev, subtotal: v }))}
@@ -525,17 +351,10 @@ export const UnifiedExpenseForm: React.FC<UnifiedExpenseFormProps> = ({
                         />
                     </div>
                     <div>
-                        <div className="flex items-center justify-between mb-1">
-                            <label className="text-sm font-medium" style={{ color: themeColors.text }}>
-                                IVA ({IVA_PORCENTAJE}%)
-                            </label>
-                            <button
-                                type="button"
-                                onClick={calcularIva}
-                                className="text-xs text-blue-600 hover:underline"
-                            >
-                                <Calculator className="w-3 h-3 inline mr-1" />
-                                Calcular
+                        <div className="flex items-center justify-between mb-0.5">
+                            <label className="text-xs font-medium" style={{ color: themeColors.text }}>IVA</label>
+                            <button type="button" onClick={calcularIva} className="text-[10px] text-blue-600 hover:underline flex items-center gap-0.5">
+                                <Calculator className="w-2.5 h-2.5" /> Calc
                             </button>
                         </div>
                         <CurrencyInput
@@ -545,19 +364,7 @@ export const UnifiedExpenseForm: React.FC<UnifiedExpenseFormProps> = ({
                         />
                     </div>
                     <div>
-                        <div className="flex items-center justify-between mb-1">
-                            <label className="text-sm font-medium" style={{ color: themeColors.text }}>
-                                Total *
-                            </label>
-                            <button
-                                type="button"
-                                onClick={calcularTotal}
-                                className="text-xs text-blue-600 hover:underline"
-                            >
-                                <Calculator className="w-3 h-3 inline mr-1" />
-                                Calcular
-                            </button>
-                        </div>
+                        <label className="text-xs font-medium mb-0.5 block" style={{ color: themeColors.text }}>Total *</label>
                         <CurrencyInput
                             value={formData.total}
                             onChange={(v) => setFormData(prev => ({ ...prev, total: v }))}
@@ -566,104 +373,102 @@ export const UnifiedExpenseForm: React.FC<UnifiedExpenseFormProps> = ({
                     </div>
                 </div>
 
-                {/* Fecha, Categoría, Responsable */}
-                <div className="grid grid-cols-3 gap-4">
+                {/* Fecha + Categoría */}
+                <div className="grid grid-cols-2 gap-2">
                     <div>
-                        <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
-                            <Calendar className="w-4 h-4 inline mr-1" />
-                            Fecha *
+                        <label className="text-xs font-medium flex items-center gap-1 mb-0.5" style={{ color: themeColors.text }}>
+                            <Calendar className="w-3 h-3" /> Fecha
                         </label>
                         <input
-                            type="date"
-                            value={formData.fecha_gasto}
+                            type="date" value={formData.fecha_gasto}
                             onChange={(e) => setFormData(prev => ({ ...prev, fecha_gasto: e.target.value }))}
-                            className="w-full px-4 py-2.5 border-2 rounded-lg"
+                            className="w-full px-2 py-1.5 border rounded text-xs"
                             style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
                         />
                     </div>
-
                     {categorias.length > 0 && (
                         <div>
-                            <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
-                                <Tag className="w-4 h-4 inline mr-1" />
-                                Categoría
+                            <label className="text-xs font-medium flex items-center gap-1 mb-0.5" style={{ color: themeColors.text }}>
+                                <Tag className="w-3 h-3" /> Categoría
                             </label>
                             <select
                                 value={formData.categoria_id || ''}
                                 onChange={(e) => setFormData(prev => ({ ...prev, categoria_id: parseInt(e.target.value) || null }))}
-                                className="w-full px-4 py-2.5 border-2 rounded-lg"
+                                className="w-full px-2 py-1.5 border rounded text-xs"
                                 style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
                             >
                                 <option value="">Seleccionar...</option>
-                                {categorias.map(cat => (
-                                    <option key={cat.id} value={cat.id}>{cat.nombre}</option>
-                                ))}
+                                {categorias.map(cat => <option key={cat.id} value={cat.id}>{cat.nombre}</option>)}
                             </select>
                         </div>
                     )}
-
-                    <div>
-                        <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
-                            <UserCheck className="w-4 h-4 inline mr-1" />
-                            Responsable
-                        </label>
-                        <select
-                            value={formData.responsable_id || ''}
-                            onChange={(e) => setFormData(prev => ({ ...prev, responsable_id: e.target.value || null }))}
-                            className="w-full px-4 py-2.5 border-2 rounded-lg"
-                            style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
-                        >
-                            <option value="">Seleccionar...</option>
-                            {usuarios.map(u => (
-                                <option key={u.id} value={u.id}>{u.nombre}</option>
-                            ))}
-                        </select>
-                    </div>
                 </div>
 
-                {/* Estado y Pagado */}
-                <div className="flex items-center gap-6">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                            type="checkbox"
-                            checked={formData.pagado}
-                            onChange={(e) => setFormData(prev => ({
-                                ...prev,
-                                pagado: e.target.checked,
-                                estado: e.target.checked ? 'pagado' : 'pendiente'
-                            }))}
-                            className="w-5 h-5 rounded border-2"
-                        />
-                        <span className="text-sm font-medium" style={{ color: themeColors.text }}>
-                            Pagado
-                        </span>
-                    </label>
+                {/* Forma de Pago + Ejecutivo */}
+                <div className="grid grid-cols-2 gap-2">
+                    {formasPago.length > 0 && (
+                        <div>
+                            <label className="text-xs font-medium flex items-center gap-1 mb-0.5" style={{ color: themeColors.text }}>
+                                <DollarSign className="w-3 h-3" /> Forma de Pago
+                            </label>
+                            <select
+                                value={formData.forma_pago_id || ''}
+                                onChange={(e) => setFormData(prev => ({ ...prev, forma_pago_id: parseInt(e.target.value) || null }))}
+                                className="w-full px-2 py-1.5 border rounded text-xs"
+                                style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
+                            >
+                                <option value="">Seleccionar...</option>
+                                {formasPago.map(f => <option key={f.id} value={f.id}>{f.nombre}</option>)}
+                            </select>
+                        </div>
+                    )}
+                    {ejecutivos.length > 0 && (
+                        <div>
+                            <label className="text-xs font-medium flex items-center gap-1 mb-0.5" style={{ color: themeColors.text }}>
+                                <UserCheck className="w-3 h-3" /> Ejecutivo
+                            </label>
+                            <select
+                                value={formData.ejecutivo_id || ''}
+                                onChange={(e) => setFormData(prev => ({ ...prev, ejecutivo_id: parseInt(e.target.value) || null }))}
+                                className="w-full px-2 py-1.5 border rounded text-xs"
+                                style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
+                            >
+                                <option value="">Seleccionar...</option>
+                                {ejecutivos.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+                            </select>
+                        </div>
+                    )}
+                </div>
 
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${formData.estado === 'pagado' ? 'bg-green-100 text-green-700' :
-                        formData.estado === 'provision' ? 'bg-gray-100 text-gray-700' :
-                            'bg-yellow-100 text-yellow-700'
+                {/* Pagado + Estado en fila */}
+                <div className="flex items-center justify-between pt-1 border-t" style={{ borderColor: themeColors.border }}>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                            type="checkbox" checked={formData.pagado}
+                            onChange={(e) => setFormData(prev => ({ ...prev, pagado: e.target.checked, estado: e.target.checked ? 'pagado' : 'pendiente' }))}
+                            className="w-4 h-4 rounded"
+                        />
+                        <span className="text-xs font-medium" style={{ color: themeColors.text }}>Pagado</span>
+                    </label>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${formData.estado === 'pagado' ? 'bg-green-100 text-green-700' :
+                        formData.estado === 'provision' ? 'bg-gray-100 text-gray-700' : 'bg-yellow-100 text-yellow-700'
                         }`}>
-                        {formData.estado === 'pagado' ? '✓ Pagado' :
-                            formData.estado === 'provision' ? '📋 Provisión' :
-                                '⏳ Pendiente'}
+                        {formData.estado === 'pagado' ? '✓ Pagado' : formData.estado === 'provision' ? '📋 Provisión' : '⏳ Pendiente'}
                     </span>
                 </div>
 
-                {/* Notas */}
+                {/* Notas compacto */}
                 <div>
-                    <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
-                        Notas
-                    </label>
+                    <label className="text-xs font-medium mb-0.5 block" style={{ color: themeColors.text }}>Notas</label>
                     <textarea
                         value={formData.notas || ''}
                         onChange={(e) => setFormData(prev => ({ ...prev, notas: e.target.value }))}
-                        rows={2}
+                        rows={1}
                         placeholder="Observaciones..."
-                        className="w-full px-4 py-2 border-2 rounded-lg resize-none"
+                        className="w-full px-2 py-1 border rounded text-xs resize-none"
                         style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
                     />
                 </div>
-
             </div>
         </div>
     );

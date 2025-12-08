@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Plus, Eye, Edit, Trash2, Calendar, DollarSign, TrendingUp, 
-  TrendingDown, Users, Filter, X, Download, Search
+import {
+  Plus, Eye, Edit, Trash2, Calendar, DollarSign, TrendingUp,
+  TrendingDown, Users, Filter, X, Download, Search, ToggleLeft, ToggleRight
 } from 'lucide-react';
 import { supabase } from '../../../core/config/supabase';
 import { usePermissions } from '../../../core/permissions/usePermissions';
@@ -13,10 +13,10 @@ import { formatCurrency, formatDate } from '../../../shared/utils/formatters';
 import { PageSkeleton } from '../../../shared/components/ui/LoadingSpinner';
 import { EventoModal } from '../components/EventoModal';
 import { EventoDetailModal } from '../components/EventoDetailModal';
-import { 
-  useEventosFinancialList, 
+import {
+  useEventosFinancialList,
   useEventosFinancialDashboard,
-  EventosFinancialFilters 
+  EventosFinancialFilters
 } from '../hooks/useEventosFinancialList';
 import { useClients } from '../hooks/useClients';
 
@@ -35,7 +35,8 @@ export const EventsListPage: React.FC = () => {
   const [editingEvento, setEditingEvento] = useState<any>(null);
   const [viewingEvento, setViewingEvento] = useState<any>(null);
   const [showFilters, setShowFilters] = useState(true);
-  
+  const [showConIVA, setShowConIVA] = useState(false); // Toggle para mostrar con IVA o subtotales (default: subtotales)
+
   // Estados de filtros
   const currentYear = new Date().getFullYear();
   const [filters, setFilters] = useState<EventosFinancialFilters>({
@@ -97,7 +98,7 @@ export const EventsListPage: React.FC = () => {
         .from('evt_eventos_erp')
         .delete()
         .eq('id', evento.id);
-      
+
       if (error) throw error;
       refetch();
     } catch (error) {
@@ -119,6 +120,28 @@ export const EventsListPage: React.FC = () => {
     // TODO: Implementar exportación a Excel
     console.log('Exportar datos:', eventos);
     alert('Función de exportación en desarrollo');
+  };
+
+  // Helper: Obtener valor según toggle IVA
+  const getValor = (valorConIVA: number) => {
+    if (showConIVA) return valorConIVA;
+    return valorConIVA / 1.16; // Subtotal sin IVA
+  };
+
+  // Helper: Calcular utilidad (Ingresos - Gastos - Provisiones)
+  const calcularUtilidad = (ingresos: number, gastos: number, provisiones: number) => {
+    if (showConIVA) {
+      return ingresos - gastos - provisiones;
+    }
+    // Sin IVA
+    return (ingresos / 1.16) - (gastos / 1.16) - (provisiones / 1.16);
+  };
+
+  // Helper: Calcular margen (Utilidad / Ingresos * 100)
+  const calcularMargen = (ingresos: number, gastos: number, provisiones: number) => {
+    const utilidad = calcularUtilidad(ingresos, gastos, provisiones);
+    const base = showConIVA ? ingresos : (ingresos / 1.16);
+    return base > 0 ? (utilidad / base) * 100 : 0;
   };
 
   // Definición de columnas de la tabla
@@ -167,21 +190,20 @@ export const EventsListPage: React.FC = () => {
     },
     {
       key: 'ingresos_totales',
-      label: 'Ingresos',
+      label: showConIVA ? 'Ingresos (+IVA)' : 'Ingresos',
       filterType: 'number' as const,
       align: 'right' as const,
       render: (value: number, row: any) => (
         <div>
           <div className="font-semibold text-green-600">
-            {formatCurrency(value || 0)}
+            {formatCurrency(getValor(value || 0))}
           </div>
           {row.ingreso_estimado > 0 && (
-            <div className={`text-xs ${
-              value >= row.ingreso_estimado 
-                ? 'text-green-600' 
-                : 'text-yellow-600'
-            }`}>
-              Est: {formatCurrency(row.ingreso_estimado)}
+            <div className={`text-xs ${value >= row.ingreso_estimado
+              ? 'text-green-600'
+              : 'text-yellow-600'
+              }`}>
+              Est: {formatCurrency(getValor(row.ingreso_estimado))}
             </div>
           )}
         </div>
@@ -189,21 +211,20 @@ export const EventsListPage: React.FC = () => {
     },
     {
       key: 'gastos_totales',
-      label: 'Gastos',
+      label: showConIVA ? 'Gastos (+IVA)' : 'Gastos',
       filterType: 'number' as const,
       align: 'right' as const,
       render: (value: number, row: any) => (
         <div>
           <div className="font-semibold text-red-600">
-            {formatCurrency(value || 0)}
+            {formatCurrency(getValor(value || 0))}
           </div>
           {row.provisiones_total > 0 && (
-            <div className={`text-xs ${
-              value <= row.provisiones_total
-                ? 'text-green-600'
-                : 'text-red-600'
-            }`}>
-              Prov: {formatCurrency(row.provisiones_total)}
+            <div className={`text-xs ${value <= row.provisiones_total
+              ? 'text-green-600'
+              : 'text-red-600'
+              }`}>
+              Prov: {formatCurrency(getValor(row.provisiones_total))}
             </div>
           )}
         </div>
@@ -211,32 +232,35 @@ export const EventsListPage: React.FC = () => {
     },
     {
       key: 'provisiones_total',
-      label: 'Provisiones',
+      label: showConIVA ? 'Provisiones (+IVA)' : 'Provisiones',
       filterType: 'number' as const,
       align: 'right' as const,
       render: (value: number) => (
         <div className="font-semibold text-purple-600">
-          {formatCurrency(value || 0)}
+          {formatCurrency(getValor(value || 0))}
         </div>
       )
     },
     {
       key: 'utilidad_real',
-      label: 'Utilidad',
+      label: showConIVA ? 'Utilidad (+IVA)' : 'Utilidad',
       filterType: 'number' as const,
       align: 'right' as const,
-      render: (value: number, row: any) => {
-        const isPositive = value >= 0;
+      render: (_value: number, row: any) => {
+        const ingresos = row.ingresos_totales || 0;
+        const gastos = row.gastos_totales || 0;
+        const provisiones = row.provisiones_total || 0;
+        const utilidad = calcularUtilidad(ingresos, gastos, provisiones);
+        const margen = calcularMargen(ingresos, gastos, provisiones);
+        const isPositive = utilidad >= 0;
         return (
           <div>
             <div className={`font-bold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-              {formatCurrency(value || 0)}
+              {formatCurrency(utilidad)}
             </div>
-            {row.margen_real_pct !== undefined && (
-              <div className={`text-xs font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                {row.margen_real_pct.toFixed(1)}%
-              </div>
-            )}
+            <div className={`text-xs font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+              {margen.toFixed(1)}%
+            </div>
           </div>
         );
       }
@@ -252,14 +276,14 @@ export const EventsListPage: React.FC = () => {
           'pendiente_cobro': 'warning',
           'sin_ingresos': 'secondary'
         };
-        
+
         const labels: Record<string, string> = {
           'cobrado_completo': 'Cobrado',
           'cobrado_parcial': 'Parcial',
           'pendiente_cobro': 'Pendiente',
           'sin_ingresos': 'Sin Ingresos'
         };
-        
+
         return (
           <div>
             <Badge variant={variants[value]} size="sm">
@@ -317,7 +341,7 @@ export const EventsListPage: React.FC = () => {
             Administra todos los eventos con control financiero y OCR integrado
           </p>
         </div>
-        
+
         <div className="flex gap-2">
           <Button
             onClick={() => setShowFilters(!showFilters)}
@@ -326,6 +350,26 @@ export const EventsListPage: React.FC = () => {
           >
             <Filter className="w-4 h-4 mr-2" />
             {showFilters ? 'Ocultar' : 'Mostrar'} Filtros
+          </Button>
+
+          {/* Toggle IVA / Subtotales */}
+          <Button
+            onClick={() => setShowConIVA(!showConIVA)}
+            variant="outline"
+            className={`border-gray-300 ${showConIVA ? 'bg-blue-50 border-blue-300' : ''}`}
+            title={showConIVA ? 'Mostrando totales con IVA incluido' : 'Mostrando subtotales (sin IVA)'}
+          >
+            {showConIVA ? (
+              <>
+                <ToggleRight className="w-4 h-4 mr-2 text-blue-600" />
+                <span className="text-blue-700">Totales (+IVA)</span>
+              </>
+            ) : (
+              <>
+                <ToggleLeft className="w-4 h-4 mr-2" />
+                <span>Subtotales</span>
+              </>
+            )}
           </Button>
 
           <Button
@@ -453,153 +497,182 @@ export const EventsListPage: React.FC = () => {
       )}
 
       {/* Dashboard de Sumatorias - 2 Filas x 4 Columnas */}
-      {dashboard && (
-        <div className="space-y-4">
-          {/* Primera Fila - 4 Tarjetas */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Total Eventos */}
-            <div className="bg-white rounded-lg border p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Total Eventos</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">
-                    {dashboard.total_eventos}
-                  </p>
-                </div>
-                <div className="p-3 bg-blue-100 rounded-lg">
-                  <Calendar className="w-6 h-6 text-blue-600" />
-                </div>
-              </div>
-            </div>
+      {dashboard && (() => {
+        // Recalcular totales desde los eventos para que coincidan con la tabla
+        const ingresosReales = eventos.reduce((sum, e) => sum + (e.ingresos_totales || 0), 0);
+        const ingresosEstimados = eventos.reduce((sum, e) => sum + (e.ingreso_estimado || 0), 0);
+        const gastosReales = eventos.reduce((sum, e) => sum + (e.gastos_totales || 0), 0);
+        const provisionesReales = eventos.reduce((sum, e) => sum + (e.provisiones_total || 0), 0);
 
-            {/* Ingresos Totales */}
-            <div className="bg-white rounded-lg border p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Ingresos Totales</p>
-                  <p className="text-xl font-bold text-green-600 mt-1">
-                    {formatCurrency(dashboard.total_ingresos_reales)}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Est: {formatCurrency(dashboard.total_ingresos_estimados)}
-                  </p>
-                </div>
-                <div className="p-3 bg-green-100 rounded-lg">
-                  <TrendingUp className="w-6 h-6 text-green-600" />
-                </div>
-              </div>
-            </div>
+        // Aplicar toggle IVA
+        const ingresosDashboard = getValor(ingresosReales);
+        const ingresosEstimadosDashboard = getValor(ingresosEstimados);
+        const gastosDashboard = getValor(gastosReales);
+        const provisionesDashboard = getValor(provisionesReales);
 
-            {/* Gastos Totales */}
-            <div className="bg-white rounded-lg border p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Gastos Totales</p>
-                  <p className="text-xl font-bold text-red-600 mt-1">
-                    {formatCurrency(dashboard.total_gastos_reales)}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Prov: {formatCurrency(dashboard.total_provisiones)}
-                  </p>
-                </div>
-                <div className="p-3 bg-red-100 rounded-lg">
-                  <TrendingDown className="w-6 h-6 text-red-600" />
-                </div>
-              </div>
-            </div>
+        // Utilidad = Ingresos - Gastos - Provisiones
+        const utilidadDashboard = ingresosDashboard - gastosDashboard - provisionesDashboard;
+        const utilidadEstimada = getValor(dashboard.total_utilidad_estimada);
 
-            {/* Utilidad Total */}
-            <div className="bg-white rounded-lg border p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Utilidad Total</p>
-                  <p className={`text-xl font-bold mt-1 ${
-                    dashboard.total_utilidad_real >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {formatCurrency(dashboard.total_utilidad_real)}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Est: {formatCurrency(dashboard.total_utilidad_estimada)}
-                  </p>
-                </div>
-                <div className="p-3 bg-mint-100 rounded-lg">
-                  <DollarSign className="w-6 h-6 text-mint-600" />
-                </div>
-              </div>
-            </div>
-          </div>
+        // Margen = (Utilidad / Ingresos) * 100
+        const margenDashboard = ingresosDashboard > 0
+          ? (utilidadDashboard / ingresosDashboard) * 100
+          : 0;
 
-          {/* Segunda Fila - 4 Tarjetas (1 activa + 3 placeholders) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Margen Promedio */}
-            <div className="bg-white rounded-lg border p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Margen Promedio</p>
-                  <p className={`text-xl font-bold mt-1 ${
-                    dashboard.margen_promedio >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {dashboard.margen_promedio.toFixed(1)}%
-                  </p>
-                  <div className="flex gap-2 mt-1">
-                    <span className="text-xs text-gray-500">
-                      Cobro: {dashboard.tasa_cobro_promedio.toFixed(0)}%
-                    </span>
+        return (
+          <div className="space-y-4">
+            {/* Primera Fila - 4 Tarjetas */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Total Eventos */}
+              <div className="bg-white rounded-lg border p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Total Eventos</p>
+                    <p className="text-2xl font-bold text-gray-900 mt-1">
+                      {eventos.length}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-blue-100 rounded-lg">
+                    <Calendar className="w-6 h-6 text-blue-600" />
                   </div>
                 </div>
-                <div className="p-3 bg-purple-100 rounded-lg">
-                  <Users className="w-6 h-6 text-purple-600" />
+              </div>
+
+              {/* Ingresos Totales */}
+              <div className="bg-white rounded-lg border p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">
+                      {showConIVA ? 'Ingresos (+IVA)' : 'Ingresos'}
+                    </p>
+                    <p className="text-xl font-bold text-green-600 mt-1">
+                      {formatCurrency(ingresosDashboard)}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Est: {formatCurrency(ingresosEstimadosDashboard)}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-green-100 rounded-lg">
+                    <TrendingUp className="w-6 h-6 text-green-600" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Gastos Totales */}
+              <div className="bg-white rounded-lg border p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">
+                      {showConIVA ? 'Gastos (+IVA)' : 'Gastos'}
+                    </p>
+                    <p className="text-xl font-bold text-red-600 mt-1">
+                      {formatCurrency(gastosDashboard)}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Prov: {formatCurrency(provisionesDashboard)}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-red-100 rounded-lg">
+                    <TrendingDown className="w-6 h-6 text-red-600" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Utilidad Total */}
+              <div className="bg-white rounded-lg border p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">
+                      {showConIVA ? 'Utilidad (+IVA)' : 'Utilidad'}
+                    </p>
+                    <p className={`text-xl font-bold mt-1 ${utilidadDashboard >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                      {formatCurrency(utilidadDashboard)}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Est: {formatCurrency(utilidadEstimada)}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-mint-100 rounded-lg">
+                    <DollarSign className="w-6 h-6 text-mint-600" />
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Placeholder 1 - Eventos Pendientes */}
-            <div className="bg-gray-50 rounded-lg border border-dashed border-gray-300 p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Eventos Próximos</p>
-                  <p className="text-xl font-bold text-gray-400 mt-1">
-                    Disponible pronto
-                  </p>
-                </div>
-                <div className="p-3 bg-gray-200 rounded-lg">
-                  <Calendar className="w-6 h-6 text-gray-400" />
-                </div>
-              </div>
-            </div>
-
-            {/* Placeholder 2 - ROI */}
-            <div className="bg-gray-50 rounded-lg border border-dashed border-gray-300 p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">ROI Promedio</p>
-                  <p className="text-xl font-bold text-gray-400 mt-1">
-                    Disponible pronto
-                  </p>
-                </div>
-                <div className="p-3 bg-gray-200 rounded-lg">
-                  <TrendingUp className="w-6 h-6 text-gray-400" />
+            {/* Segunda Fila - 4 Tarjetas (1 activa + 3 placeholders) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Margen Promedio */}
+              <div className="bg-white rounded-lg border p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">
+                      {showConIVA ? 'Margen (+IVA)' : 'Margen'}
+                    </p>
+                    <p className={`text-xl font-bold mt-1 ${margenDashboard >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                      {margenDashboard.toFixed(1)}%
+                    </p>
+                    <div className="flex gap-2 mt-1">
+                      <span className="text-xs text-gray-500">
+                        Cobro: {dashboard.tasa_cobro_promedio?.toFixed(0) || 0}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="p-3 bg-purple-100 rounded-lg">
+                    <Users className="w-6 h-6 text-purple-600" />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Placeholder 3 - Clientes Activos */}
-            <div className="bg-gray-50 rounded-lg border border-dashed border-gray-300 p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Clientes Activos</p>
-                  <p className="text-xl font-bold text-gray-400 mt-1">
-                    Disponible pronto
-                  </p>
+              {/* Placeholder 1 - Eventos Pendientes */}
+              <div className="bg-gray-50 rounded-lg border border-dashed border-gray-300 p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500">Eventos Próximos</p>
+                    <p className="text-xl font-bold text-gray-400 mt-1">
+                      Disponible pronto
+                    </p>
+                  </div>
+                  <div className="p-3 bg-gray-200 rounded-lg">
+                    <Calendar className="w-6 h-6 text-gray-400" />
+                  </div>
                 </div>
-                <div className="p-3 bg-gray-200 rounded-lg">
-                  <Users className="w-6 h-6 text-gray-400" />
+              </div>
+
+              {/* Placeholder 2 - ROI */}
+              <div className="bg-gray-50 rounded-lg border border-dashed border-gray-300 p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500">ROI Promedio</p>
+                    <p className="text-xl font-bold text-gray-400 mt-1">
+                      Disponible pronto
+                    </p>
+                  </div>
+                  <div className="p-3 bg-gray-200 rounded-lg">
+                    <TrendingUp className="w-6 h-6 text-gray-400" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Placeholder 3 - Clientes Activos */}
+              <div className="bg-gray-50 rounded-lg border border-dashed border-gray-300 p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500">Clientes Activos</p>
+                    <p className="text-xl font-bold text-gray-400 mt-1">
+                      Disponible pronto
+                    </p>
+                  </div>
+                  <div className="p-3 bg-gray-200 rounded-lg">
+                    <Users className="w-6 h-6 text-gray-400" />
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Información de eventos filtrados */}
       <div className="flex items-center justify-between text-sm text-gray-600 bg-gray-50 px-4 py-2 rounded-lg">

@@ -34,15 +34,18 @@ export interface FormaPago {
 
 export interface Proveedor {
   id: number;
+  nombre: string;           // Campo requerido en BD
   rfc: string | null;
-  razon_social: string;
-  nombre_comercial: string | null;
+  razon_social: string | null;
+  regimen_fiscal: string | null;
   direccion: string | null;
   telefono: string | null;
   email: string | null;
   contacto_nombre: string | null;
-  modulo_origen: string | null;  // NULL = global
+  tipo: string | null;      // proveedor, acreedor, prestador
+  categoria: string | null; // SP, materiales, servicios, etc.
   activo: boolean;
+  notas: string | null;
   company_id: string;
   created_at: string;
   updated_at: string;
@@ -185,12 +188,10 @@ export interface GastoNoImpactadoFormData {
 export interface ProveedorFormData {
   rfc: string;
   razon_social: string;
-  nombre_comercial: string;
   direccion: string;
   telefono: string;
   email: string;
   contacto_nombre: string;
-  modulo_origen: string | null;
 }
 
 export interface ClaveGastoFormData {

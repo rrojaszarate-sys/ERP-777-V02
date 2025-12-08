@@ -31,8 +31,10 @@ export interface GastoFormData {
     // Relaciones
     categoria_id?: number | null;
     cuenta_contable_id?: number | null;
+    clave_gasto_id?: number | null;    // Cuenta/Subclave de gasto
     proveedor_id?: number | null;
     responsable_id?: string | null;
+    ejecutivo_id?: number | null;       // Ejecutivo responsable
     forma_pago_id?: number | null;
 
     // Datos del proveedor (extraídos de factura)

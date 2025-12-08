@@ -626,82 +626,78 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2">
       <div
-        className="rounded-xl shadow-2xl w-full max-w-6xl h-[95vh] overflow-hidden flex flex-col"
+        className="rounded-lg shadow-2xl w-full max-w-5xl h-[92vh] overflow-hidden flex flex-col"
         style={{ backgroundColor: themeColors.bg }}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4" style={{ background: `linear-gradient(to right, ${config.colorPrimario}, ${config.colorGradientEnd})` }}>
-          <div className="flex items-center gap-3">
-            <IconoTipo className="w-6 h-6 text-white" />
-            <div>
-              <h2 className="text-xl font-semibold text-white">
-                {item ? 'Editar' : 'Nuevo'} {config.titulo}
-              </h2>
-              <p className="text-white/70 text-sm">{config.subtitulo}</p>
-            </div>
+        {/* Header compacto */}
+        <div className="flex items-center justify-between px-4 py-2" style={{ background: `linear-gradient(to right, ${config.colorPrimario}, ${config.colorGradientEnd})` }}>
+          <div className="flex items-center gap-2">
+            <IconoTipo className="w-5 h-5 text-white" />
+            <h2 className="text-base font-semibold text-white">
+              {item ? 'Editar' : ''} {config.titulo}
+            </h2>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={handleSubmit}
               disabled={saving || lineas.length === 0}
-              className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-white font-medium disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded text-white text-sm font-medium disabled:opacity-50"
             >
-              {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Guardar
             </button>
-            <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-lg">
-              <X className="w-5 h-5 text-white" />
+            <button onClick={onClose} className="p-1.5 hover:bg-white/20 rounded">
+              <X className="w-4 h-4 text-white" />
             </button>
           </div>
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* Selector de tipo - Solo si no viene predefinido o es edición */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          {/* Selector de tipo - Compacto */}
           {!item && (
-            <div className="flex gap-4 p-1 bg-gray-100 rounded-lg">
+            <div className="flex gap-2 p-0.5 bg-gray-100 rounded">
               <button
                 onClick={() => setTipoMovimiento('gasto')}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition-all ${tipoMovimiento === 'gasto'
-                  ? 'text-white shadow-lg'
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded text-sm font-medium transition-all ${tipoMovimiento === 'gasto'
+                  ? 'text-white shadow'
                   : 'text-gray-600 hover:bg-gray-200'
                   }`}
                 style={tipoMovimiento === 'gasto' ? { backgroundColor: themeColors.primary } : {}}
               >
-                <ArrowUpRight className="w-5 h-5" />
-                Ingreso de Material
+                <ArrowUpRight className="w-4 h-4" />
+                Ingreso
               </button>
               <button
                 onClick={() => setTipoMovimiento('retorno')}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition-all ${tipoMovimiento === 'retorno'
-                  ? 'text-white shadow-lg'
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded text-sm font-medium transition-all ${tipoMovimiento === 'retorno'
+                  ? 'text-white shadow'
                   : 'text-gray-600 hover:bg-gray-200'
                   }`}
                 style={tipoMovimiento === 'retorno' ? { backgroundColor: themeColors.secondary } : {}}
               >
-                <ArrowDownLeft className="w-5 h-5" />
-                Retorno de Material
+                <ArrowDownLeft className="w-4 h-4" />
+                Retorno
               </button>
             </div>
           )}
 
-          {/* Información básica */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
-                <Calendar className="w-4 h-4 inline mr-1" />
-                Fecha
+          {/* Información básica - Compacta en una línea */}
+          <div className="flex gap-2 items-end">
+            <div className="w-36">
+              <label className="block text-xs font-medium mb-0.5 text-gray-500">
+                <Calendar className="w-3 h-3 inline mr-0.5" />Fecha
               </label>
               <input
                 type="date"
                 value={fecha}
                 onChange={(e) => setFecha(e.target.value)}
-                className="w-full px-4 py-2 border-2 rounded-lg"
+                className="w-full px-2 py-1.5 border rounded text-sm"
                 style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
+            <div className="flex-1">
+              <label className="block text-xs font-medium mb-0.5 text-gray-500">
                 Concepto (opcional)
               </label>
               <input
@@ -709,7 +705,7 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
                 value={concepto}
                 onChange={(e) => setConcepto(e.target.value)}
                 placeholder="Se genera automáticamente..."
-                className="w-full px-4 py-2 border-2 rounded-lg"
+                className="w-full px-2 py-1.5 border rounded text-sm"
                 style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
               />
             </div>
@@ -719,15 +715,11 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
           {/* SELECTOR DE MATERIALES - DIFERENTE PARA INGRESO VS RETORNO */}
           {/* ============================================================ */}
           {tipoMovimiento === 'gasto' ? (
-            /* INGRESO: Buscador de catálogo (como antes) */
+            /* INGRESO: Buscador de catálogo - Compacto */
             <div className="relative">
-              <label className="block text-sm font-medium mb-2" style={{ color: themeColors.text }}>
-                <Package className="w-4 h-4 inline mr-1" />
-                Agregar Material del Catálogo
-              </label>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
                     type="text"
                     value={searchTerm}
@@ -736,42 +728,42 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
                       setShowProductoDropdown(true);
                     }}
                     onFocus={() => setShowProductoDropdown(true)}
-                    placeholder="Buscar por nombre, clave o categoría..."
-                    className="w-full pl-10 pr-4 py-3 border-2 rounded-lg"
+                    placeholder="🔍 Buscar material en catálogo..."
+                    className="w-full pl-8 pr-3 py-1.5 border rounded text-sm"
                     style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
                   />
 
-                  {/* Dropdown de productos */}
+                  {/* Dropdown de productos - Compacto */}
                   {showProductoDropdown && (
                     <div
-                      className="absolute z-20 w-full mt-1 max-h-60 overflow-y-auto border-2 rounded-lg shadow-xl"
+                      className="absolute z-20 w-full mt-1 max-h-48 overflow-y-auto border rounded shadow-lg"
                       style={{ backgroundColor: themeColors.bg, borderColor: themeColors.border }}
                     >
                       {loadingProductos ? (
-                        <div className="p-4 text-center text-gray-500">
-                          <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+                        <div className="p-2 text-center text-gray-500 text-sm">
+                          <Loader2 className="w-4 h-4 animate-spin mx-auto" />
                         </div>
                       ) : productosFiltrados.length === 0 ? (
-                        <div className="p-4 text-center text-gray-500">
-                          No se encontraron productos
+                        <div className="p-2 text-center text-gray-500 text-sm">
+                          No encontrado
                         </div>
                       ) : (
                         productosFiltrados.map(producto => (
                           <button
                             key={producto.id}
                             onClick={() => agregarLinea(producto)}
-                            className={`w-full px-4 py-3 flex items-center justify-between hover:${config.colorBg} transition-colors text-left border-b last:border-b-0`}
+                            className="w-full px-2 py-1.5 flex items-center justify-between hover:bg-gray-100 text-left border-b last:border-b-0 text-sm"
                             style={{ borderColor: themeColors.border }}
                           >
-                            <div>
+                            <div className="truncate flex-1">
                               <span className="font-medium" style={{ color: themeColors.text }}>
                                 {producto.nombre}
                               </span>
-                              <div className="text-xs text-gray-500">
-                                {producto.clave} • {producto.categoria} • {producto.unidad}
-                              </div>
+                              <span className="text-xs text-gray-400 ml-1">
+                                {producto.clave}
+                              </span>
                             </div>
-                            <span className="font-bold" style={{ color: config.colorText }}>
+                            <span className="font-bold text-xs ml-2" style={{ color: config.colorText }}>
                               ${producto.costo.toLocaleString('es-MX')}
                             </span>
                           </button>
@@ -780,42 +772,38 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
                     </div>
                   )}
                 </div>
-
                 <button
                   onClick={() => {
                     setShowNuevoProducto(true);
                     setShowProductoDropdown(false);
                   }}
-                  className="px-4 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded-lg flex items-center gap-2 whitespace-nowrap"
+                  className="px-2 py-1.5 bg-slate-600 hover:bg-slate-700 text-white rounded text-xs font-medium flex items-center gap-1"
                 >
-                  <Plus className="w-5 h-5" />
-                  Nuevo Producto
+                  <Plus className="w-3.5 h-3.5" />
+                  Nuevo
                 </button>
               </div>
             </div>
           ) : (
-            /* RETORNO: Lista de materiales que han salido del evento */
+            /* RETORNO: Lista de materiales - Compacta */
             <div>
-              <label className="block text-sm font-medium mb-2" style={{ color: themeColors.text }}>
-                <ArrowDownLeft className="w-4 h-4 inline mr-1" />
-                Seleccionar Material para Retorno
-              </label>
-              <p className="text-xs text-gray-500 mb-3">
-                Solo puedes retornar materiales que hayan tenido una salida previa en este evento.
-              </p>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-gray-500">
+                  <ArrowDownLeft className="w-3 h-3 inline mr-0.5" />
+                  Seleccionar material para retorno
+                </span>
+                <span className="text-[10px] text-gray-400">Solo materiales con salida previa</span>
+              </div>
 
               {loadingMaterialesSalidos ? (
-                <div className="flex items-center justify-center p-6 border-2 border-dashed rounded-lg" style={{ borderColor: themeColors.border }}>
-                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                  <span className="text-gray-500">Cargando materiales disponibles...</span>
+                <div className="flex items-center justify-center p-3 border border-dashed rounded" style={{ borderColor: themeColors.border }}>
+                  <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                  <span className="text-gray-500 text-sm">Cargando...</span>
                 </div>
               ) : materialesSalidos.length === 0 ? (
-                <div className="p-6 border-2 border-dashed rounded-lg text-center" style={{ borderColor: themeColors.border }}>
-                  <Package className="w-10 h-10 mx-auto text-gray-400 mb-2" />
-                  <p className="text-gray-500 font-medium">No hay materiales disponibles para retorno</p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Primero debes registrar un ingreso de materiales en este evento
-                  </p>
+                <div className="p-3 border border-dashed rounded text-center" style={{ borderColor: themeColors.border }}>
+                  <Package className="w-6 h-6 mx-auto text-gray-400 mb-1" />
+                  <p className="text-gray-500 text-sm">No hay materiales disponibles</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-3 gap-1.5 max-h-32 overflow-y-auto p-1">
@@ -875,74 +863,55 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
             </div>
           )}
 
-          {/* Modal para nuevo producto */}
+          {/* Modal para nuevo producto - Compacto */}
           {showNuevoProducto && (
-            <div className="p-4 border-2 border-gray-300 bg-gray-50 rounded-lg space-y-3">
-              <h4 className="font-semibold text-gray-800 flex items-center gap-2">
-                <Plus className="w-4 h-4" />
-                Agregar Nuevo Material al Catálogo
-              </h4>
-              <div className="grid grid-cols-3 gap-3">
+            <div className="p-2 border border-slate-300 bg-slate-50 rounded space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-700">
+                  <Plus className="w-3 h-3 inline mr-1" />Nuevo Material
+                </span>
+                <button onClick={() => setShowNuevoProducto(false)} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="grid grid-cols-6 gap-1.5">
                 <input
                   type="text"
                   value={nuevoProducto.clave}
                   onChange={(e) => setNuevoProducto({ ...nuevoProducto, clave: e.target.value })}
-                  placeholder="Clave (ej: MAT-001)"
-                  className="px-3 py-2 border rounded-lg"
+                  placeholder="Clave"
+                  className="px-2 py-1 border rounded text-sm"
                 />
                 <input
                   type="text"
                   value={nuevoProducto.nombre}
                   onChange={(e) => setNuevoProducto({ ...nuevoProducto, nombre: e.target.value })}
                   placeholder="Nombre del material"
-                  className="col-span-2 px-3 py-2 border rounded-lg"
+                  className="col-span-2 px-2 py-1 border rounded text-sm"
                 />
                 <input
                   type="number"
                   value={nuevoProducto.costo || ''}
                   onChange={(e) => setNuevoProducto({ ...nuevoProducto, costo: parseFloat(e.target.value) || 0 })}
-                  placeholder="Costo unitario"
-                  className="px-3 py-2 border rounded-lg"
+                  placeholder="Costo"
+                  className="px-2 py-1 border rounded text-sm"
                 />
                 <select
                   value={nuevoProducto.unidad}
                   onChange={(e) => setNuevoProducto({ ...nuevoProducto, unidad: e.target.value })}
-                  className="px-3 py-2 border rounded-lg"
+                  className="px-1 py-1 border rounded text-sm"
                 >
-                  <option value="PZA">PZA (Pieza)</option>
-                  <option value="MTS">MTS (Metros)</option>
-                  <option value="KG">KG (Kilogramos)</option>
-                  <option value="LT">LT (Litros)</option>
+                  <option value="PZA">PZA</option>
+                  <option value="MTS">MTS</option>
+                  <option value="KG">KG</option>
+                  <option value="LT">LT</option>
                   <option value="ROLLO">ROLLO</option>
-                  <option value="SACO">SACO</option>
-                  <option value="CUBO">CUBO</option>
                 </select>
-                <select
-                  value={nuevoProducto.categoria}
-                  onChange={(e) => setNuevoProducto({ ...nuevoProducto, categoria: e.target.value })}
-                  className="px-3 py-2 border rounded-lg"
-                >
-                  <option value="Materiales">Materiales</option>
-                  <option value="Material Eléctrico">Material Eléctrico</option>
-                  <option value="Iluminación">Iluminación</option>
-                  <option value="Ferretería">Ferretería</option>
-                  <option value="Construcción">Construcción</option>
-                  <option value="Otros">Otros</option>
-                </select>
-              </div>
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={() => setShowNuevoProducto(false)}
-                  className="px-4 py-2 border rounded-lg hover:bg-gray-100"
-                >
-                  Cancelar
-                </button>
                 <button
                   onClick={crearNuevoProducto}
-                  className="px-4 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded-lg flex items-center gap-2"
+                  className="px-2 py-1 bg-slate-600 hover:bg-slate-700 text-white rounded text-xs font-medium"
                 >
-                  <Check className="w-4 h-4" />
-                  Crear y Agregar
+                  Agregar
                 </button>
               </div>
             </div>
@@ -1012,89 +981,59 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
             </div>
           )}
 
-          {/* ================================================================ */}
-          {/* AFECTAR INVENTARIO - Toggle y configuración */}
-          {/* ================================================================ */}
+          {/* AFECTAR INVENTARIO - Toggle compacto */}
           {lineas.length > 0 && (
             <div
-              className="p-4 rounded-xl border-2 space-y-4"
+              className="p-2 rounded border space-y-2"
               style={{
                 borderColor: afectarInventario ? config.colorPrimario : themeColors.border,
                 backgroundColor: afectarInventario ? config.colorBg : 'transparent'
               }}
             >
-              {/* Toggle principal */}
+              {/* Toggle principal - Una línea */}
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Warehouse className="w-5 h-5" style={{ color: afectarInventario ? config.colorText : '#9CA3AF' }} />
-                  <div>
-                    <label className="font-semibold cursor-pointer" style={{ color: themeColors.text }}>
-                      Afectar Inventario
-                    </label>
-                    <p className="text-xs text-gray-500">
-                      {tipoMovimiento === 'gasto'
-                        ? 'Genera SALIDA de almacén (material sale hacia el evento)'
-                        : 'Genera ENTRADA a almacén (material regresa del evento)'}
-                    </p>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <Warehouse className="w-4 h-4" style={{ color: afectarInventario ? config.colorText : '#9CA3AF' }} />
+                  <span className="text-sm font-medium" style={{ color: themeColors.text }}>
+                    Afectar Inventario
+                  </span>
+                  <span className="text-[10px] text-gray-400">
+                    ({tipoMovimiento === 'gasto' ? 'Salida' : 'Entrada'} de almacén)
+                  </span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setAfectarInventario(!afectarInventario)}
-                  className="relative inline-flex h-7 w-14 items-center rounded-full transition-colors"
+                  className="relative inline-flex h-5 w-10 items-center rounded-full transition-colors"
                   style={{ backgroundColor: afectarInventario ? config.colorPrimario : '#D1D5DB' }}
                 >
-                  <span
-                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform ${afectarInventario ? 'translate-x-8' : 'translate-x-1'
-                      }`}
-                  />
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${afectarInventario ? 'translate-x-5' : 'translate-x-0.5'}`} />
                 </button>
               </div>
 
-              {/* Configuración de inventario (visible cuando está activo) */}
+              {/* Config compacta cuando activo */}
               {afectarInventario && (
-                <div className="space-y-4 pt-4 border-t border-gray-200">
-                  {/* Selector de almacén */}
-                  <div>
-                    <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
-                      <Warehouse className="w-4 h-4 inline mr-1" />
-                      Almacén
-                    </label>
+                <div className="space-y-2 pt-2 border-t border-gray-200">
+                  {/* Almacén en línea */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 w-16">Almacén:</span>
                     {loadingAlmacenes ? (
-                      <div className="flex items-center gap-2 text-gray-500">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span className="text-sm">Cargando almacenes...</span>
-                      </div>
+                      <Loader2 className="w-3 h-3 animate-spin" />
                     ) : (
                       <select
                         value={almacenId || ''}
                         onChange={(e) => setAlmacenId(parseInt(e.target.value) || null)}
-                        className="w-full px-4 py-2 border-2 rounded-lg"
+                        className="flex-1 px-2 py-1 border rounded text-sm"
                         style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
                       >
-                        <option value="">Seleccionar almacén...</option>
+                        <option value="">Seleccionar...</option>
                         {almacenes.map(alm => (
                           <option key={alm.id} value={alm.id}>{alm.nombre}</option>
                         ))}
                       </select>
                     )}
                   </div>
-
-                  {/* Información del documento */}
-                  <div className="p-3 rounded-lg" style={{ backgroundColor: config.colorBg }}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <ClipboardCheck className="w-4 h-4" style={{ color: config.colorText }} />
-                      <span className="text-sm font-semibold" style={{ color: config.colorText }}>
-                        Documento de {tipoMovimiento === 'gasto' ? 'Salida' : 'Entrada'}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-600">
-                      Se creará un documento de inventario tipo <strong>{tipoMovimiento === 'gasto' ? 'SALIDA' : 'ENTRADA'}</strong> con firmas de conformidad.
-                      Los movimientos de stock se generarán automáticamente.
-                    </p>
-                  </div>
-
-                  {/* Panel de firmas */}
+                  {/* Panel de firmas compacto */}
                   <DualSignaturePanel
                     nombreEntrega={nombreEntrega}
                     firmaEntrega={firmaEntrega}
@@ -1108,47 +1047,32 @@ export const MaterialAlmacenForm: React.FC<MaterialAlmacenFormProps> = ({
                   />
                 </div>
               )}
-
             </div>
           )}
 
         </div>
 
-        {/* Footer con totales y notas - FIJO */}
-        <div className="px-4 py-2 border-t flex-shrink-0" style={{ borderColor: themeColors.border, backgroundColor: config.colorBg }}>
-          {/* Notas compactas */}
-          <div className="flex items-center gap-2 mb-2">
-            <input
-              type="text"
-              value={notas}
-              onChange={(e) => setNotas(e.target.value)}
-              placeholder="Notas / Observaciones (opcional)..."
-              className="flex-1 px-3 py-1.5 border rounded text-sm"
-              style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
-            />
-          </div>
-          {/* Totales */}
-          <div className="flex justify-between items-center">
-            <div className="text-xs text-gray-600">
-              {lineas.length} material(es) • {config.mensajeFooter}
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <div className="text-xs text-gray-500">Subtotal</div>
-                <div className="font-semibold text-sm">${totales.subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</div>
-              </div>
-              <div className="text-right">
-                <div className="text-xs text-gray-500">IVA {IVA_PORCENTAJE}%</div>
-                <div className="font-semibold text-sm">${totales.iva.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</div>
-              </div>
-              <div className="text-right pl-2 border-l" style={{ borderColor: themeColors.border }}>
-                <div className="text-xs font-medium" style={{ color: config.colorText }}>
-                  Total
-                </div>
-                <div className="text-xl font-bold" style={{ color: config.colorText }}>
-                  ${totales.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                </div>
-              </div>
+        {/* Footer con totales - Muy compacto */}
+        <div className="px-3 py-1.5 border-t flex-shrink-0 flex items-center justify-between gap-2" style={{ borderColor: themeColors.border, backgroundColor: config.colorBg }}>
+          {/* Notas inline */}
+          <input
+            type="text"
+            value={notas}
+            onChange={(e) => setNotas(e.target.value)}
+            placeholder="Notas..."
+            className="flex-1 max-w-xs px-2 py-1 border rounded text-xs"
+            style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
+          />
+          {/* Info */}
+          <span className="text-[10px] text-gray-500">{lineas.length} item(s)</span>
+          {/* Totales en línea */}
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-gray-500">Sub: <b>${totales.subtotal.toLocaleString('es-MX', { minimumFractionDigits: 0 })}</b></span>
+            <span className="text-xs text-gray-500">IVA: <b>${totales.iva.toLocaleString('es-MX', { minimumFractionDigits: 0 })}</b></span>
+            <div className="pl-2 border-l" style={{ borderColor: themeColors.border }}>
+              <span className="text-lg font-bold" style={{ color: config.colorText }}>
+                ${totales.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+              </span>
             </div>
           </div>
         </div>

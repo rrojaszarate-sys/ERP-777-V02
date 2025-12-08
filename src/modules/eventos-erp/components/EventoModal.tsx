@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, User, FileText, DollarSign, Loader2, X } from 'lucide-react';
+import { Calendar, DollarSign, Loader2, X, MapPin } from 'lucide-react';
 import { NumericFormat } from 'react-number-format';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -50,8 +50,8 @@ interface EventoModalProps {
 export const EventoModal: React.FC<EventoModalProps> = ({ evento, onClose, onSave }) => {
   const [loading, setLoading] = useState(false);
   const [clientes, setClientes] = useState<any[]>([]);
-  const [usuarios, setUsuarios] = useState<any[]>([]);
-  
+  const [ejecutivos, setEjecutivos] = useState<any[]>([]);
+
   const [formData, setFormData] = useState({
     nombre_proyecto: evento?.nombre_proyecto || '',
     descripcion: evento?.descripcion || '',
@@ -60,21 +60,21 @@ export const EventoModal: React.FC<EventoModalProps> = ({ evento, onClose, onSav
     lugar: evento?.lugar || '',
     cliente_id: evento?.cliente_id || '',
     tipo_evento_id: evento?.tipo_evento_id || '',
-    responsable_id: evento?.responsable_id || '',
-    solicitante_id: evento?.solicitante_id || '',
+    ejecutivo_responsable_id: evento?.ejecutivo_responsable_id || '',
+    ejecutivo_solicitante_id: evento?.ejecutivo_solicitante_id || '',
     ganancia_estimada: evento?.ganancia_estimada || '',
     provision_combustible_peaje: evento?.provision_combustible_peaje || '',
     provision_materiales: evento?.provision_materiales || '',
     provision_recursos_humanos: evento?.provision_recursos_humanos || '',
     provision_solicitudes_pago: evento?.provision_solicitudes_pago || '',
-    notas: evento?.notas || ''
+    notas: evento?.notas_internas || evento?.notas || ''
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     loadClientes();
-    loadUsuarios();
+    loadEjecutivos();
   }, []);
 
   // Actualizar formData cuando cambia el evento (para modo edición)
@@ -88,14 +88,14 @@ export const EventoModal: React.FC<EventoModalProps> = ({ evento, onClose, onSav
         lugar: evento.lugar || '',
         cliente_id: evento.cliente_id || '',
         tipo_evento_id: evento.tipo_evento_id || '',
-        responsable_id: evento.responsable_id || '',
-        solicitante_id: evento.solicitante_id || '',
+        ejecutivo_responsable_id: evento.ejecutivo_responsable_id || '',
+        ejecutivo_solicitante_id: evento.ejecutivo_solicitante_id || '',
         ganancia_estimada: evento.ganancia_estimada || evento.ingreso_estimado || 0,
         provision_combustible_peaje: evento.provision_combustible_peaje ?? 0,
         provision_materiales: evento.provision_materiales ?? 0,
         provision_recursos_humanos: evento.provision_recursos_humanos ?? 0,
         provision_solicitudes_pago: evento.provision_solicitudes_pago ?? 0,
-        notas: evento.notas || ''
+        notas: evento.notas_internas || evento.notas || ''
       });
     }
   }, [evento]);
@@ -121,24 +121,24 @@ export const EventoModal: React.FC<EventoModalProps> = ({ evento, onClose, onSav
     }
   };
 
-  const loadUsuarios = async () => {
+  const loadEjecutivos = async () => {
     try {
       const { data, error } = await supabase
-        .from('core_users')
-        .select('id, nombre, apellidos, email')
+        .from('cont_ejecutivos')
+        .select('id, nombre, email, departamento, cargo')
         .eq('activo', true)
         .order('nombre');
 
       if (error) {
-        console.error('Error loading usuarios:', error);
+        console.error('Error loading ejecutivos:', error);
         throw error;
       }
 
-      console.log('✅ Usuarios cargados:', data?.length || 0, data);
-      setUsuarios(data || []);
+      console.log('✅ Ejecutivos cargados:', data?.length || 0, data);
+      setEjecutivos(data || []);
     } catch (error) {
-      console.error('❌ Error loading usuarios:', error);
-      setUsuarios([]);
+      console.error('❌ Error loading ejecutivos:', error);
+      setEjecutivos([]);
     }
   };
 
@@ -157,12 +157,8 @@ export const EventoModal: React.FC<EventoModalProps> = ({ evento, onClose, onSav
       newErrors.cliente_id = 'Debe seleccionar un cliente';
     }
 
-    if (!formData.responsable_id) {
-      newErrors.responsable_id = 'Debe seleccionar un responsable';
-    }
-
-    if (!formData.responsable_id) {
-      newErrors.responsable_id = 'Debe asignar un responsable';
+    if (!formData.ejecutivo_responsable_id) {
+      newErrors.ejecutivo_responsable_id = 'Debe asignar un responsable';
     }
 
     setErrors(newErrors);
@@ -203,21 +199,27 @@ export const EventoModal: React.FC<EventoModalProps> = ({ evento, onClose, onSav
         clave_evento = `EVT-${año}-${consecutivo.toString().padStart(3, '0')}`;
       }
       
-      // Clean up form data before saving
+      // Clean up form data before saving - SOLO campos que existen en la tabla
       const cleanedData = {
-        ...formData,
         clave_evento,
+        nombre_proyecto: formData.nombre_proyecto,
+        descripcion: formData.descripcion || null,
+        fecha_evento: formData.fecha_evento,
+        fecha_fin: formData.fecha_fin || null,
+        lugar: formData.lugar || null,
         tipo_evento_id: formData.tipo_evento_id ? parseInt(formData.tipo_evento_id.toString()) : null,
         cliente_id: formData.cliente_id ? parseInt(formData.cliente_id.toString()) : null,
-        // UUID fields - keep as string or null, NOT parseInt
-        responsable_id: formData.responsable_id || null,
-        solicitante_id: formData.solicitante_id || null,
-        fecha_fin: formData.fecha_fin || null,
-        ganancia_estimada: formData.ganancia_estimada ? parseFloat(formData.ganancia_estimada.toString()) : null,
+        // Ejecutivos - INTEGER references a cont_ejecutivos
+        ejecutivo_responsable_id: formData.ejecutivo_responsable_id ? parseInt(formData.ejecutivo_responsable_id.toString()) : null,
+        ejecutivo_solicitante_id: formData.ejecutivo_solicitante_id ? parseInt(formData.ejecutivo_solicitante_id.toString()) : null,
+        // Financiero
+        ganancia_estimada: formData.ganancia_estimada ? parseFloat(formData.ganancia_estimada.toString()) : 0,
         provision_combustible_peaje: formData.provision_combustible_peaje ? parseFloat(formData.provision_combustible_peaje.toString()) : 0,
         provision_materiales: formData.provision_materiales ? parseFloat(formData.provision_materiales.toString()) : 0,
         provision_recursos_humanos: formData.provision_recursos_humanos ? parseFloat(formData.provision_recursos_humanos.toString()) : 0,
         provision_solicitudes_pago: formData.provision_solicitudes_pago ? parseFloat(formData.provision_solicitudes_pago.toString()) : 0,
+        // Notas - el campo en la tabla es notas_internas
+        notas_internas: formData.notas || null,
       };
       
       console.log('📤 Guardando evento:', cleanedData);
@@ -236,456 +238,260 @@ export const EventoModal: React.FC<EventoModalProps> = ({ evento, onClose, onSav
     }
   };
 
+  // Calcular utilidad y margen
+  const calcularFinanzas = () => {
+    const ingresoTotal = parseFloat(formData.ganancia_estimada.toString()) || 0;
+    const ingresoSubtotal = ingresoTotal / 1.16;
+    const provisionesSubtotal = (
+      (parseFloat(formData.provision_combustible_peaje.toString()) || 0) +
+      (parseFloat(formData.provision_materiales.toString()) || 0) +
+      (parseFloat(formData.provision_recursos_humanos.toString()) || 0) +
+      (parseFloat(formData.provision_solicitudes_pago.toString()) || 0)
+    );
+    const utilidadBruta = ingresoSubtotal - provisionesSubtotal;
+    const margenBruto = ingresoSubtotal > 0 ? ((utilidadBruta / ingresoSubtotal) * 100) : 0;
+    return { ingresoSubtotal, provisionesSubtotal, utilidadBruta, margenBruto };
+  };
+
+  const finanzas = calcularFinanzas();
+
   return (
-    <Modal
-      isOpen={true}
-      onClose={onClose}
-      size="xl"
-    >
-      {/* Header personalizado con clave y botón guardar */}
-      <div className="flex items-center justify-between p-6 border-b border-gray-200">
-        <div className="flex items-center gap-3">
-          <h2 className="text-xl font-semibold text-gray-900">
+    <Modal isOpen={true} onClose={onClose} size="lg">
+      {/* Header compacto */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b bg-gradient-to-r from-slate-700 to-slate-800">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-emerald-400" />
+          <h2 className="text-base font-semibold text-white">
             {evento ? 'Editar Evento' : 'Nuevo Evento'}
           </h2>
-          {evento && evento.clave_evento && (
-            <span className="px-3 py-1 bg-blue-100 border border-blue-300 rounded-lg text-sm font-semibold text-blue-800">
+          {evento?.clave_evento && (
+            <span className="px-2 py-0.5 bg-emerald-500/20 border border-emerald-500/50 rounded text-xs font-medium text-emerald-300">
               {evento.clave_evento}
             </span>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            onClick={handleSubmit}
-            disabled={loading}
-            className="bg-mint-500 hover:bg-mint-600"
-          >
-            {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+          <Button onClick={handleSubmit} disabled={loading} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5">
+            {loading && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
             {evento ? 'Guardar' : 'Crear'}
           </Button>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-            disabled={loading}
-          >
-            <X className="w-5 h-5" />
+          <button onClick={onClose} className="text-gray-400 hover:text-white" disabled={loading}>
+            <X className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="p-4 space-y-3">
-        {/* Información básica */}
-        <div className="bg-blue-50 rounded-lg p-3">
-          <h3 className="text-base font-medium text-blue-900 mb-2 flex items-center">
-            <Calendar className="w-5 h-5 mr-2" />
-            Información del Evento
-          </h3>
-
-          {/* Info sobre clave de evento si es nuevo */}
-          {!evento && formData.cliente_id && (
-            <div className="mb-2 p-2 bg-mint-50 border border-mint-200 rounded-lg">
-              <div className="flex items-center space-x-2">
-                <FileText className="w-4 h-4 text-mint-600" />
-                <span className="text-xs text-mint-800">
-                  <strong>Clave:</strong> {clientes.find(c => c.id === formData.cliente_id)?.sufijo || '???'}{new Date().getFullYear()}-###
-                </span>
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-3">
-            {/* Fila 1: Nombre (70%) + Fechas (30%) */}
-            <div className="grid grid-cols-1 md:grid-cols-10 gap-3">
-              <div className="md:col-span-7">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nombre del Proyecto *
-                </label>
-                <input
-                  type="text"
-                  value={formData.nombre_proyecto}
-                  onChange={(e) => handleInputChange('nombre_proyecto', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-mint-500 focus:border-transparent ${
-                    errors.nombre_proyecto ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Ej: Conferencia Anual de Tecnología"
-                />
-                {errors.nombre_proyecto && (
-                  <p className="text-red-600 text-sm mt-1">{errors.nombre_proyecto}</p>
-                )}
-              </div>
-
-              {/* Selector de Rango de Fechas */}
-              <div className="md:col-span-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Fechas del Evento *
-                </label>
-                <DatePicker
-                  selected={formData.fecha_evento ? new Date(formData.fecha_evento) : null}
-                  onChange={(dates) => {
-                    const [start, end] = dates as [Date | null, Date | null];
-                    if (start) {
-                      handleInputChange('fecha_evento', start.toISOString().split('T')[0]);
-                    }
-                    if (end) {
-                      handleInputChange('fecha_fin', end.toISOString().split('T')[0]);
-                    } else if (start && !end) {
-                      handleInputChange('fecha_fin', '');
-                    }
-                  }}
-                  startDate={formData.fecha_evento ? new Date(formData.fecha_evento) : null}
-                  endDate={formData.fecha_fin ? new Date(formData.fecha_fin) : null}
-                  selectsRange
-                  dateFormat="dd/MM/yyyy"
-                  placeholderText="Seleccionar rango"
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-mint-500 focus:border-transparent ${
-                    errors.fecha_evento ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  isClearable
-                />
-                {errors.fecha_evento && (
-                  <p className="text-red-600 text-sm mt-1">{errors.fecha_evento}</p>
-                )}
-                <p className="text-gray-500 text-xs mt-1">Selecciona 1 día o rango</p>
-              </div>
-            </div>
-
-            {/* Fila 2: Ubicación (ancho completo) */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Ubicación / Lugar
-              </label>
-              <input
-                type="text"
-                value={formData.lugar}
-                onChange={(e) => handleInputChange('lugar', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-mint-500 focus:border-transparent"
-                placeholder="Centro de Convenciones, Hotel, etc."
-              />
-            </div>
+      <form onSubmit={handleSubmit} className="p-3 space-y-2 max-h-[75vh] overflow-y-auto">
+        {/* Fila 1: Nombre + Fechas + Lugar */}
+        <div className="grid grid-cols-12 gap-2">
+          <div className="col-span-5">
+            <label className="block text-xs font-medium text-gray-600 mb-0.5">Proyecto *</label>
+            <input
+              type="text"
+              value={formData.nombre_proyecto}
+              onChange={(e) => handleInputChange('nombre_proyecto', e.target.value)}
+              className={`w-full px-2 py-1.5 text-sm border rounded focus:ring-1 focus:ring-emerald-500 ${errors.nombre_proyecto ? 'border-red-400' : 'border-gray-300'}`}
+              placeholder="Nombre del proyecto"
+            />
+          </div>
+          <div className="col-span-3">
+            <label className="block text-xs font-medium text-gray-600 mb-0.5">Fechas *</label>
+            <DatePicker
+              selected={formData.fecha_evento ? new Date(formData.fecha_evento) : null}
+              onChange={(dates) => {
+                const [start, end] = dates as [Date | null, Date | null];
+                if (start) handleInputChange('fecha_evento', start.toISOString().split('T')[0]);
+                if (end) handleInputChange('fecha_fin', end.toISOString().split('T')[0]);
+                else if (start && !end) handleInputChange('fecha_fin', '');
+              }}
+              startDate={formData.fecha_evento ? new Date(formData.fecha_evento) : null}
+              endDate={formData.fecha_fin ? new Date(formData.fecha_fin) : null}
+              selectsRange
+              dateFormat="dd/MM/yy"
+              placeholderText="Rango"
+              className={`w-full px-2 py-1.5 text-sm border rounded focus:ring-1 focus:ring-emerald-500 ${errors.fecha_evento ? 'border-red-400' : 'border-gray-300'}`}
+              isClearable
+            />
+          </div>
+          <div className="col-span-4">
+            <label className="block text-xs font-medium text-gray-600 mb-0.5">
+              <MapPin className="w-3 h-3 inline mr-1" />Lugar
+            </label>
+            <input
+              type="text"
+              value={formData.lugar}
+              onChange={(e) => handleInputChange('lugar', e.target.value)}
+              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-emerald-500"
+              placeholder="Ubicación"
+            />
           </div>
         </div>
 
-        {/* Asignación y Cliente */}
-        <div className="bg-green-50 rounded-lg p-3">
-          <h3 className="text-base font-medium text-green-900 mb-2 flex items-center">
-            <User className="w-5 h-5 mr-2" />
-            Cliente y Asignación
-          </h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Cliente *
-              </label>
-              <select
-                value={formData.cliente_id}
-                onChange={(e) => handleInputChange('cliente_id', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-mint-500 focus:border-transparent ${
-                  errors.cliente_id ? 'border-red-500' : 'border-gray-300'
-                }`}
-              >
-                <option value="">Seleccionar cliente...</option>
-                {clientes.map(cliente => (
-                  <option key={cliente.id} value={cliente.id}>
-                    {cliente.nombre_comercial || cliente.razon_social}
-                  </option>
-                ))}
-              </select>
-              {errors.cliente_id && (
-                <p className="text-red-600 text-sm mt-1">{errors.cliente_id}</p>
-              )}
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Responsable *
-              </label>
-              <select
-                value={formData.responsable_id}
-                onChange={(e) => handleInputChange('responsable_id', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-mint-500 focus:border-transparent ${
-                  errors.responsable_id ? 'border-red-500' : 'border-gray-300'
-                }`}
-              >
-                <option value="">Seleccionar responsable...</option>
-                {usuarios.map(usuario => (
-                  <option key={usuario.id} value={usuario.id}>
-                    {`${usuario.nombre} ${usuario.apellidos || ''}`.trim()}
-                  </option>
-                ))}
-              </select>
-              {errors.responsable_id && (
-                <p className="text-red-600 text-sm mt-1">{errors.responsable_id}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Solicitante
-              </label>
-              <select
-                value={formData.solicitante_id}
-                onChange={(e) => handleInputChange('solicitante_id', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-mint-500 focus:border-transparent"
-              >
-                <option value="">Seleccionar solicitante...</option>
-                {usuarios.map(usuario => (
-                  <option key={usuario.id} value={usuario.id}>
-                    {`${usuario.nombre} ${usuario.apellidos || ''}`.trim()}
-                  </option>
-                ))}
-              </select>
-            </div>
+        {/* Fila 2: Cliente + Responsable + Solicitante */}
+        <div className="grid grid-cols-3 gap-2">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-0.5">Cliente *</label>
+            <select
+              value={formData.cliente_id}
+              onChange={(e) => handleInputChange('cliente_id', e.target.value)}
+              className={`w-full px-2 py-1.5 text-sm border rounded focus:ring-1 focus:ring-emerald-500 ${errors.cliente_id ? 'border-red-400' : 'border-gray-300'}`}
+            >
+              <option value="">Seleccionar...</option>
+              {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre_comercial || c.razon_social}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-0.5">Responsable *</label>
+            <select
+              value={formData.ejecutivo_responsable_id}
+              onChange={(e) => handleInputChange('ejecutivo_responsable_id', e.target.value)}
+              className={`w-full px-2 py-1.5 text-sm border rounded focus:ring-1 focus:ring-emerald-500 ${errors.ejecutivo_responsable_id ? 'border-red-400' : 'border-gray-300'}`}
+            >
+              <option value="">Seleccionar...</option>
+              {ejecutivos.map(e => <option key={e.id} value={e.id}>{e.nombre}{e.cargo ? ` - ${e.cargo}` : ''}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-0.5">Solicitante</label>
+            <select
+              value={formData.ejecutivo_solicitante_id}
+              onChange={(e) => handleInputChange('ejecutivo_solicitante_id', e.target.value)}
+              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-emerald-500"
+            >
+              <option value="">Seleccionar...</option>
+              {ejecutivos.map(e => <option key={e.id} value={e.id}>{e.nombre}{e.cargo ? ` - ${e.cargo}` : ''}</option>)}
+            </select>
           </div>
         </div>
 
-        {/* Gestión Financiera */}
-        <div className="bg-purple-50 rounded-lg p-3">
-          <h3 className="text-base font-medium text-purple-900 mb-3 flex items-center">
-            <DollarSign className="w-5 h-5 mr-2" />
-            💵 Gestión Financiera
-          </h3>
+        {/* Sección Financiera con KPI Velocímetro */}
+        <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-lg p-3 border border-slate-200">
+          <div className="flex items-center gap-2 mb-3">
+            <DollarSign className="w-4 h-4 text-emerald-600" />
+            <span className="text-sm font-semibold text-slate-700">Gestión Financiera</span>
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-            {/* INGRESO ESTIMADO - Campo principal que se guarda en ganancia_estimada */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Ingreso Estimado ($) *
-              </label>
+          {/* Ingreso Estimado + KPI Velocímetro */}
+          <div className="grid grid-cols-12 gap-3 mb-3">
+            {/* Ingreso - Campo grande */}
+            <div className="col-span-8">
+              <label className="block text-xs font-medium text-emerald-700 mb-1">Ingreso *</label>
               <NumericFormat
                 value={formData.ganancia_estimada}
-                onValueChange={(values) => {
-                  handleInputChange('ganancia_estimada', values.floatValue || 0);
-                }}
-                thousandSeparator=","
-                decimalSeparator="."
-                prefix="$ "
-                decimalScale={2}
-                fixedDecimalScale={true}
+                onValueChange={(v) => handleInputChange('ganancia_estimada', v.floatValue || 0)}
+                thousandSeparator="," decimalSeparator="." prefix="$ " decimalScale={2}
+                fixedDecimalScale
                 allowNegative={false}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-mint-500 focus:border-transparent text-lg font-semibold"
+                className="w-full px-3 py-2.5 text-lg font-bold border-2 border-emerald-400 rounded-lg bg-emerald-50 focus:ring-2 focus:ring-emerald-500 text-emerald-800"
                 placeholder="$ 0.00"
               />
-              <p className="text-gray-500 text-xs mt-1">Ingreso total esperado del evento</p>
+              <p className="text-[10px] text-gray-500 mt-0.5">Ingreso total del evento (con IVA)</p>
             </div>
 
-            {/* UTILIDAD BRUTA ESTIMADA - Velocímetro */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Utilidad Bruta Estimada <span className="text-gray-500 text-xs">[sin IVA]</span>
-              </label>
-              <div className="w-full flex flex-col items-center justify-center">
-                {(() => {
-                  // CÁLCULO CORRECTO: Basado en SUBTOTALES (sin IVA)
-                  // Fórmula: Utilidad Bruta = Ingreso Subtotal - Provisiones Subtotal
-                  // Las provisiones ya son subtotales (IVA = 0)
+            {/* KPI Velocímetro */}
+            <div className="col-span-4 flex flex-col items-center justify-center bg-white rounded-lg border border-slate-200 p-2">
+              <GaugeChart value={finanzas.margenBruto} size="sm" showLabel={true} />
+              <div className={`text-base font-bold mt-1 ${finanzas.utilidadBruta >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                ${finanzas.utilidadBruta.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="text-[9px] text-slate-500">Utilidad Bruta</div>
+            </div>
+          </div>
 
-                  const ingresoTotal = parseFloat(formData.ganancia_estimada.toString()) || 0;
-                  // Si el ingreso incluye IVA, calculamos subtotal
-                  const ingresoSubtotal = ingresoTotal / 1.16;
-
-                  // Las provisiones son subtotales (sin IVA)
-                  const provisionesSubtotal = (
-                    (parseFloat(formData.provision_combustible_peaje.toString()) || 0) +
-                    (parseFloat(formData.provision_materiales.toString()) || 0) +
-                    (parseFloat(formData.provision_recursos_humanos.toString()) || 0) +
-                    (parseFloat(formData.provision_solicitudes_pago.toString()) || 0)
-                  );
-
-                  // Utilidad Bruta = Ingresos Subtotal - Provisiones Subtotal
-                  const utilidadBruta = ingresoSubtotal - provisionesSubtotal;
-
-                  // Margen Bruto = (Utilidad Bruta / Ingresos Subtotal) * 100
-                  const margenBruto = ingresoSubtotal > 0 ? ((utilidadBruta / ingresoSubtotal) * 100) : 0;
-
-                  return (
-                    <>
-                      <GaugeChart value={margenBruto} size="md" showLabel={true} />
-                      <div className="text-gray-800 font-bold text-base mt-1">
-                        ${utilidadBruta.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        Ing. Subtotal: ${ingresoSubtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                      </div>
-                    </>
-                  );
-                })()}
+          {/* Provisiones - 4 campos en fila */}
+          <div className="bg-amber-50 rounded-lg p-2.5 border border-amber-200">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-amber-800">Provisiones por Categoría</span>
+              <span className="text-xs font-bold text-amber-900">
+                Total: ${finanzas.provisionesSubtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              <div>
+                <label className="block text-[10px] font-medium text-amber-700 mb-0.5">Combustible/Peaje</label>
+                <NumericFormat
+                  value={formData.provision_combustible_peaje}
+                  onValueChange={(v) => handleInputChange('provision_combustible_peaje', v.floatValue || 0)}
+                  thousandSeparator="," decimalSeparator="." prefix="$ " decimalScale={2}
+                  allowNegative={false}
+                  className="w-full px-2 py-2 text-sm font-semibold border border-amber-300 rounded bg-white focus:ring-1 focus:ring-amber-500"
+                  placeholder="$ 0.00"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-amber-700 mb-0.5">Materiales</label>
+                <NumericFormat
+                  value={formData.provision_materiales}
+                  onValueChange={(v) => handleInputChange('provision_materiales', v.floatValue || 0)}
+                  thousandSeparator="," decimalSeparator="." prefix="$ " decimalScale={2}
+                  allowNegative={false}
+                  className="w-full px-2 py-2 text-sm font-semibold border border-amber-300 rounded bg-white focus:ring-1 focus:ring-amber-500"
+                  placeholder="$ 0.00"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-amber-700 mb-0.5">Recursos Humanos</label>
+                <NumericFormat
+                  value={formData.provision_recursos_humanos}
+                  onValueChange={(v) => handleInputChange('provision_recursos_humanos', v.floatValue || 0)}
+                  thousandSeparator="," decimalSeparator="." prefix="$ " decimalScale={2}
+                  allowNegative={false}
+                  className="w-full px-2 py-2 text-sm font-semibold border border-amber-300 rounded bg-white focus:ring-1 focus:ring-amber-500"
+                  placeholder="$ 0.00"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-amber-700 mb-0.5">Solicitudes Pago</label>
+                <NumericFormat
+                  value={formData.provision_solicitudes_pago}
+                  onValueChange={(v) => handleInputChange('provision_solicitudes_pago', v.floatValue || 0)}
+                  thousandSeparator="," decimalSeparator="." prefix="$ " decimalScale={2}
+                  allowNegative={false}
+                  className="w-full px-2 py-2 text-sm font-semibold border border-amber-300 rounded bg-white focus:ring-1 focus:ring-amber-500"
+                  placeholder="$ 0.00"
+                />
               </div>
             </div>
           </div>
 
-          {evento && evento.estado_evento && (
-            <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-xs text-blue-800">
-                <strong>Estado:</strong> {evento.estado_evento}
-              </p>
-            </div>
-          )}
-
-          {/* Provisiones Divididas - 4 Categorías */}
-          <div className="mt-3 p-3 bg-yellow-50 border-2 border-yellow-300 rounded-lg">
-            <h4 className="text-sm font-semibold text-yellow-900 mb-2 flex items-center">
-              <DollarSign className="w-4 h-4 mr-2" />
-              💰 Provisiones por Categoría
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {/* Combustible y Peaje */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  ⛽ Combustible y Peaje
-                </label>
-                <NumericFormat
-                  value={formData.provision_combustible_peaje}
-                  onValueChange={(values) => {
-                    handleInputChange('provision_combustible_peaje', values.floatValue || 0);
-                  }}
-                  thousandSeparator=","
-                  decimalSeparator="."
-                  prefix="$ "
-                  decimalScale={2}
-                  fixedDecimalScale={true}
-                  allowNegative={false}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent font-semibold"
-                  placeholder="$ 0.00"
-                />
-              </div>
-
-              {/* Materiales */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  🛠️ Materiales
-                </label>
-                <NumericFormat
-                  value={formData.provision_materiales}
-                  onValueChange={(values) => {
-                    handleInputChange('provision_materiales', values.floatValue || 0);
-                  }}
-                  thousandSeparator=","
-                  decimalSeparator="."
-                  prefix="$ "
-                  decimalScale={2}
-                  fixedDecimalScale={true}
-                  allowNegative={false}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent font-semibold"
-                  placeholder="$ 0.00"
-                />
-              </div>
-
-              {/* Recursos Humanos */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  👥 Recursos Humanos
-                </label>
-                <NumericFormat
-                  value={formData.provision_recursos_humanos}
-                  onValueChange={(values) => {
-                    handleInputChange('provision_recursos_humanos', values.floatValue || 0);
-                  }}
-                  thousandSeparator=","
-                  decimalSeparator="."
-                  prefix="$ "
-                  decimalScale={2}
-                  fixedDecimalScale={true}
-                  allowNegative={false}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent font-semibold"
-                  placeholder="$ 0.00"
-                />
-              </div>
-
-              {/* Solicitudes de Pago */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  💳 Solicitudes de Pago
-                </label>
-                <NumericFormat
-                  value={formData.provision_solicitudes_pago}
-                  onValueChange={(values) => {
-                    handleInputChange('provision_solicitudes_pago', values.floatValue || 0);
-                  }}
-                  thousandSeparator=","
-                  decimalSeparator="."
-                  prefix="$ "
-                  decimalScale={2}
-                  fixedDecimalScale={true}
-                  allowNegative={false}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent font-semibold"
-                  placeholder="$ 0.00"
-                />
-              </div>
-            </div>
-
-            {/* Total de Provisiones y Fórmula de Margen */}
-            <div className="mt-2 p-2 bg-white border-2 border-yellow-400 rounded-lg">
-              {(() => {
-                const ingresoTotal = parseFloat(formData.ganancia_estimada.toString()) || 0;
-                const ingresoSubtotal = ingresoTotal / 1.16;
-                const provisionesSubtotal = (
-                  (parseFloat(formData.provision_combustible_peaje.toString()) || 0) +
-                  (parseFloat(formData.provision_materiales.toString()) || 0) +
-                  (parseFloat(formData.provision_recursos_humanos.toString()) || 0) +
-                  (parseFloat(formData.provision_solicitudes_pago.toString()) || 0)
-                );
-                const utilidadBruta = ingresoSubtotal - provisionesSubtotal;
-                const margenBruto = ingresoSubtotal > 0 ? ((utilidadBruta / ingresoSubtotal) * 100) : 0;
-
-                return (
-                  <>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs font-medium text-gray-700">Total Provisiones (sin IVA):</span>
-                      <span className="text-base font-bold text-yellow-900">
-                        ${provisionesSubtotal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                    <div className="border-t border-yellow-200 pt-2 text-xs text-gray-600">
-                      <div className="flex items-center justify-center gap-2 font-mono">
-                        <span className="text-purple-600">${ingresoSubtotal.toLocaleString('es-MX', { maximumFractionDigits: 0 })}</span>
-                        <span>−</span>
-                        <span className="text-yellow-700">${provisionesSubtotal.toLocaleString('es-MX', { maximumFractionDigits: 0 })}</span>
-                        <span>=</span>
-                        <span className={`font-bold ${utilidadBruta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          ${utilidadBruta.toLocaleString('es-MX', { maximumFractionDigits: 0 })}
-                        </span>
-                        <span className={`ml-1 px-1.5 py-0.5 rounded text-white text-[10px] ${margenBruto >= 25 ? 'bg-green-500' : margenBruto >= 15 ? 'bg-yellow-500' : 'bg-red-500'}`}>
-                          {margenBruto.toFixed(1)}%
-                        </span>
-                      </div>
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
+          {/* Resumen de cálculo */}
+          <div className="mt-2 flex items-center justify-center gap-3 text-xs bg-white/70 rounded px-3 py-1.5 border border-slate-200">
+            <span className="text-slate-600">Subtotal: <b className="text-slate-800">${finanzas.ingresoSubtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</b></span>
+            <span className="text-slate-400">−</span>
+            <span className="text-slate-600">Provisiones: <b className="text-amber-700">${finanzas.provisionesSubtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</b></span>
+            <span className="text-slate-400">=</span>
+            <span className="text-slate-600">Utilidad: <b className={finanzas.utilidadBruta >= 0 ? 'text-emerald-700' : 'text-red-600'}>${finanzas.utilidadBruta.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</b></span>
+            <span className={`ml-2 px-2 py-0.5 rounded-full text-white text-[10px] font-bold ${
+              finanzas.margenBruto >= 35 ? 'bg-emerald-500' : finanzas.margenBruto >= 25 ? 'bg-amber-500' : 'bg-red-500'
+            }`}>
+              {finanzas.margenBruto.toFixed(1)}%
+            </span>
           </div>
         </div>
 
-        {/* Descripción y notas - Grid para ahorrar espacio */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {/* Descripción y notas compactas */}
+        <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Descripción
-            </label>
+            <label className="block text-xs font-medium text-gray-600 mb-0.5">Descripción</label>
             <textarea
               value={formData.descripcion}
               onChange={(e) => handleInputChange('descripcion', e.target.value)}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-mint-500 focus:border-transparent resize-none"
-              placeholder="Descripción del evento..."
+              rows={2}
+              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-emerald-500 resize-none"
+              placeholder="Descripción breve..."
             />
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Notas Internas
-            </label>
+            <label className="block text-xs font-medium text-gray-600 mb-0.5">Notas</label>
             <textarea
               value={formData.notas}
               onChange={(e) => handleInputChange('notas', e.target.value)}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-mint-500 focus:border-transparent resize-none"
+              rows={2}
+              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-emerald-500 resize-none"
               placeholder="Notas internas..."
             />
           </div>
         </div>
-
       </form>
     </Modal>
   );

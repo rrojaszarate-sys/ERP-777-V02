@@ -25,12 +25,13 @@ import { parseCFDIXml, cfdiToExpenseData } from '../../eventos-erp/utils/cfdiXml
 // 🆕 Validación SAT para bloquear facturas apócrifas/canceladas
 import { useSATValidation } from '../../eventos-erp/hooks/useSATValidation';
 import SATStatusBadge, { SATAlertBox } from '../../eventos-erp/components/ui/SATStatusBadge';
-// 🆕 Validación QR vs XML y PDF directo
-import { validarQRvsXML, ResultadoValidacionQR, validarPDFConSAT, ResultadoValidacionPDFSAT } from '../../../services/qrValidationService';
+// 🆕 Validación PDF directo con SAT (sin QR - la cadena original del XML es suficiente)
+import { validarPDFConSAT, ResultadoValidacionPDFSAT } from '../../../services/qrValidationService';
 import {
   createGasto,
   updateGasto,
-  createProveedor
+  createProveedor,
+  findOrCreateProveedor
 } from '../services/gastosNoImpactadosService';
 import type {
   GastoNoImpactadoView,
@@ -195,9 +196,11 @@ export const GastoFormModal = ({
     uuid: string;
   } | null>(null);
 
-  // 🆕 Estado para validación QR vs XML
-  const [resultadoQR, setResultadoQR] = useState<ResultadoValidacionQR | null>(null);
-  const [validandoQR, setValidandoQR] = useState(false);
+  // NOTA: Validación QR removida - La cadena original del XML firmada digitalmente es suficiente
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [resultadoQR, setResultadoQR] = useState<null>(null); // Mantenido para compatibilidad
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [validandoQR, setValidandoQR] = useState(false); // Mantenido para compatibilidad
   const pdfInputRef = useRef<HTMLInputElement>(null);
 
   // 🆕 SELECTOR DE TIPO DE DOCUMENTO (homologado con ExpenseForm de Eventos)
@@ -453,12 +456,10 @@ export const GastoFormModal = ({
       const nuevo = await createProveedor({
         razon_social: nuevoProveedorData.razon_social,
         rfc: nuevoProveedorData.rfc,
-        nombre_comercial: '',
         direccion: '',
         telefono: '',
         email: '',
-        contacto_nombre: '',
-        modulo_origen: 'contabilidad'
+        contacto_nombre: ''
       }, companyId);
 
       setProveedores([...proveedores, nuevo]);
@@ -591,18 +592,18 @@ export const GastoFormModal = ({
   const processXMLCFDI = async (xmlFileToProcess: File) => {
     setIsProcessingOCR(true);
     setOcrProgress('📄 Leyendo XML CFDI...');
-    
+
     try {
       console.log('📄 Procesando XML CFDI:', xmlFileToProcess.name);
-      
+
       // Leer el contenido del archivo XML
       const xmlContent = await xmlFileToProcess.text();
       console.log('📝 Contenido XML cargado, parseando...');
-      
+
       // Parsear el XML usando el mismo motor que Eventos
       setOcrProgress('🔍 Extrayendo datos del CFDI...');
       const cfdiData = await parseCFDIXml(xmlContent);
-      
+
       console.log('✅ CFDI parseado exitosamente:', cfdiData);
       console.log('  - Emisor:', cfdiData.emisor.nombre);
       console.log('  - Total:', cfdiData.total);
@@ -656,26 +657,26 @@ export const GastoFormModal = ({
       // Convertir a formato del formulario
       setOcrProgress('📋 Aplicando datos al formulario...');
       const expenseData = cfdiToExpenseData(cfdiData);
-      
+
       console.log('📋 Datos convertidos para el formulario:', expenseData);
 
       // Buscar proveedor por RFC o nombre
       let proveedorEncontrado: Proveedor | undefined;
-      
+
       // Primero buscar por RFC (más preciso)
       if (expenseData.rfc_proveedor) {
-        proveedorEncontrado = proveedores.find(p => 
+        proveedorEncontrado = proveedores.find(p =>
           p.rfc?.toUpperCase() === expenseData.rfc_proveedor.toUpperCase()
         );
       }
-      
+
       // Si no encuentra por RFC, buscar por nombre parcial
       if (!proveedorEncontrado && expenseData.proveedor) {
         proveedorEncontrado = proveedores.find(p =>
           p.razon_social.toLowerCase().includes(expenseData.proveedor!.toLowerCase().substring(0, 10))
         );
       }
-      
+
       if (proveedorEncontrado) {
         setFormData(prev => ({ ...prev, proveedor_id: proveedorEncontrado!.id }));
         setProveedorSearch(proveedorEncontrado.razon_social);
@@ -697,7 +698,7 @@ export const GastoFormModal = ({
         fecha_gasto: expenseData.fecha_gasto || prev.fecha_gasto,
         folio_factura: expenseData.uuid_cfdi || expenseData.folio || ''
       }));
-      
+
       // Marcar método de procesamiento
       setLastProcessedMethod('xml');
       setXmlFile(xmlFileToProcess);
@@ -730,7 +731,7 @@ export const GastoFormModal = ({
           console.warn('⚠️ Error guardando comprobante XML:', uploadErr);
         }
       }
-      
+
       // Mensaje de éxito
       setOcrProgress('');
       toast.success(
@@ -740,14 +741,14 @@ export const GastoFormModal = ({
         `UUID: ${cfdiData.timbreFiscal?.uuid?.substring(0, 8) || 'N/A'}...`,
         { duration: 5000 }
       );
-      
+
       console.log('✅ Formulario actualizado con datos del CFDI');
-      
+
     } catch (error: any) {
       console.error('❌ Error procesando XML CFDI:', error);
       setOcrProgress('');
       setLastProcessedMethod(null);
-      
+
       // Mensaje de error detallado
       const errorMsg = error.message || 'Error desconocido';
       toast.error(
@@ -772,10 +773,10 @@ export const GastoFormModal = ({
     if (!user?.id) return;
 
     // 🆕 DETECTAR XML AUTOMÁTICAMENTE
-    const isXML = file.name.toLowerCase().endsWith('.xml') || 
-                  file.type === 'text/xml' || 
-                  file.type === 'application/xml';
-    
+    const isXML = file.name.toLowerCase().endsWith('.xml') ||
+      file.type === 'text/xml' ||
+      file.type === 'application/xml';
+
     // Si es XML, procesarlo directamente (SIN OCR - 100% precisión)
     if (isXML) {
       console.log('📄 Archivo XML detectado - Procesando CFDI...');
@@ -783,25 +784,25 @@ export const GastoFormModal = ({
       await processXMLCFDI(file);
       return;
     }
-    
+
     // Validar tipo de archivo (imagen/PDF)
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
     if (!validTypes.includes(file.type)) {
       toast.error('Tipo de archivo no válido. Solo se permiten: JPG, PNG, PDF, XML');
       return;
     }
-    
+
     // Validar tamaño (10MB máximo)
     const maxSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxSize) {
       toast.error('El archivo es demasiado grande. Máximo 10MB permitido.');
       return;
     }
-    
+
     // Procesar con OCR
     setVisualFile(file);
     setShouldProcessOCR(true);
-    
+
     // Simular evento de cambio para el handler existente
     const dataTransfer = new DataTransfer();
     dataTransfer.items.add(file);
@@ -821,13 +822,13 @@ export const GastoFormModal = ({
     e.stopPropagation();
     setIsDragging(true);
   };
-  
+
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
   };
-  
+
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -837,8 +838,8 @@ export const GastoFormModal = ({
     if (droppedFile) {
       // Detectar tipo y agregar al archivo pendiente correcto
       const isXML = droppedFile.name.toLowerCase().endsWith('.xml') ||
-                    droppedFile.type === 'text/xml' ||
-                    droppedFile.type === 'application/xml';
+        droppedFile.type === 'text/xml' ||
+        droppedFile.type === 'application/xml';
       if (isXML) {
         setPendingXmlFile(droppedFile);
         toast.success(`XML seleccionado: ${droppedFile.name}`);
@@ -923,35 +924,12 @@ export const GastoFormModal = ({
         }
       }
 
-      // PASO 3: Si hay PDF, validar QR vs XML
-      if (pendingPdfFile && uuid && rfcEmisor && rfcReceptor) {
-        setEtapaProceso('Validando QR del PDF...');
-        setValidandoQR(true);
+      // NOTA: La validación con SAT es suficiente.
+      // La cadena original del XML garantiza la autenticidad del CFDI.
+      // No es necesario validar el QR del PDF ya que la firma digital del SAT
+      // en el XML es la prueba definitiva de autenticidad.
 
-        const qrResult = await validarQRvsXML(pendingPdfFile, {
-          uuid,
-          rfcEmisor,
-          rfcReceptor,
-          total
-        });
-
-        setResultadoQR(qrResult);
-        setValidandoQR(false);
-
-        if (qrResult.bloqueante && !qrResult.esValida) {
-          setProcesandoFactura(false);
-          setEtapaProceso('');
-          toast.error(
-            '❌ PDF NO COINCIDE CON XML\n\nLos datos del QR no corresponden al XML.',
-            { duration: 8000 }
-          );
-          return;
-        } else if (qrResult.esValida) {
-          toast.success('✅ QR del PDF coincide con XML', { duration: 3000 });
-        }
-      }
-
-      // PASO 4: Rellenar formulario con datos del CFDI
+      // PASO 3: Rellenar formulario con datos del CFDI
       setEtapaProceso('Aplicando datos...');
       const expenseData = cfdiToExpenseData(cfdiData);
 
@@ -964,44 +942,50 @@ export const GastoFormModal = ({
       }
 
       if (proveedorEncontrado) {
+        // Proveedor ya existe en la lista local
         setFormData(prev => ({ ...prev, proveedor_id: proveedorEncontrado!.id }));
         setProveedorSearch(proveedorEncontrado.razon_social);
         toast.success(`Proveedor encontrado: ${proveedorEncontrado.razon_social}`, { duration: 2000 });
       } else {
-        // 🆕 AUTO-CREAR PROVEEDOR si no existe
-        setEtapaProceso('Creando proveedor...');
-        console.log('🏢 Proveedor no encontrado, creando automáticamente:', cfdiData.emisor.nombre);
+        // Buscar en BD o crear automáticamente usando findOrCreateProveedor
+        setEtapaProceso('Buscando/creando proveedor...');
+        console.log('🏢 Buscando proveedor en BD:', cfdiData.emisor.nombre, cfdiData.emisor.rfc);
 
         try {
-          const nuevoProveedor = await createProveedor({
-            razon_social: cfdiData.emisor.nombre,
-            rfc: cfdiData.emisor.rfc,
-          }, companyId!);
+          // findOrCreateProveedor: primero busca por RFC, luego por razón social, si no existe lo crea
+          const proveedor = await findOrCreateProveedor(
+            cfdiData.emisor.nombre,
+            companyId!,
+            cfdiData.emisor.rfc
+          );
 
-          if (nuevoProveedor) {
-            // Agregar a la lista local de proveedores
-            setProveedores(prev => [...prev, nuevoProveedor]);
-            setFormData(prev => ({ ...prev, proveedor_id: nuevoProveedor.id }));
-            setProveedorSearch(nuevoProveedor.razon_social);
-            toast.success(`✅ Proveedor creado: ${nuevoProveedor.razon_social}`, { duration: 3000, icon: '🏢' });
-          } else {
-            // Si falla la creación, pre-llenar el formulario para creación manual
-            setProveedorSearch(cfdiData.emisor.nombre);
-            setNuevoProveedorData({
-              razon_social: cfdiData.emisor.nombre,
-              rfc: cfdiData.emisor.rfc
-            });
-            toast.error('No se pudo crear el proveedor automáticamente. Usa el botón (+) para crearlo.', { duration: 4000 });
+          // Agregar a la lista local si no estaba
+          if (!proveedores.find(p => p.id === proveedor.id)) {
+            setProveedores(prev => [...prev, proveedor]);
           }
+
+          setFormData(prev => ({ ...prev, proveedor_id: proveedor.id }));
+          setProveedorSearch(proveedor.razon_social || proveedor.nombre);
+          toast.success(`✅ Proveedor: ${proveedor.razon_social || proveedor.nombre}`, { duration: 3000, icon: '🏢' });
+
         } catch (provError: any) {
-          console.error('Error creando proveedor:', provError);
+          console.error('Error con proveedor:', provError);
           // Pre-llenar datos para creación manual
           setProveedorSearch(cfdiData.emisor.nombre);
           setNuevoProveedorData({
             razon_social: cfdiData.emisor.nombre,
             rfc: cfdiData.emisor.rfc
           });
-          toast.error(`Error creando proveedor: ${provError.message}. Créalo manualmente.`, { duration: 4000 });
+
+          // Mensajes de error más claros
+          let mensajeError = 'Error al buscar/crear proveedor.';
+          if (provError.message?.includes('duplicado') || provError.message?.includes('23505')) {
+            mensajeError = 'El proveedor existe pero con datos diferentes. Selecciónalo de la lista.';
+          } else if (provError.message) {
+            mensajeError = provError.message;
+          }
+
+          toast.error(`${mensajeError}`, { duration: 5000 });
         }
       }
 
@@ -1229,7 +1213,20 @@ export const GastoFormModal = ({
       }
     } catch (error: any) {
       console.error('Error validando con SAT:', error);
-      toast.error(`Error de conexión con SAT: ${error.message}`, { duration: 5000 });
+
+      // Mensajes de error más claros según el tipo
+      let mensajeSAT = 'No se pudo conectar con el SAT.';
+      if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+        mensajeSAT = 'Error de red: Verifica tu conexión a internet o que el servidor OCR esté activo (puerto 3001).';
+      } else if (error.message?.includes('timeout')) {
+        mensajeSAT = 'El SAT tardó demasiado en responder. Intenta de nuevo.';
+      } else if (error.message?.includes('503') || error.message?.includes('Service Unavailable')) {
+        mensajeSAT = 'El servicio del SAT no está disponible temporalmente. Intenta más tarde.';
+      } else if (error.message) {
+        mensajeSAT = error.message;
+      }
+
+      toast.error(`⚠️ ${mensajeSAT}`, { duration: 6000 });
     }
   };
 
@@ -1311,10 +1308,10 @@ export const GastoFormModal = ({
     if (!file || !user?.id) return;
 
     // 🆕 Detectar XML automáticamente
-    const isXML = file.name.toLowerCase().endsWith('.xml') || 
-                  file.type === 'text/xml' || 
-                  file.type === 'application/xml';
-    
+    const isXML = file.name.toLowerCase().endsWith('.xml') ||
+      file.type === 'text/xml' ||
+      file.type === 'application/xml';
+
     if (isXML) {
       await processXMLCFDI(file);
       return;
@@ -1461,14 +1458,8 @@ export const GastoFormModal = ({
       return;
     }
 
-    // 🆕 VALIDACIÓN QR - Bloquear si el PDF no coincide con el XML
-    if (lastProcessedMethod === 'xml' && resultadoQR && resultadoQR.bloqueante && !resultadoQR.esValida) {
-      toast.error(
-        '❌ No se puede guardar este gasto.\n\nEl PDF no corresponde al XML (QR no coincide).',
-        { duration: 6000 }
-      );
-      return;
-    }
+    // NOTA: La validación QR fue removida. La validación SAT es suficiente
+    // ya que usa la cadena original del XML que está firmada digitalmente.
 
     // 🆕 VALIDACIÓN SAT - Bloquear si la factura fue cargada por XML y está cancelada
     if (lastProcessedMethod === 'xml' && resultadoSAT) {
@@ -1720,23 +1711,15 @@ export const GastoFormModal = ({
                     </button>
                   </div>
 
-                  {/* Indicadores de validación - Solo para facturas */}
-                  {lastProcessedMethod === 'xml' && (resultadoSAT || resultadoQR) && (
+                  {/* Indicadores de validación SAT - Solo para facturas */}
+                  {lastProcessedMethod === 'xml' && resultadoSAT && (
                     <div className="flex gap-2 mt-2">
                       {resultadoSAT && (
-                        <span className={`text-xs px-2 py-1 rounded-full ${
-                          resultadoSAT.esValida ? 'bg-green-100 text-green-700' :
+                        <span className={`text-xs px-2 py-1 rounded-full ${resultadoSAT.esValida ? 'bg-green-100 text-green-700' :
                           resultadoSAT.esCancelada ? 'bg-red-100 text-red-700' :
-                          'bg-yellow-100 text-yellow-700'
-                        }`}>
+                            'bg-yellow-100 text-yellow-700'
+                          }`}>
                           SAT: {resultadoSAT.esValida ? 'Vigente' : resultadoSAT.esCancelada ? 'Cancelada' : 'No encontrada'}
-                        </span>
-                      )}
-                      {resultadoQR && (
-                        <span className={`text-xs px-2 py-1 rounded-full ${
-                          resultadoQR.esValida ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                        }`}>
-                          QR: {resultadoQR.esValida ? 'Coincide' : 'No coincide'}
                         </span>
                       )}
                     </div>
@@ -1747,57 +1730,52 @@ export const GastoFormModal = ({
               /* ========================================== */
               /* SELECTOR DE TIPO DE DOCUMENTO */
               /* ========================================== */
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Opción: Factura (XML + PDF) */}
+              <div className="space-y-2">
+                <div className="grid grid-cols-3 gap-2">
+                  {/* Opción: Factura (XML + PDF) - Compacto */}
                   <button
                     type="button"
                     onClick={() => {
                       setTipoDocumento('factura');
                       xmlInputRef.current?.click();
                     }}
-                    className="flex flex-col items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg hover:bg-blue-50 transition-colors"
+                    className="flex flex-col items-center gap-1 p-2 border-2 border-dashed rounded hover:bg-blue-50 transition-colors"
                     style={{ borderColor: '#3B82F6' }}
                   >
-                    <FileText className="w-8 h-8 text-blue-600" />
-                    <span className="font-medium text-blue-600">Factura</span>
-                    <span className="text-xs text-gray-500">XML CFDI + PDF</span>
+                    <FileText className="w-5 h-5 text-blue-600" />
+                    <span className="text-xs font-medium text-blue-600">Factura</span>
                   </button>
 
-                  {/* Opción: Ticket (imagen con OCR) */}
+                  {/* Opción: Ticket (imagen con OCR) - Compacto */}
                   <button
                     type="button"
                     onClick={() => {
                       setTipoDocumento('ticket');
                       ticketInputRef.current?.click();
                     }}
-                    className="flex flex-col items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg hover:bg-amber-50 transition-colors"
+                    className="flex flex-col items-center gap-1 p-2 border-2 border-dashed rounded hover:bg-amber-50 transition-colors"
                     style={{ borderColor: '#F59E0B' }}
                   >
-                    <Camera className="w-8 h-8 text-amber-600" />
-                    <span className="font-medium text-amber-600">Ticket</span>
-                    <span className="text-xs text-gray-500">Imagen con OCR</span>
+                    <Camera className="w-5 h-5 text-amber-600" />
+                    <span className="text-xs font-medium text-amber-600">Ticket</span>
+                  </button>
+
+                  {/* Opción: Solo PDF - Compacto (movido aquí) */}
+                  <button
+                    type="button"
+                    onClick={() => pdfSoloInputRef.current?.click()}
+                    disabled={validandoPDFSolo}
+                    className="flex flex-col items-center gap-1 p-2 border-2 border-dashed rounded hover:bg-purple-50 transition-colors"
+                    style={{ borderColor: '#8B5CF6' }}
+                  >
+                    {validandoPDFSolo ? (
+                      <Loader2 className="w-5 h-5 text-purple-600 animate-spin" />
+                    ) : (
+                      <FileText className="w-5 h-5 text-purple-600" />
+                    )}
+                    <span className="text-xs font-medium text-purple-600">Solo PDF</span>
                   </button>
                 </div>
-
-                {/* Opción: Validar solo PDF (sin XML) */}
-                <button
-                  type="button"
-                  onClick={() => pdfSoloInputRef.current?.click()}
-                  disabled={validandoPDFSolo}
-                  className="w-full flex items-center justify-center gap-2 p-3 border-2 border-dashed rounded-lg hover:bg-purple-50 transition-colors"
-                  style={{ borderColor: '#8B5CF6' }}
-                >
-                  {validandoPDFSolo ? (
-                    <Loader2 className="w-5 h-5 text-purple-600 animate-spin" />
-                  ) : (
-                    <FileText className="w-5 h-5 text-purple-600" />
-                  )}
-                  <span className="font-medium text-purple-600">
-                    {validandoPDFSolo ? 'Validando...' : 'Validar solo PDF'}
-                  </span>
-                  <span className="text-xs text-gray-500">(Sin XML - Extrae datos con OCR)</span>
-                </button>
                 <input
                   ref={pdfSoloInputRef}
                   type="file"
@@ -1811,22 +1789,21 @@ export const GastoFormModal = ({
 
                 {/* Resultado de validación PDF solo */}
                 {resultadoPDFSAT && (
-                  <div className={`p-3 rounded-lg border ${
-                    resultadoPDFSAT.validacionSAT?.esValida
-                      ? 'bg-green-50 border-green-300'
-                      : resultadoPDFSAT.validacionSAT?.esCancelada
+                  <div className={`p-3 rounded-lg border ${resultadoPDFSAT.validacionSAT?.esValida
+                    ? 'bg-green-50 border-green-300'
+                    : resultadoPDFSAT.validacionSAT?.esCancelada
                       ? 'bg-red-50 border-red-300'
                       : 'bg-yellow-50 border-yellow-300'
-                  }`}>
+                    }`}>
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-medium text-sm">
                         {resultadoPDFSAT.validacionSAT?.esValida
                           ? '✅ Factura VIGENTE en SAT'
                           : resultadoPDFSAT.validacionSAT?.esCancelada
-                          ? '❌ Factura CANCELADA en SAT'
-                          : resultadoPDFSAT.validacionSAT?.noEncontrada
-                          ? '⚠️ Factura NO ENCONTRADA en SAT'
-                          : `⚠️ ${resultadoPDFSAT.error || 'Estado desconocido'}`
+                            ? '❌ Factura CANCELADA en SAT'
+                            : resultadoPDFSAT.validacionSAT?.noEncontrada
+                              ? '⚠️ Factura NO ENCONTRADA en SAT'
+                              : `⚠️ ${resultadoPDFSAT.error || 'Estado desconocido'}`
                         }
                       </span>
                       <button
@@ -2006,34 +1983,7 @@ export const GastoFormModal = ({
               </div>
             )}
 
-            {/* Estado de validación QR */}
-            {(validandoQR || resultadoQR) && tipoDocumento === 'factura' && (
-              <div className="mt-3 p-3 rounded-lg border" style={{ borderColor: themeColors.border, backgroundColor: `${themeColors.border}20` }}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium" style={{ color: themeColors.text }}>
-                    Validación QR vs XML:
-                  </span>
-                  {validandoQR ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      Validando...
-                    </span>
-                  ) : resultadoQR?.esValida ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                      Coincide
-                    </span>
-                  ) : resultadoQR?.bloqueante ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
-                      No coincide
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
-                      {resultadoQR?.mensaje || 'Advertencia'}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
+            {/* NOTA: Validación QR removida. La validación SAT con cadena original es suficiente. */}
           </div>
 
           {/* Sección: Proveedor */}
@@ -2519,85 +2469,87 @@ export const GastoFormModal = ({
             </div>
           </div>
         </form>
-      </div>
+      </div >
 
       {/* Modal Nuevo Proveedor */}
-      {showNuevoProveedor && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
-          <div
-            className="rounded-xl shadow-xl max-w-md w-full p-6"
-            style={{ backgroundColor: themeColors.bg }}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold" style={{ color: themeColors.text }}>
-                Nuevo Proveedor
-              </h3>
-              <button
-                onClick={() => setShowNuevoProveedor(false)}
-                className="p-1 rounded hover:bg-gray-200"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
-                  Razón Social *
-                </label>
-                <input
-                  type="text"
-                  value={nuevoProveedorData.razon_social}
-                  onChange={(e) => setNuevoProveedorData({ ...nuevoProveedorData, razon_social: e.target.value })}
-                  className="w-full px-4 py-2.5 border-2 rounded-lg"
-                  style={{
-                    borderColor: themeColors.border,
-                    backgroundColor: themeColors.bg,
-                    color: themeColors.text
-                  }}
-                />
+      {
+        showNuevoProveedor && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+            <div
+              className="rounded-xl shadow-xl max-w-md w-full p-6"
+              style={{ backgroundColor: themeColors.bg }}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold" style={{ color: themeColors.text }}>
+                  Nuevo Proveedor
+                </h3>
+                <button
+                  onClick={() => setShowNuevoProveedor(false)}
+                  className="p-1 rounded hover:bg-gray-200"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
-                  RFC
-                </label>
-                <input
-                  type="text"
-                  value={nuevoProveedorData.rfc}
-                  onChange={(e) => setNuevoProveedorData({ ...nuevoProveedorData, rfc: e.target.value.toUpperCase() })}
-                  className="w-full px-4 py-2.5 border-2 rounded-lg uppercase"
-                  maxLength={13}
-                  style={{
-                    borderColor: themeColors.border,
-                    backgroundColor: themeColors.bg,
-                    color: themeColors.text
-                  }}
-                />
-              </div>
-            </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
+                    Razón Social *
+                  </label>
+                  <input
+                    type="text"
+                    value={nuevoProveedorData.razon_social}
+                    onChange={(e) => setNuevoProveedorData({ ...nuevoProveedorData, razon_social: e.target.value })}
+                    className="w-full px-4 py-2.5 border-2 rounded-lg"
+                    style={{
+                      borderColor: themeColors.border,
+                      backgroundColor: themeColors.bg,
+                      color: themeColors.text
+                    }}
+                  />
+                </div>
 
-            <div className="flex justify-end gap-3 mt-6">
-              <button
-                type="button"
-                onClick={() => setShowNuevoProveedor(false)}
-                className="px-4 py-2 border-2 rounded-lg"
-                style={{ borderColor: themeColors.border, color: themeColors.text }}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleCrearNuevoProveedor}
-                className="px-4 py-2 rounded-lg text-white font-medium"
-                style={{ backgroundColor: themeColors.primary }}
-              >
-                Crear Proveedor
-              </button>
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
+                    RFC
+                  </label>
+                  <input
+                    type="text"
+                    value={nuevoProveedorData.rfc}
+                    onChange={(e) => setNuevoProveedorData({ ...nuevoProveedorData, rfc: e.target.value.toUpperCase() })}
+                    className="w-full px-4 py-2.5 border-2 rounded-lg uppercase"
+                    maxLength={13}
+                    style={{
+                      borderColor: themeColors.border,
+                      backgroundColor: themeColors.bg,
+                      color: themeColors.text
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowNuevoProveedor(false)}
+                  className="px-4 py-2 border-2 rounded-lg"
+                  style={{ borderColor: themeColors.border, color: themeColors.text }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleCrearNuevoProveedor}
+                  className="px-4 py-2 rounded-lg text-white font-medium"
+                  style={{ backgroundColor: themeColors.primary }}
+                >
+                  Crear Proveedor
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 };
 

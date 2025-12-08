@@ -7,6 +7,7 @@ import { useClients } from '../hooks/useClients';
 import { DocumentosEvento } from './documents/DocumentosEvento';
 import toast from 'react-hot-toast';
 import { EventoFormData } from '../types/FormData';
+import { Loader2 } from 'lucide-react';
 
 const EventFormPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -14,7 +15,6 @@ const EventFormPage: React.FC = () => {
   const { id } = useParams();
   const { clients } = useClients();
 
-  // 👇 Si hay id, cargamos el evento desde Supabase
   const { data: event, isLoading } = useQuery({
     queryKey: ['evento', id],
     queryFn: async () => {
@@ -30,11 +30,10 @@ const EventFormPage: React.FC = () => {
     enabled: !!id,
   });
 
-  // ✅ Maneja creación o actualización de evento
   const handleSave = async (formData: EventoFormData) => {
     try {
       if (id) {
-        // @ts-ignore - Supabase generated types are too restrictive
+        // @ts-ignore
         const { error } = await supabase
           .from('evt_eventos')
           .update({
@@ -44,10 +43,9 @@ const EventFormPage: React.FC = () => {
           })
           .eq('id', id);
         if (error) throw error;
-
         navigate(`/eventos/${id}`);
       } else {
-        // @ts-ignore - Supabase generated types are too restrictive
+        // @ts-ignore
         const { data, error } = await supabase
           .from('evt_eventos')
           .insert([{
@@ -60,8 +58,6 @@ const EventFormPage: React.FC = () => {
           .single();
 
         if (error) throw error;
-
-        // Redireccionamos al formulario con ID para poder cargar documentos
         navigate(`/eventos/${data.id}`);
       }
     } catch (err) {
@@ -75,17 +71,19 @@ const EventFormPage: React.FC = () => {
   };
 
   const handleDocumentUploaded = () => {
-    // Invalida la query del evento para que se recargue automáticamente
     queryClient.invalidateQueries({ queryKey: ['evento', id] });
   };
 
-  if (isLoading) return <p className="p-6">Cargando evento...</p>;
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-5xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">
-        {id ? 'Editar Evento' : 'Nuevo Evento'}
-      </h1>
+    <div className="max-w-4xl mx-auto px-4 py-2">
       <EventForm
         event={event}
         clients={clients}
@@ -94,14 +92,11 @@ const EventFormPage: React.FC = () => {
       />
 
       {event && (
-        <div className="mt-8 p-6 bg-white border rounded-lg shadow-sm">
-          <h2 className="text-xl font-semibold mb-4 text-gray-800">Documentos del Evento</h2>
-          <p className="text-sm text-gray-500 mb-4">
-            Sube los documentos clave para gestionar el flujo de trabajo del evento.
-          </p>
-          <DocumentosEvento 
-            eventoId={event.id} 
-            estadoActual={event.estado_id} 
+        <div className="mt-4 p-4 bg-white border rounded-lg shadow-sm">
+          <h3 className="text-sm font-semibold mb-2 text-gray-700">Documentos del Evento</h3>
+          <DocumentosEvento
+            eventoId={event.id}
+            estadoActual={event.estado_id}
             onDocumentUploaded={handleDocumentUploaded}
           />
         </div>

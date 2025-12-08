@@ -9,7 +9,8 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   X, Save, Loader2, Camera, Upload, FileText, Calculator,
-  DollarSign, Calendar, Building2, Tag, ChevronDown, ChevronUp
+  DollarSign, Calendar, Building2, Tag, ChevronDown, ChevronUp,
+  Undo2, ArrowDownLeft, MinusCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { supabase } from '../../../../core/config/supabase';
@@ -398,8 +399,14 @@ export const SimpleExpenseForm: React.FC<SimpleExpenseFormProps> = ({
       toast.error('El concepto es obligatorio');
       return;
     }
-    if (formData.total <= 0) {
+    // Para devoluciones, el total puede ser negativo o positivo (se convertirá a negativo)
+    // Para gastos normales, debe ser mayor a 0
+    if (formData.tipo_movimiento === 'gasto' && formData.total <= 0) {
       toast.error('El total debe ser mayor a 0');
+      return;
+    }
+    if (formData.tipo_movimiento === 'retorno' && formData.total === 0) {
+      toast.error('El total de la devolución no puede ser 0');
       return;
     }
 
@@ -426,16 +433,20 @@ export const SimpleExpenseForm: React.FC<SimpleExpenseFormProps> = ({
       // =====================================================
       // MAPEO DE CAMPOS - evt_gastos_erp vs evt_provisiones_erp
       // =====================================================
+      // Para devoluciones/retornos, convertir los montos a negativos
+      const esRetorno = formData.tipo_movimiento === 'retorno';
+      const factorSigno = esRetorno && formData.total > 0 ? -1 : 1;
+
       const dataToSave: any = {
         evento_id: eventoId,
         company_id: user?.company_id || '00000000-0000-0000-0000-000000000001',
-        concepto: formData.concepto,
+        concepto: esRetorno ? `[DEVOLUCIÓN] ${formData.concepto}` : formData.concepto,
         descripcion: formData.descripcion,
         [fechaField]: formData.fecha,
         categoria_id: formData.categoria_id || null,
-        subtotal: formData.subtotal,
-        iva: formData.iva,
-        total: formData.total,
+        subtotal: formData.subtotal * factorSigno,
+        iva: formData.iva * factorSigno,
+        total: formData.total * factorSigno,
         notas: formData.notas,
       };
 
@@ -853,6 +864,56 @@ export const SimpleExpenseForm: React.FC<SimpleExpenseFormProps> = ({
               />
             </div>
           </div>
+
+          {/* ============================================================== */}
+          {/* TIPO DE MOVIMIENTO: GASTO O DEVOLUCIÓN */}
+          {/* Solo visible para gastos (no provisiones) */}
+          {/* ============================================================== */}
+          {mode === 'gasto' && (
+            <div
+              className="rounded-lg p-3 border-2"
+              style={{
+                backgroundColor: formData.tipo_movimiento === 'retorno' ? '#FEF2F2' : '#F0FDF4',
+                borderColor: formData.tipo_movimiento === 'retorno' ? '#EF4444' : '#10B981'
+              }}
+            >
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-semibold" style={{ color: themeColors.text }}>
+                  Tipo de Movimiento:
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, tipo_movimiento: 'gasto' })}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${formData.tipo_movimiento === 'gasto'
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'bg-white text-gray-600 border hover:bg-gray-50'
+                      }`}
+                  >
+                    <DollarSign className="w-4 h-4" />
+                    Gasto
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, tipo_movimiento: 'retorno' })}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${formData.tipo_movimiento === 'retorno'
+                      ? 'bg-red-600 text-white shadow-md'
+                      : 'bg-white text-gray-600 border hover:bg-gray-50'
+                      }`}
+                  >
+                    <Undo2 className="w-4 h-4" />
+                    Devolución / Retorno
+                  </button>
+                </div>
+              </div>
+              {formData.tipo_movimiento === 'retorno' && (
+                <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                  <MinusCircle className="w-4 h-4" />
+                  Los montos se registrarán como negativos (reducen el gasto total)
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Montos */}
           <div className="grid grid-cols-3 gap-3">

@@ -273,24 +273,24 @@ export const StockPage: React.FC = () => {
           <table className="w-full">
             <thead style={{ backgroundColor: isDark ? '#374151' : '#f9fafb', borderBottom: `1px solid ${colors.border}` }}>
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>
+                <th className="px-2 py-1.5 text-left text-[10px] font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>
                   Producto
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>
+                <th className="px-2 py-1.5 text-center text-[10px] font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>
                   Stock Total
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>
+                <th className="px-2 py-1.5 text-center text-[10px] font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>
                   Min / Max
                 </th>
                 {almacenes?.map(almacen => (
-                  <th key={almacen.id} className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>
+                  <th key={almacen.id} className="px-2 py-1.5 text-center text-[10px] font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>
                     <div className="flex items-center justify-center gap-1">
-                      <Warehouse className="w-4 h-4" />
-                      {almacen.nombre}
+                      <Warehouse className="w-3 h-3" />
+                      <span className="truncate max-w-[80px]" title={almacen.nombre}>{almacen.nombre}</span>
                     </div>
                   </th>
                 ))}
-                <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>
+                <th className="px-2 py-1.5 text-center text-[10px] font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>
                   Estado
                 </th>
               </tr>
@@ -298,57 +298,54 @@ export const StockPage: React.FC = () => {
             <tbody className="divide-y" style={{ borderColor: colors.border }}>
               {productosFiltrados.length === 0 ? (
                 <tr>
-                  <td colSpan={4 + (almacenes?.length || 0)} className="px-6 py-8 text-center" style={{ color: colors.textMuted }}>
+                  <td colSpan={4 + (almacenes?.length || 0)} className="px-2 py-4 text-center text-xs" style={{ color: colors.textMuted }}>
                     No se encontraron productos
                   </td>
                 </tr>
               ) : (
-                productosFiltrados.map((producto, idx) => {
+                productosFiltrados.map((producto) => {
                   const stockTotal = stockTotalPorProducto[producto.id!] || 0;
                   const estado = getStockEstado(producto);
 
                   return (
-                    <motion.tr
+                    <tr
                       key={producto.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.05 }}
-                      className="transition-colors"
+                      className="transition-colors hover:bg-gray-50"
                       style={{ backgroundColor: colors.card }}
                       onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.cardHover}
                       onMouseLeave={(e) => e.currentTarget.style.backgroundColor = colors.card}
                     >
-                      <td className="px-6 py-4">
+                      <td className="px-2 py-1">
                         <div>
-                          <div className="font-medium" style={{ color: colors.text }}>{producto.nombre}</div>
-                          <div className="text-sm" style={{ color: colors.textMuted }}>{producto.codigo}</div>
+                          <div className="font-medium text-xs truncate max-w-[180px]" style={{ color: colors.text }} title={producto.nombre}>{producto.nombre}</div>
+                          <div className="text-[10px]" style={{ color: colors.textMuted }}>{producto.codigo}</div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className="text-lg font-bold" style={{ color: colors.text }}>
+                      <td className="px-2 py-1 text-center">
+                        <span className="text-sm font-bold" style={{ color: colors.text }}>
                           {stockTotal}
                         </span>
-                        <span className="text-sm ml-1" style={{ color: colors.textMuted }}>{producto.unidad_medida}</span>
+                        <span className="text-[10px] ml-1" style={{ color: colors.textMuted }}>{producto.unidad_medida}</span>
                       </td>
-                      <td className="px-6 py-4 text-center text-sm" style={{ color: colors.textSecondary }}>
+                      <td className="px-2 py-1 text-center text-[10px]" style={{ color: colors.textSecondary }}>
                         {producto.stock_minimo} / {producto.stock_maximo}
                       </td>
                       {almacenes?.map(almacen => {
                         const stock = getStockPorAlmacen(producto.id!, almacen.id);
                         return (
-                          <td key={almacen.id} className="px-6 py-4 text-center">
-                            <span className="font-medium" style={{ color: stock > 0 ? colors.text : colors.textMuted }}>
+                          <td key={almacen.id} className="px-2 py-1 text-center">
+                            <span className="font-medium text-xs" style={{ color: stock > 0 ? colors.text : colors.textMuted }}>
                               {stock}
                             </span>
                           </td>
                         );
                       })}
-                      <td className="px-6 py-4 text-center">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${estado.bg} ${estado.color}`}>
+                      <td className="px-2 py-1 text-center">
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${estado.bg} ${estado.color}`}>
                           {estado.label}
                         </span>
                       </td>
-                    </motion.tr>
+                    </tr>
                   );
                 })
               )}

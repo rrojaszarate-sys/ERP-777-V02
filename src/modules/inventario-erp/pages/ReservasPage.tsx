@@ -437,34 +437,34 @@ export const ReservasPage: React.FC = () => {
             <table className="w-full">
               <thead>
                 <tr style={{ backgroundColor: isDark ? '#1e293b' : '#f1f5f9' }}>
-                  <th className="text-left px-4 py-3 text-sm font-medium" style={{ color: colors.textMuted }}>
+                  <th className="text-left px-2 py-1.5 text-[10px] font-medium uppercase" style={{ color: colors.textMuted }}>
                     Producto
                   </th>
-                  <th className="text-left px-4 py-3 text-sm font-medium" style={{ color: colors.textMuted }}>
+                  <th className="text-left px-2 py-1.5 text-[10px] font-medium uppercase" style={{ color: colors.textMuted }}>
                     Evento
                   </th>
-                  <th className="text-center px-4 py-3 text-sm font-medium" style={{ color: colors.textMuted }}>
+                  <th className="text-center px-2 py-1.5 text-[10px] font-medium uppercase" style={{ color: colors.textMuted }}>
                     Reservado
                   </th>
-                  <th className="text-center px-4 py-3 text-sm font-medium" style={{ color: colors.textMuted }}>
+                  <th className="text-center px-2 py-1.5 text-[10px] font-medium uppercase" style={{ color: colors.textMuted }}>
                     Entregado
                   </th>
-                  <th className="text-center px-4 py-3 text-sm font-medium" style={{ color: colors.textMuted }}>
+                  <th className="text-center px-2 py-1.5 text-[10px] font-medium uppercase" style={{ color: colors.textMuted }}>
                     Devuelto
                   </th>
-                  <th className="text-center px-4 py-3 text-sm font-medium" style={{ color: colors.textMuted }}>
+                  <th className="text-center px-2 py-1.5 text-[10px] font-medium uppercase" style={{ color: colors.textMuted }}>
                     Fecha
                   </th>
-                  <th className="text-center px-4 py-3 text-sm font-medium" style={{ color: colors.textMuted }}>
+                  <th className="text-center px-2 py-1.5 text-[10px] font-medium uppercase" style={{ color: colors.textMuted }}>
                     Estado
                   </th>
-                  <th className="text-center px-4 py-3 text-sm font-medium" style={{ color: colors.textMuted }}>
+                  <th className="text-center px-2 py-1.5 text-[10px] font-medium uppercase" style={{ color: colors.textMuted }}>
                     Acciones
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {reservasFiltradas.map((reserva) => {
+                {reservasFiltradas.map((reserva, idx) => {
                   const estadoConfig = ESTADOS_RESERVA[reserva.estado];
                   const IconEstado = estadoConfig.icon;
                   const pendienteEntrega = reserva.cantidad_reservada - reserva.cantidad_entregada;
@@ -473,84 +473,84 @@ export const ReservasPage: React.FC = () => {
                   return (
                     <tr
                       key={reserva.id}
-                      className="border-t transition-colors hover:opacity-90"
-                      style={{ borderColor: colors.border }}
+                      className="border-t transition-colors hover:bg-[#E0F2F1]"
+                      style={{ borderColor: colors.border, backgroundColor: isDark ? (idx % 2 === 0 ? '#1E293B' : '#263244') : (idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC') }}
                     >
-                      <td className="px-4 py-3">
-                        <p className="font-medium" style={{ color: colors.text }}>
+                      <td className="px-2 py-1">
+                        <p className="font-medium text-xs truncate max-w-[120px]" style={{ color: colors.text }} title={(reserva.producto as any)?.nombre}>
                           {(reserva.producto as any)?.nombre || `ID: ${reserva.producto_id}`}
                         </p>
-                        <p className="text-xs" style={{ color: colors.textMuted }}>
+                        <p className="text-[10px]" style={{ color: colors.textMuted }}>
                           {(reserva.producto as any)?.clave} • {(reserva.almacen as any)?.nombre}
                         </p>
                       </td>
-                      <td className="px-4 py-3">
-                        <p style={{ color: colors.text }}>
+                      <td className="px-2 py-1">
+                        <p className="text-xs truncate max-w-[120px]" style={{ color: colors.text }} title={(reserva.evento as any)?.nombre_proyecto}>
                           {(reserva.evento as any)?.nombre_proyecto || `ID: ${reserva.evento_id}`}
                         </p>
-                        <p className="text-xs" style={{ color: colors.textMuted }}>
+                        <p className="text-[10px]" style={{ color: colors.textMuted }}>
                           📅 {new Date((reserva.evento as any)?.fecha_evento || '').toLocaleDateString()}
                         </p>
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="font-bold" style={{ color: colors.text }}>
+                      <td className="px-2 py-1 text-center">
+                        <span className="font-bold text-xs" style={{ color: colors.text }}>
                           {reserva.cantidad_reservada}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-2 py-1 text-center">
                         <span
-                          className="font-bold"
+                          className="font-bold text-xs"
                           style={{ color: reserva.cantidad_entregada > 0 ? '#8B5CF6' : colors.textMuted }}
                         >
                           {reserva.cantidad_entregada}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-2 py-1 text-center">
                         <span
-                          className="font-bold"
+                          className="font-bold text-xs"
                           style={{ color: reserva.cantidad_devuelta > 0 ? '#10B981' : colors.textMuted }}
                         >
                           {reserva.cantidad_devuelta}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <p className="text-sm" style={{ color: colors.text }}>
+                      <td className="px-2 py-1 text-center">
+                        <p className="text-[10px]" style={{ color: colors.text }}>
                           {new Date(reserva.fecha_necesidad).toLocaleDateString()}
                         </p>
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-2 py-1 text-center">
                         <span
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium"
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium"
                           style={{
                             backgroundColor: `${estadoConfig.color}20`,
                             color: estadoConfig.color,
                           }}
                         >
-                          <IconEstado size={12} />
+                          <IconEstado size={10} />
                           {estadoConfig.label}
                         </span>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex justify-center gap-1">
+                      <td className="px-2 py-1">
+                        <div className="flex justify-center gap-0.5">
                           {reserva.estado === 'activa' && pendienteEntrega > 0 && (
                             <button
                               onClick={() => abrirAccionModal(reserva, 'entrega')}
-                              className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium"
+                              className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium"
                               style={{ backgroundColor: '#8B5CF620', color: '#8B5CF6' }}
                               title={`Entregar ${pendienteEntrega} pendientes`}
                             >
-                              <ArrowRight size={14} />
+                              <ArrowRight size={12} />
                               Entregar
                             </button>
                           )}
                           {(reserva.estado === 'entregada' || reserva.estado === 'parcial') && pendienteDevolucion > 0 && (
                             <button
                               onClick={() => abrirAccionModal(reserva, 'devolucion')}
-                              className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium"
+                              className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium"
                               style={{ backgroundColor: '#10B98120', color: '#10B981' }}
                               title={`Devolver ${pendienteDevolucion} pendientes`}
                             >
-                              <ArrowLeft size={14} />
+                              <ArrowLeft size={12} />
                               Devolver
                             </button>
                           )}
@@ -561,10 +561,10 @@ export const ReservasPage: React.FC = () => {
                                   cancelarMutation.mutate(reserva.id);
                                 }
                               }}
-                              className="p-1 rounded hover:opacity-80"
+                              className="p-0.5 rounded hover:opacity-80"
                               style={{ color: '#EF4444' }}
                             >
-                              <XCircle size={16} />
+                              <XCircle size={14} />
                             </button>
                           )}
                         </div>

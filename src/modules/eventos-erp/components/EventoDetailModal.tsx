@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingUp, TrendingDown, Plus, Pencil, Trash2, Eye, X, Settings as SettingsIcon, XCircle, CheckCircle, Loader2, Wallet, FileText, ArrowDownLeft, ArrowUpRight, Package, ChevronUp, ChevronDown, LayoutList, Table2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Plus, Pencil, Trash2, Eye, X, Settings as SettingsIcon, XCircle, CheckCircle, Loader2, Wallet, FileText, ArrowDownLeft, ArrowUpRight, Package, ChevronUp, ChevronDown, LayoutList, Table2, Check, ExternalLink, File, Undo2 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Modal } from '../../../shared/components/ui/Modal';
 import { Button } from '../../../shared/components/ui/Button';
@@ -18,11 +18,16 @@ import type { GastoFormData } from '../../../shared/components/gastos/types';
 import { IncomeForm } from './finances/IncomeForm';
 import { RetornoMaterialForm } from './finances/RetornoMaterialForm';
 import { MaterialAlmacenForm } from './finances/MaterialAlmacenForm';
+import { GastosAnalysisModal } from './analisis/GastosAnalysisModal';
+import { ResumenFinancieroEvento } from './analisis/ResumenFinancieroEvento';
 import { MaterialConsolidadoCard } from './finances/MaterialConsolidadoCard';
+import { RefundModal } from './finances/RefundModal';
 import { GaugeChart } from './GaugeChart';
 import { useTheme } from '../../../shared/components/theme';
 import { useExpenseCategories } from '../hooks/useFinances';
 import { useUsers } from '../hooks/useUsers';
+import { fetchFormasPago, fetchEjecutivos } from '../../contabilidad-erp/services/gastosNoImpactadosService';
+import type { Ejecutivo } from '../../contabilidad-erp/types/gastosNoImpactados';
 
 interface EventoDetailModalProps {
   eventoId: number;
@@ -67,6 +72,13 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
   // Estados para el modal de provisiones
   const [showProvisionModal, setShowProvisionModal] = useState(false);
   const [editingProvision, setEditingProvision] = useState<any | null>(null);
+  const [convertingProvision, setConvertingProvision] = useState<any | null>(null);
+
+  // Estados para Modal de Análisis
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);  // Para convertir provisión a gasto
+
+  // Estado para Modal de Devolución
+  const [refundingGasto, setRefundingGasto] = useState<any | null>(null);
 
   // Estado para COLAPSAR HEADER SUPERIOR (marcado en rojo por el usuario)
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(() => {
@@ -81,10 +93,10 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
   });
 
   // Estado para mostrar Totales (con IVA) o Subtotales (sin IVA)
-  // Por defecto TRUE para coincidir con el listado de eventos
+  // Por defecto FALSE para mostrar Utilidad Bruta (como en Excel doTERRA)
   const [showIVA, setShowIVA] = useState(() => {
     const saved = localStorage.getItem('eventos_erp_show_iva');
-    return saved !== null ? JSON.parse(saved) : true; // Default: Totales (con IVA)
+    return saved !== null ? JSON.parse(saved) : false; // Default: Subtotales (sin IVA)
   });
 
   // Estado para mostrar cifras compactas (K/M sin centavos)
@@ -102,6 +114,28 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
   // Catálogos para UnifiedExpenseForm
   const { data: categorias = [] } = useExpenseCategories();
   const { data: usuarios = [] } = useUsers();
+
+  // Catálogos de Gastos No Impactados (para forma de pago y ejecutivo)
+  const [formasPago, setFormasPago] = useState<{ id: number; nombre: string }[]>([]);
+  const [ejecutivos, setEjecutivos] = useState<Ejecutivo[]>([]);
+
+  // Cargar catálogos de formas de pago y ejecutivos al inicio
+  useEffect(() => {
+    const loadCatalogosGasto = async () => {
+      if (!user?.company_id) return;
+      try {
+        const [formasPagoData, ejecutivosData] = await Promise.all([
+          fetchFormasPago(user.company_id),
+          fetchEjecutivos(user.company_id)
+        ]);
+        setFormasPago(formasPagoData);
+        setEjecutivos(ejecutivosData);
+      } catch (error) {
+        console.error('Error cargando catálogos de gasto:', error);
+      }
+    };
+    loadCatalogosGasto();
+  }, [user?.company_id]);
 
   // Colores dinámicos del tema
   const themeColors = {
@@ -761,7 +795,7 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
           >
             <AnimatePresence mode="wait">
               {activeTab === 'overview' && (
-                <OverviewTab evento={evento} showIVA={showIVA} />
+                <OverviewTab evento={evento} showIVA={showIVA} gastos={gastos} ingresos={ingresos} provisiones={provisiones} />
               )}
 
               {activeTab === 'ingresos' && (
@@ -797,6 +831,7 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
                     setEditingGasto(gasto);
                     setShowGastoModal(true);
                   }}
+                  onShowAnalysis={() => setShowAnalysisModal(true)}
                   onCreateRetorno={() => {
                     setEditingRetorno(null);
                     setShowRetornoModal(true);
@@ -820,6 +855,7 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
                     setMaterialAlmacenTipo(item.tipo_movimiento || 'gasto');
                     setShowMaterialAlmacenModal(true);
                   }}
+                  onCreateRefund={(gasto) => setRefundingGasto(gasto)}
                 />
               )}
 
@@ -837,6 +873,28 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
                   onEditProvision={(provision) => {
                     setEditingProvision(provision);
                     setShowProvisionModal(true);
+                  }}
+                  onConvertToGasto={(provision) => {
+                    // Guardar la provisión que se está convirtiendo
+                    setConvertingProvision(provision);
+                    // Pre-cargar datos en el formulario de gasto
+                    setEditingGasto({
+                      concepto: provision.concepto,
+                      subtotal: provision.subtotal,
+                      iva: provision.iva,
+                      iva_porcentaje: 16,
+                      total: provision.total,
+                      fecha_gasto: provision.fecha_estimada,
+                      categoria_id: provision.categoria_id,
+                      proveedor_nombre: provision.proveedor,
+                      rfc_proveedor: provision.rfc_proveedor,
+                      notas: provision.notas,
+                      forma_pago_id: provision.forma_pago_id,
+                      ejecutivo_id: provision.ejecutivo_id,
+                      estado: 'pendiente',
+                      pagado: false,
+                    });
+                    setShowGastoModal(true);
                   }}
                 />
               )}
@@ -879,9 +937,32 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
                 claveEvento={evento?.clave_evento || `EVT-${eventoId}`}
                 categorias={categorias?.map(c => ({ id: c.id, nombre: c.nombre, color: c.color })) || []}
                 usuarios={usuarios?.map(u => ({ id: u.id, nombre: `${u.nombre} ${u.apellidos || ''}`.trim(), email: u.email })) || []}
+                formasPago={formasPago}
+                ejecutivos={ejecutivos.map(e => ({ id: e.id, nombre: e.nombre }))}
                 modo="evento"
                 onSave={async (data) => {
                   await handleSaveGasto(data, 'gasto');
+
+                  // Si estamos convirtiendo una provisión a gasto, eliminarla
+                  if (convertingProvision?.id) {
+                    try {
+                      const { error } = await supabase
+                        .from('evt_provisiones_erp')
+                        .delete()
+                        .eq('id', convertingProvision.id);
+
+                      if (error) {
+                        console.error('Error eliminando provisión:', error);
+                        toast.error('Gasto guardado, pero error al eliminar provisión');
+                      } else {
+                        toast.success('✅ Provisión convertida a gasto exitosamente');
+                      }
+                    } catch (err) {
+                      console.error('Error:', err);
+                    }
+                    setConvertingProvision(null);
+                  }
+
                   await loadFinancialData();
                   setShowGastoModal(false);
                   setEditingGasto(null);
@@ -889,6 +970,7 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
                 onCancel={() => {
                   setShowGastoModal(false);
                   setEditingGasto(null);
+                  setConvertingProvision(null);
                 }}
               />
             </div>
@@ -1021,11 +1103,15 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
                   proveedor_nombre: editingProvision.proveedor,
                   rfc_proveedor: editingProvision.rfc_proveedor,
                   notas: editingProvision.notas,
+                  forma_pago_id: editingProvision.forma_pago_id,
+                  ejecutivo_id: editingProvision.ejecutivo_id,
                 } : null}
                 eventoId={eventoId}
                 claveEvento={evento?.clave_evento || `EVT-${eventoId}`}
                 categorias={categorias?.map(c => ({ id: c.id, nombre: c.nombre, color: c.color })) || []}
                 usuarios={usuarios?.map(u => ({ id: u.id, nombre: `${u.nombre} ${u.apellidos || ''}`.trim(), email: u.email })) || []}
+                formasPago={formasPago}
+                ejecutivos={ejecutivos.map(e => ({ id: e.id, nombre: e.nombre }))}
                 modo="provision"
                 onSave={async (data) => {
                   await handleSaveGasto(data, 'provision');
@@ -1042,331 +1128,49 @@ export const EventoDetailModal: React.FC<EventoDetailModalProps> = ({
           </div>
         )
       }
+
+      {/* MODAL DE DEVOLUCIÓN */}
+      {refundingGasto && (
+        <RefundModal
+          gastoOriginal={refundingGasto}
+          eventoId={eventoId.toString()}
+          onSave={() => {
+            setRefundingGasto(null);
+            loadFinancialData();
+            toast.success('Devolución registrada correctamente');
+          }}
+          onClose={() => setRefundingGasto(null)}
+        />
+      )}
+
+      {/* MODAL DE ANÁLISIS INTELIGENTE */}
+      <GastosAnalysisModal
+        isOpen={showAnalysisModal}
+        onClose={() => setShowAnalysisModal(false)}
+        gastos={gastos}
+        evento={evento}
+        eventoNombre={evento?.nombre_evento || 'Evento'}
+      />
     </>
   );
 };
 
-const OverviewTab: React.FC<{ evento: any; showIVA?: boolean }> = ({ evento, showIVA = true }) => {
-  const { paletteConfig } = useTheme();
-
-  // Estado ÚNICO para colapsar/expandir TODAS las fichas juntas
-  const [allCardsExpanded, setAllCardsExpanded] = useState(false);
-
-  // Toggle para expandir/colapsar todas las fichas
-  const toggleAllCards = () => setAllCardsExpanded(prev => !prev);
-
-  // Usar el toggle global (showIVA) en lugar de uno local
-  const showTotales = showIVA;
-
-  // Colores dinámicos de la paleta
-  const colors = {
-    primary: paletteConfig.primary,
-    primaryLight: paletteConfig.shades[100],
-    primaryDark: paletteConfig.shades[700],
-    secondary: paletteConfig.secondary,
-  };
-  // ============================================================================
-  // CÁLCULOS FINANCIEROS - FÓRMULA CORRECTA
-  // ============================================================================
-  // PROVISIONES = Gastos pendientes de pago (compromisos futuros)
-  // TOTAL EGRESOS = Gastos + Provisiones
-  // UTILIDAD BRUTA = Ingresos Subtotal - Gastos Subtotal - Provisiones Subtotal
-  // MARGEN BRUTO = (Utilidad Bruta / Ingresos Subtotal) × 100
-
-  // Usar campos directamente de la vista vw_eventos_analisis_financiero_erp
-  const provisionesTotal = evento.provisiones_total || 0;
-  const ingresoEstimado = evento.ingreso_estimado || 0;
-  const ingresosTotales = evento.ingresos_totales || 0;
-  const gastosTotales = evento.gastos_totales || 0;
-
-  // Subtotales (sin IVA ni retenciones) - para utilidad bruta
-  const ingresosSubtotal = evento.ingresos_subtotal || (ingresosTotales / 1.16);
-  const gastosSubtotal = evento.gastos_subtotal || (gastosTotales / 1.16);
-  const provisionesSubtotal = evento.provisiones_subtotal || (provisionesTotal / 1.16);
-
-  // Total Egresos = Gastos + Provisiones (provisiones son gastos antes de pagarse)
-  const totalEgresos = gastosTotales + provisionesTotal;
-
-  // Utilidad Real (con IVA) - para compatibilidad
-  const utilidadReal = evento.utilidad_real ?? (ingresosTotales - totalEgresos);
-  const margenRealPct = evento.margen_real_pct ?? (ingresosTotales > 0 ? (utilidadReal / ingresosTotales) * 100 : 0);
-
-  // Utilidad Bruta (sin IVA ni retenciones) - para análisis financiero
-  const utilidadBruta = evento.utilidad_bruta ?? (ingresosSubtotal - gastosSubtotal - provisionesSubtotal);
-  const margenBrutoPct = evento.margen_bruto_pct ?? (ingresosSubtotal > 0 ? (utilidadBruta / ingresosSubtotal) * 100 : 0);
-
-  // Cálculos de IVA (16%)
-  const IVA_RATE = 0.16;
-  const ivaIngresos = evento.ingresos_iva || (ingresosTotales - ingresosSubtotal);
-  const ivaGastos = evento.gastos_iva || (gastosTotales - gastosSubtotal);
-
+const OverviewTab: React.FC<{ evento: any; showIVA?: boolean; gastos?: any[]; ingresos?: any[]; provisiones?: any[] }> = ({ evento, showIVA = false, gastos = [], ingresos = [], provisiones = [] }) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="p-6 space-y-6"
+      className="p-4 space-y-4"
     >
-      {/* ANÁLISIS FINANCIERO - DISEÑO LIMPIO Y SOBRIO */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-lg font-semibold text-gray-800 flex items-center">
-            <TrendingUp className="w-5 h-5 mr-2" style={{ color: colors.primary }} />
-            Análisis Financiero
-          </h3>
-          {/* Indicador del modo actual (el toggle está en el header) */}
-          <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">
-            {showTotales ? '💰 Con IVA' : '📊 Subtotales'}
-          </span>
-        </div>
-
-        {/* Valores a mostrar según toggle */}
-        {(() => {
-          const ingresosDisplay = showTotales ? ingresosTotales : ingresosSubtotal;
-          const gastosDisplay = showTotales ? gastosTotales : gastosSubtotal;
-          const provisionesDisplay = showTotales ? provisionesTotal : provisionesSubtotal;
-          const utilidadDisplay = showTotales ? utilidadReal : utilidadBruta;
-          const margenDisplay = showTotales ? margenRealPct : margenBrutoPct;
-          const baseIngresos = showTotales ? ingresosTotales : ingresosSubtotal;
-
-          return (
-            <div className="space-y-5">
-              {/* INGRESOS */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-medium text-gray-700">Ingresos {!showTotales && <span className="text-[10px] text-gray-400">(sin IVA)</span>}</span>
-                  <span className="text-lg font-bold" style={{ color: colors.primary }}>{formatCurrency(ingresosDisplay)}</span>
-                </div>
-                <div className="relative h-8 bg-gray-100 rounded overflow-hidden">
-                  <div
-                    className="h-full transition-all duration-500 rounded"
-                    style={{
-                      width: `${ingresosDisplay > 0 ? 100 : 0}%`,
-                      backgroundColor: colors.primary
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* GASTOS - Color gris sobrio */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-medium text-gray-700">Gastos {!showTotales && <span className="text-[10px] text-gray-400">(sin IVA)</span>}</span>
-                  <span className="text-lg font-bold text-gray-600">{formatCurrency(gastosDisplay)}</span>
-                </div>
-                <div className="relative h-8 bg-gray-100 rounded overflow-hidden">
-                  <div
-                    className="h-full transition-all duration-500 rounded bg-gray-500"
-                    style={{
-                      width: `${baseIngresos > 0 ? Math.min((gastosDisplay / baseIngresos) * 100, 100) : 0}%`
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* PROVISIONES - Color verde sobrio */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-medium text-gray-700">Provisiones {!showTotales && <span className="text-[10px] text-gray-400">(sin IVA)</span>}</span>
-                  <span className="text-lg font-bold text-emerald-600">{formatCurrency(provisionesDisplay)}</span>
-                </div>
-                <div className="relative h-8 bg-gray-100 rounded overflow-hidden">
-                  <div
-                    className="h-full transition-all duration-500 rounded bg-emerald-500"
-                    style={{
-                      width: `${baseIngresos > 0 ? Math.min((provisionesDisplay / baseIngresos) * 100, 100) : 0}%`
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* LÍNEA DIVISORIA */}
-              <div className="border-t border-gray-200 pt-4">
-                {/* FÓRMULA VISUAL: Ingresos - Gastos - Provisiones = Utilidad */}
-                <div className="flex items-center justify-center gap-2 text-sm text-gray-500 mb-4">
-                  <span style={{ color: colors.primary }}>{formatCurrency(ingresosDisplay)}</span>
-                  <span>−</span>
-                  <span className="text-gray-600">{formatCurrency(gastosDisplay)}</span>
-                  <span>−</span>
-                  <span className="text-emerald-600">{formatCurrency(provisionesDisplay)}</span>
-                  <span>=</span>
-                  <span className={`font-bold ${utilidadDisplay >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {formatCurrency(utilidadDisplay)}
-                  </span>
-                </div>
-
-                {/* UTILIDAD - Barra con indicador de resultado */}
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-semibold text-gray-800">
-                      Utilidad {showTotales ? '(con IVA)' : 'Bruta'}
-                    </span>
-                    <span className={`text-xl font-bold ${utilidadDisplay >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {formatCurrency(utilidadDisplay)}
-                    </span>
-                  </div>
-                  <div className="relative h-10 bg-gray-100 rounded overflow-hidden">
-                    <div
-                      className={`h-full transition-all duration-500 rounded ${utilidadDisplay >= 0 ? 'bg-green-500' : 'bg-red-500'}`}
-                      style={{
-                        width: `${baseIngresos > 0 ? Math.min(Math.abs(utilidadDisplay / baseIngresos) * 100, 100) : 0}%`
-                      }}
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-sm font-semibold text-gray-700">
-                        {margenDisplay.toFixed(1)}% {showTotales ? 'margen total' : 'margen bruto'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-      </div>
-
-      {/* DATOS DEL RESUMEN DEL EVENTO - Todas las fichas colapsan juntas */}
-      <div className="bg-white rounded-lg p-6 mb-6 shadow-lg border-2 border-blue-200">
-        {/* Header con botón para expandir/colapsar todas */}
-        <div className="flex items-center justify-between mb-4">
-          <h4 className="text-sm font-semibold text-gray-600">Resumen Financiero</h4>
-          <button
-            onClick={toggleAllCards}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-xs font-medium text-gray-600 transition-colors"
-          >
-            {allCardsExpanded ? '▲ Colapsar' : '▼ Expandir'} Detalles
-          </button>
-        </div>
-
-        <div className="grid grid-cols-4 gap-6">
-          {/* INGRESOS */}
-          <div className="border-r pr-4">
-            <div className="text-left">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase">Ingresos</h4>
-              </div>
-              <div className="font-bold text-blue-900 text-2xl">
-                {formatCurrency(showTotales ? ingresosTotales : ingresosSubtotal)}
-              </div>
-              <div className="text-[9px] text-gray-400">
-                Sub: {formatCurrency(ingresosSubtotal)} | IVA: {formatCurrency(ivaIngresos)}
-              </div>
-            </div>
-            {allCardsExpanded && (
-              <div className="text-xs text-gray-500 border-t pt-2 mt-2 space-y-1">
-                <div className="text-blue-600 flex items-center gap-1">
-                  <span className="text-green-500">✓</span> Facturado: {formatCurrency(ingresosTotales)}
-                </div>
-                <div className="text-gray-400">Ppto: {formatCurrency(ingresoEstimado)}</div>
-              </div>
-            )}
-          </div>
-
-          {/* GASTOS */}
-          <div className="border-r pr-4">
-            <div className="text-left">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase">Gastos</h4>
-              </div>
-              <div className="font-bold text-red-900 text-2xl">
-                {formatCurrency(showTotales ? gastosTotales : gastosSubtotal)}
-              </div>
-              <div className="text-[9px] text-gray-400">
-                Sub: {formatCurrency(gastosSubtotal)} | IVA: {formatCurrency(ivaGastos)}
-              </div>
-            </div>
-            {allCardsExpanded && (
-              <div className="text-xs text-gray-500 border-t pt-2 mt-2 space-y-1">
-                <div className="flex justify-between">
-                  <span>⛽</span>
-                  <span className="font-medium">{formatCurrency((evento.gastos_combustible_pagados || 0) + (evento.gastos_combustible_pendientes || 0))}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>🛠️</span>
-                  <span className="font-medium">{formatCurrency((evento.gastos_materiales_pagados || 0) + (evento.gastos_materiales_pendientes || 0))}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>👥</span>
-                  <span className="font-medium">{formatCurrency((evento.gastos_rh_pagados || 0) + (evento.gastos_rh_pendientes || 0))}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>💳</span>
-                  <span className="font-medium">{formatCurrency((evento.gastos_sps_pagados || 0) + (evento.gastos_sps_pendientes || 0))}</span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* PROVISIONES */}
-          <div className="border-r pr-4">
-            <div className="text-left">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase">Provisiones</h4>
-              </div>
-              <div className={`font-bold text-2xl ${provisionesTotal > 0 ? 'text-amber-600' : 'text-gray-500'}`}>
-                {formatCurrency(showTotales ? provisionesTotal : provisionesSubtotal)}
-              </div>
-              <div className="text-[9px] text-gray-400">
-                Sub: {formatCurrency(provisionesSubtotal)} | IVA: {formatCurrency(provisionesTotal - provisionesSubtotal)}
-              </div>
-            </div>
-            {allCardsExpanded && (
-              <div className="text-xs text-gray-500 border-t pt-2 mt-2 space-y-1">
-                <div className="flex justify-between">
-                  <span>⛽</span>
-                  <span className="font-medium">{formatCurrency(evento.provision_combustible || 0)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>🛠️</span>
-                  <span className="font-medium">{formatCurrency(evento.provision_materiales || 0)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>👥</span>
-                  <span className="font-medium">{formatCurrency(evento.provision_rh || 0)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>💳</span>
-                  <span className="font-medium">{formatCurrency(evento.provision_sps || 0)}</span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* UTILIDAD BRUTA */}
-          <div>
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase">Utilidad {showTotales ? '' : 'Bruta'}</h4>
-              </div>
-              <div className={`font-bold text-2xl ${(showTotales ? utilidadReal : utilidadBruta) >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                {formatCurrency(showTotales ? utilidadReal : utilidadBruta)}
-              </div>
-              <div className="text-[9px] text-gray-400">
-                Margen: {(showTotales ? margenRealPct : margenBrutoPct).toFixed(1)}% | {showTotales ? 'Con IVA' : 'Sin IVA'}
-              </div>
-            </div>
-            {allCardsExpanded && (
-              <div className="border-t pt-2 mt-2">
-                <GaugeChart
-                  value={showTotales ? margenRealPct : margenBrutoPct}
-                  size="sm"
-                  showLabel={true}
-                />
-                <div className="text-xs text-gray-500 mt-2 space-y-1">
-                  <div className="flex justify-between">
-                    <span>Util. Bruta:</span>
-                    <span className="font-medium">{formatCurrency(utilidadBruta)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Util. Total:</span>
-                    <span className="font-medium">{formatCurrency(utilidadReal)}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      {/* RESUMEN FINANCIERO CON GRÁFICAS DINÁMICAS - COMPACTO */}
+      <ResumenFinancieroEvento
+        evento={evento}
+        gastos={gastos}
+        ingresos={ingresos}
+        provisiones={provisiones}
+        showIVA={showIVA}
+      />
 
       {/* Notas - Solo si existen */}
       {evento.notas && (
@@ -1394,7 +1198,7 @@ const IngresosTab: React.FC<{
   onEditIngreso: (ingreso: any) => void;
 }> = ({ ingresos, evento, showIVA = false, isCompactView = false, onRefresh, onCreateIngreso, onEditIngreso }) => {
   const { canCreate, canUpdate, canDelete } = usePermissions();
-  const { paletteConfig } = useTheme();
+  const { paletteConfig, isDark } = useTheme();
 
   // Estado para ordenamiento de columnas
   const [sortConfig, setSortConfig] = useState<{ column: string; direction: 'asc' | 'desc' } | null>(null);
@@ -1435,12 +1239,20 @@ const IngresosTab: React.FC<{
     return <span className="ml-1">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>;
   };
 
-  // Colores dinámicos de la paleta
+  // Colores dinámicos de la paleta con soporte para modo oscuro
   const colors = {
     primary: paletteConfig.primary,
     primaryLight: paletteConfig.shades[100],
     primaryDark: paletteConfig.shades[700],
     secondary: paletteConfig.secondary,
+    // Colores sobrios para filas alternadas (blanco/gris muy tenue + hover menta)
+    rowEven: isDark ? '#1E293B' : '#FFFFFF',
+    rowOdd: isDark ? '#263244' : '#F8FAFC',
+    rowHover: isDark ? '#334155' : '#E0F2F1',
+    // Textos según modo
+    textPrimary: isDark ? '#F8FAFC' : '#1E293B',
+    textSecondary: isDark ? '#CBD5E1' : '#64748B',
+    textMuted: isDark ? '#94A3B8' : '#9CA3AF',
   };
 
   const handleDelete = async (ingreso: any) => {
@@ -1486,94 +1298,66 @@ const IngresosTab: React.FC<{
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="p-6"
+      className="p-4"
     >
-      {/* RESUMEN DE INGRESOS - CON ESTADOS COBRADOS/PENDIENTES */}
-      <div className="grid grid-cols-4 gap-3 mb-6">
-        {/* FICHA 1: Total Ingresos - COLOR PRIMARIO */}
-        <div
-          className="rounded-lg p-3 border"
-          style={{
-            background: `linear-gradient(135deg, ${colors.primaryLight} 0%, ${colors.primary}20 100%)`,
-            borderColor: `${colors.primary}40`
-          }}
-        >
-          <div className="flex items-start justify-between gap-2 mb-0.5">
-            <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: colors.primaryDark }}>
-              Total {showIVA ? '(+IVA)' : '(Neto)'}
-            </div>
-            <div className="text-[10px] font-semibold" style={{ color: colors.primary }}>{ingresos.length} facturas</div>
-          </div>
-          <div className="text-xl font-bold" style={{ color: colors.primaryDark }}>{formatCurrency(totalIngresos)}</div>
-          {showIVA && ivaIngresos > 0 && (
-            <div className="text-[9px] mt-0.5" style={{ color: colors.primary }}>IVA: {formatCurrency(ivaIngresos)}</div>
-          )}
+      {/* FICHAS DE RESUMEN - Diseño compacto tipo pills como Gastos */}
+      <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+        {/* FICHA: Total Ingresos */}
+        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-sm bg-slate-700 text-white border-slate-700 shadow-sm">
+          <span className="text-base">💰</span>
+          <span className="font-medium">Total {showIVA ? '(+IVA)' : '(Neto)'}</span>
+          <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-white/20">{ingresos.length}</span>
+          <span className="font-bold text-white">{formatCurrency(totalIngresos)}</span>
         </div>
 
-        {/* FICHA 2: Cobrados - COLOR PRIMARIO */}
-        <div
-          className="rounded-lg p-3 border"
-          style={{
-            background: `linear-gradient(135deg, ${colors.primaryLight} 0%, ${colors.primary}30 100%)`,
-            borderColor: `${colors.primary}50`
-          }}
-        >
-          <div className="flex items-start justify-between gap-2 mb-0.5">
-            <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: colors.primaryDark }}>Cobrados</div>
-            <div className="text-[10px] font-semibold" style={{ color: colors.primary }}>{porcentajeCobrado.toFixed(0)}%</div>
-          </div>
-          <div className="text-xl font-bold" style={{ color: colors.primaryDark }}>{formatCurrency(totalCobrados)}</div>
-          <div className="text-[10px] mt-1" style={{ color: colors.primary }}>{numFacturasCobradas} facturas cobradas</div>
+        {/* FICHA: Cobrados */}
+        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-sm bg-slate-600 text-white border-slate-600 shadow-sm">
+          <span className="text-base">✅</span>
+          <span className="font-medium">Cobrados</span>
+          <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-white/20">{numFacturasCobradas}</span>
+          <span className="font-bold text-white">{formatCurrency(totalCobrados)}</span>
+          <span className="text-xs opacity-80">({porcentajeCobrado.toFixed(0)}%)</span>
         </div>
 
-        {/* FICHA 3: Pendientes - COLOR SECUNDARIO */}
-        <div
-          className="rounded-lg p-3 border"
-          style={{
-            background: `linear-gradient(135deg, ${colors.secondary}15 0%, ${colors.secondary}25 100%)`,
-            borderColor: `${colors.secondary}40`
-          }}
-        >
-          <div className="flex items-start justify-between gap-2 mb-0.5">
-            <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: colors.secondary }}>Pendientes</div>
-            <div className="text-[10px] font-semibold" style={{ color: colors.secondary }}>{(100 - porcentajeCobrado).toFixed(0)}%</div>
-          </div>
-          <div className="text-xl font-bold" style={{ color: colors.secondary }}>{formatCurrency(totalPendientes)}</div>
-          <div className="text-[10px] mt-1" style={{ color: colors.secondary }}>{numFacturasPendientes} facturas pendientes</div>
+        {/* FICHA: Pendientes */}
+        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-sm bg-white text-slate-600 border-slate-200">
+          <span className="text-base">⏳</span>
+          <span className="font-medium">Pendientes</span>
+          <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-slate-100 text-slate-500">{numFacturasPendientes}</span>
+          <span className="font-bold text-slate-800">{formatCurrency(totalPendientes)}</span>
+          <span className="text-xs opacity-80">({(100 - porcentajeCobrado).toFixed(0)}%)</span>
         </div>
 
-        {/* BOTÓN AGREGAR INGRESO - COLOR PRIMARIO */}
+        {/* SEPARADOR */}
+        <div className="h-6 w-px bg-slate-200 mx-1"></div>
+
+        {/* BOTÓN AGREGAR INGRESO */}
         {canCreate('ingresos') && (
           <button
             onClick={onCreateIngreso}
-            className="rounded-lg p-3 transition-all flex flex-col items-center justify-center gap-1.5 group shadow-sm hover:shadow-md"
-            style={{
-              background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`,
-              borderColor: colors.primary
-            }}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-md border-2 border-dashed text-xs font-medium transition-all hover:shadow-sm"
+            style={{ borderColor: colors.secondary, color: colors.secondary, backgroundColor: `${colors.secondary}08` }}
           >
-            <Plus className="w-6 h-6 text-white" />
-            <span className="text-[10px] font-semibold text-white uppercase tracking-wide text-center">Agregar<br />Ingreso</span>
+            <Plus className="w-3.5 h-3.5" />
+            <span>Ingreso</span>
           </button>
         )}
       </div>
 
-      <h3 className="text-lg font-medium text-gray-900 mb-4">Ingresos del Evento</h3>
-
       {/* VISTA COMPACTA - TIPO EXCEL */}
       <div className="overflow-x-auto border rounded-lg">
-        <table className="min-w-full divide-y divide-gray-200 text-xs">
+        <table className="min-w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-gray-800 text-white">
             <tr>
-              <th className="px-2 py-1.5 text-left font-semibold">Status</th>
-              <th className="px-2 py-1.5 text-left font-semibold">No. Factura</th>
-              <th className="px-2 py-1.5 text-left font-semibold">Proveedor / Razón Social</th>
-              <th className="px-2 py-1.5 text-left font-semibold">Concepto</th>
-              <th className="px-2 py-1.5 text-right font-semibold">Sub-Total</th>
-              <th className="px-2 py-1.5 text-right font-semibold">I.V.A</th>
-              <th className="px-2 py-1.5 text-right font-semibold">Total</th>
-              <th className="px-2 py-1.5 text-center font-semibold">Fecha</th>
-              <th className="px-2 py-1.5 text-center font-semibold">Acción</th>
+              <th className="px-2 py-1.5 text-left font-semibold text-white">Status</th>
+              <th className="px-2 py-1.5 text-left font-semibold text-white">No. Factura</th>
+              <th className="px-2 py-1.5 text-left font-semibold text-white">Proveedor / Razón Social</th>
+              <th className="px-2 py-1.5 text-left font-semibold text-white">Concepto</th>
+              <th className="px-2 py-1.5 text-right font-semibold text-white">Sub-Total</th>
+              <th className="px-2 py-1.5 text-right font-semibold text-white">I.V.A</th>
+              <th className="px-2 py-1.5 text-right font-semibold text-white">Total</th>
+              <th className="px-2 py-1.5 text-center font-semibold text-white">Fecha</th>
+              <th className="px-2 py-1.5 text-center font-semibold text-white">Acción</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -1590,44 +1374,93 @@ const IngresosTab: React.FC<{
                 const ingresoIVA = ingreso.iva || (ingresoTotal - ingresoSubtotal);
                 const isPagado = ingreso.cobrado;
 
-                // Colores de fila según estado - estilo Excel
-                const rowBgColor = isPagado
-                  ? 'bg-yellow-100 hover:bg-yellow-200'
-                  : idx % 2 === 0 ? 'bg-white hover:bg-gray-50' : 'bg-gray-50 hover:bg-gray-100';
+                // Colores de fila: blanco/gris alternado + hover menta suave (homologado)
+                const rowBgColor = idx % 2 === 0 ? colors.rowEven : colors.rowOdd;
+                const rowHoverColor = colors.rowHover;
 
                 return (
-                  <tr key={ingreso.id} className={`${rowBgColor} transition-colors`}>
-                    <td className="px-2 py-1">
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${isPagado ? 'bg-green-600 text-white' : 'bg-orange-100 text-orange-700'
-                        }`}>
+                  <tr
+                    key={ingreso.id}
+                    className="transition-colors cursor-pointer"
+                    style={{ backgroundColor: rowBgColor }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = rowHoverColor}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = rowBgColor}
+                  >
+                    <td className="px-2 py-1.5">
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-xs font-bold ${isPagado
+                          ? 'bg-slate-700 text-white'
+                          : 'bg-slate-200 text-slate-600 dark:bg-slate-600 dark:text-slate-200'
+                          }`}
+                      >
                         {isPagado ? 'COBRADO' : 'PENDIENTE'}
                       </span>
                     </td>
-                    <td className="px-2 py-1">
-                      <span className={`${ingreso.numero_factura ? 'text-blue-600 underline cursor-pointer font-medium' : 'text-gray-400'}`}>
+                    <td className="px-2 py-1.5">
+                      <span
+                        className={`${ingreso.numero_factura ? 'underline cursor-pointer font-medium text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'}`}
+                      >
                         {ingreso.numero_factura || 'N/A'}
                       </span>
                     </td>
-                    <td className="px-2 py-1 text-gray-700 max-w-[180px] truncate">
+                    <td className="px-2 py-1.5 max-w-[180px] truncate text-slate-600 dark:text-slate-300">
                       {ingreso.razon_social || ingreso.proveedor_nombre || 'Sin proveedor'}
                     </td>
-                    <td className="px-2 py-1 text-gray-900 max-w-[200px] truncate font-medium">
+                    <td className="px-2 py-1.5 max-w-[200px] truncate font-medium text-slate-800 dark:text-slate-100">
                       {ingreso.concepto}
                     </td>
-                    <td className="px-2 py-1 text-right font-mono text-gray-700">
+                    <td className="px-2 py-1.5 text-right font-mono text-sm text-slate-700 dark:text-slate-200">
                       {formatCurrency(ingresoSubtotal)}
                     </td>
-                    <td className="px-2 py-1 text-right font-mono text-gray-500">
+                    <td className="px-2 py-1.5 text-right font-mono text-sm text-slate-500 dark:text-slate-400">
                       {formatCurrency(ingresoIVA)}
                     </td>
-                    <td className="px-2 py-1 text-right font-mono font-bold" style={{ color: colors.primary }}>
+                    <td className="px-2 py-1.5 text-right font-mono font-bold text-sm text-slate-800 dark:text-slate-100">
                       {formatCurrency(ingresoTotal)}
                     </td>
-                    <td className="px-2 py-1 text-center text-gray-500">
+                    <td className="px-2 py-1.5 text-center text-slate-500 dark:text-slate-400">
                       {formatDate(ingreso.fecha_creacion)}
                     </td>
                     <td className="px-2 py-1 text-center">
                       <div className="flex gap-1 justify-center">
+                        {/* Icono para ver documentos (PDF/XML) */}
+                        {(ingreso.pdf_url || ingreso.xml_url || ingreso.archivo_adjunto) && (
+                          <div className="relative group">
+                            <button
+                              className="p-1 hover:bg-purple-100 rounded text-purple-600"
+                              title="Ver documentos"
+                            >
+                              <File className="w-3 h-3" />
+                            </button>
+                            {/* Dropdown de documentos */}
+                            <div className="absolute right-0 top-full mt-1 hidden group-hover:block z-50 bg-white border shadow-lg rounded py-1 min-w-[120px]">
+                              {(ingreso.pdf_url || ingreso.archivo_adjunto) && (
+                                <a
+                                  href={ingreso.pdf_url || ingreso.archivo_adjunto}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-100 text-sm text-gray-700"
+                                >
+                                  <FileText className="w-3.5 h-3.5 text-red-500" />
+                                  PDF
+                                  <ExternalLink className="w-3 h-3 ml-auto text-gray-400" />
+                                </a>
+                              )}
+                              {ingreso.xml_url && (
+                                <a
+                                  href={ingreso.xml_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-100 text-sm text-gray-700"
+                                >
+                                  <File className="w-3.5 h-3.5 text-green-600" />
+                                  XML
+                                  <ExternalLink className="w-3 h-3 ml-auto text-gray-400" />
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        )}
                         {canUpdate('ingresos') && (
                           <button
                             onClick={() => onEditIngreso(ingreso)}
@@ -1655,7 +1488,7 @@ const IngresosTab: React.FC<{
           </tbody>
           {/* TOTAL EN FOOTER - estilo Excel */}
           {ingresos.length > 0 && (
-            <tfoot className="bg-blue-900 text-white font-bold">
+            <tfoot className="text-white font-bold" style={{ backgroundColor: colors.primaryDark }}>
               <tr>
                 <td colSpan={4} className="px-2 py-2 text-right">TOTAL INGRESOS</td>
                 <td className="px-2 py-2 text-right font-mono">{formatCurrency(subtotalIngresos)}</td>
@@ -1679,15 +1512,17 @@ const GastosTab: React.FC<{
   onRefresh: () => void;
   onCreateGasto: () => void;
   onEditGasto: (gasto: any) => void;
+  onShowAnalysis?: () => void;
   onCreateRetorno?: () => void;
   onEditRetorno?: (retorno: any) => void;
   onCreateIngresoMaterial?: () => void;
   onCreateRetornoMaterial?: () => void;
   onEditMaterialAlmacen?: (item: any) => void;
-}> = ({ gastos, evento, showIVA = false, isCompactView = false, onRefresh, onCreateGasto, onEditGasto, onCreateRetorno, onEditRetorno, onCreateIngresoMaterial, onCreateRetornoMaterial, onEditMaterialAlmacen }) => {
+  onCreateRefund?: (gasto: any) => void;
+}> = ({ gastos, evento, showIVA = false, isCompactView = false, onRefresh, onCreateGasto, onEditGasto, onShowAnalysis, onCreateRetorno, onEditRetorno, onCreateIngresoMaterial, onCreateRetornoMaterial, onEditMaterialAlmacen, onCreateRefund }) => {
   const { canCreate, canUpdate, canDelete } = usePermissions();
-  const { paletteConfig } = useTheme();
-  const [activeSubTab, setActiveSubTab] = useState<'todos' | 'combustible' | 'materiales' | 'rh' | 'sps' | 'otros'>('todos');
+  const { paletteConfig, isDark } = useTheme();
+  const [activeSubTab, setActiveSubTab] = useState<'todos' | 'combustible' | 'materiales' | 'rh' | 'sps'>('todos');
 
   // Estado para ordenamiento de columnas
   const [sortConfig, setSortConfig] = useState<{ column: string; direction: 'asc' | 'desc' } | null>(null);
@@ -1754,19 +1589,20 @@ const GastosTab: React.FC<{
     return <span className="ml-1">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>;
   };
 
-  // Colores dinámicos de la paleta
+  // Colores dinámicos de la paleta con soporte para modo oscuro
   const colors = {
     primary: paletteConfig.primary,
     primaryLight: paletteConfig.shades[100],
     primaryDark: paletteConfig.shades[700],
     secondary: paletteConfig.secondary,
-  };
-
-  // Helper para calcular subtotal e IVA desde un total
-  const getSubtotalIVA = (total: number) => {
-    const subtotal = total / 1.16;
-    const iva = total - subtotal;
-    return { subtotal, iva };
+    // Colores sobrios para filas alternadas (blanco/gris muy tenue + hover menta)
+    rowEven: isDark ? '#1E293B' : '#FFFFFF',
+    rowOdd: isDark ? '#263244' : '#F8FAFC',
+    rowHover: isDark ? '#334155' : '#E0F2F1',
+    // Textos según modo
+    textPrimary: isDark ? '#F8FAFC' : '#1E293B',
+    textSecondary: isDark ? '#CBD5E1' : '#64748B',
+    textMuted: isDark ? '#94A3B8' : '#9CA3AF',
   };
 
   const handleDelete = async (gasto: any) => {
@@ -1774,16 +1610,15 @@ const GastosTab: React.FC<{
       try {
         const { error } = await supabase
           .from('evt_gastos_erp')
-          .update({
-            deleted_at: new Date().toISOString(),
-            activo: false
-          })
+          .delete()
           .eq('id', gasto.id);
 
         if (error) throw error;
+        toast.success('Gasto eliminado correctamente');
         onRefresh();
       } catch (error) {
         console.error('Error deleting gasto:', error);
+        toast.error('Error al eliminar el gasto');
       }
     }
   };
@@ -1823,15 +1658,13 @@ const GastosTab: React.FC<{
   const esMateriales = (g: any) => g.categoria?.nombre === 'Materiales';
   const esRH = (g: any) => g.categoria?.nombre === 'RH (Recursos Humanos)' || g.categoria?.nombre === 'Recursos Humanos';
   const esSPs = (g: any) => g.categoria?.nombre === 'SPs (Solicitudes de Pago)' || g.categoria?.nombre === 'Solicitudes de Pago';
-  const esOtros = (g: any) => !g.categoria || (!esCombustible(g) && !esMateriales(g) && !esRH(g) && !esSPs(g));
 
   const subTabs = [
     { id: 'todos', label: 'Todos', count: gastos.length },
     { id: 'combustible', label: '⛽ Combustible/Peaje', count: gastos.filter(esCombustible).length },
     { id: 'materiales', label: '🛠️ Materiales', count: gastos.filter(esMateriales).length },
     { id: 'rh', label: '👥 Recursos Humanos', count: gastos.filter(esRH).length },
-    { id: 'sps', label: '💳 Solicitudes de Pago', count: gastos.filter(esSPs).length },
-    { id: 'otros', label: '📋 Otros', count: gastos.filter(esOtros).length }
+    { id: 'sps', label: '💳 Solicitudes de Pago', count: gastos.filter(esSPs).length }
   ];
 
   // Filtrar gastos por categoría
@@ -1843,7 +1676,6 @@ const GastosTab: React.FC<{
         case 'materiales': return esMateriales(g);
         case 'rh': return esRH(g);
         case 'sps': return esSPs(g);
-        case 'otros': return esOtros(g);
         default: return true;
       }
     });
@@ -1897,21 +1729,18 @@ const GastosTab: React.FC<{
   const gastosMateriales = gastos.filter(esMateriales);
   const gastosRH = gastos.filter(esRH);
   const gastosSPs = gastos.filter(esSPs);
-  const gastosOtros = gastos.filter(esOtros);
 
   // Totales con IVA por categoría
   const totalCombustibleConIVA = gastosCombustible.reduce((sum, g) => sum + (g.total || 0), 0);
   const totalMaterialesConIVA = gastosMateriales.reduce((sum, g) => sum + (g.total || 0), 0);
   const totalRHConIVA = gastosRH.reduce((sum, g) => sum + (g.total || 0), 0);
   const totalSPsConIVA = gastosSPs.reduce((sum, g) => sum + (g.total || 0), 0);
-  const totalOtrosConIVA = gastosOtros.reduce((sum, g) => sum + (g.total || 0), 0);
 
   // Totales según showIVA
   const totalCombustible = showIVA ? totalCombustibleConIVA : (totalCombustibleConIVA / 1.16);
   const totalMateriales = showIVA ? totalMaterialesConIVA : (totalMaterialesConIVA / 1.16);
   const totalRH = showIVA ? totalRHConIVA : (totalRHConIVA / 1.16);
   const totalSPs = showIVA ? totalSPsConIVA : (totalSPsConIVA / 1.16);
-  const totalOtros = showIVA ? totalOtrosConIVA : (totalOtrosConIVA / 1.16);
 
   // Obtener total de la categoría activa
   const getCategoryTotal = () => {
@@ -1920,7 +1749,6 @@ const GastosTab: React.FC<{
       case 'materiales': return totalMateriales;
       case 'rh': return totalRH;
       case 'sps': return totalSPs;
-      case 'otros': return totalOtros;
       default: return totalGastos;
     }
   };
@@ -1934,155 +1762,83 @@ const GastosTab: React.FC<{
       exit={{ opacity: 0, y: -20 }}
       className="p-4"
     >
-      {/* FICHAS DE CATEGORÍAS + BOTÓN AGREGAR */}
-      <div className="flex items-stretch gap-3 mb-4">
-        {/* FICHA TODOS */}
-        <button
-          onClick={() => setActiveSubTab('todos')}
-          className={`flex-1 p-3 rounded-lg border-2 transition-all ${activeSubTab === 'todos' ? 'shadow-md' : 'hover:shadow-sm'}`}
-          style={{
-            borderColor: activeSubTab === 'todos' ? colors.secondary : '#e5e7eb',
-            backgroundColor: activeSubTab === 'todos' ? `${colors.secondary}10` : 'white'
-          }}
-        >
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-2xl">📊</span>
-            <span className="text-sm font-bold text-gray-700">Todos</span>
-            <span className="ml-auto text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">{gastos.length}</span>
-          </div>
-          <div className="text-xl font-bold" style={{ color: colors.secondary }}>{formatCurrency(totalGastos)}</div>
-          <div className="text-[10px] text-gray-400">Sub: {formatCurrency(getSubtotalIVA(totalGastos).subtotal)} | IVA: {formatCurrency(getSubtotalIVA(totalGastos).iva)}</div>
-        </button>
-
-        {/* FICHA COMBUSTIBLE */}
-        <button
-          onClick={() => setActiveSubTab('combustible')}
-          className={`flex-1 p-3 rounded-lg border-2 transition-all ${activeSubTab === 'combustible' ? 'shadow-md' : 'hover:shadow-sm'}`}
-          style={{
-            borderColor: activeSubTab === 'combustible' ? '#F59E0B' : '#e5e7eb',
-            backgroundColor: activeSubTab === 'combustible' ? '#FEF3C720' : 'white'
-          }}
-        >
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-2xl">⛽</span>
-            <span className="text-sm font-bold text-amber-700">Combustible</span>
-            <span className="ml-auto text-xs bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full">{gastosCombustible.length}</span>
-          </div>
-          <div className="text-xl font-bold text-amber-600">{formatCurrency(totalCombustible)}</div>
-          <div className="text-[10px] text-gray-400">Sub: {formatCurrency(getSubtotalIVA(totalCombustible).subtotal)} | IVA: {formatCurrency(getSubtotalIVA(totalCombustible).iva)}</div>
-        </button>
-
-        {/* FICHA MATERIALES - Con botones especiales */}
-        <div className={`flex-1 p-3 rounded-lg border-2 transition-all ${activeSubTab === 'materiales' ? 'shadow-md' : 'hover:shadow-sm'}`}
-          style={{
-            borderColor: activeSubTab === 'materiales' ? '#3B82F6' : '#e5e7eb',
-            backgroundColor: activeSubTab === 'materiales' ? '#DBEAFE20' : 'white'
-          }}
-        >
+      {/* FICHAS DE CATEGORÍAS - Diseño compacto y sobrio */}
+      <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+        {/* FICHAS DE CATEGORÍA - ESTILO PILL SOBRIO */}
+        {[
+          { id: 'todos' as const, icon: '📊', label: 'Todos', count: gastos.length, total: totalGastos },
+          { id: 'combustible' as const, icon: '⛽', label: 'Combustible', count: gastosCombustible.length, total: totalCombustible },
+          { id: 'materiales' as const, icon: '🛠️', label: 'Materiales', count: gastosMateriales.length, total: totalMateriales },
+          { id: 'rh' as const, icon: '👷', label: 'Personal', count: gastosRH.length, total: totalRH },
+          { id: 'sps' as const, icon: '💳', label: 'Solicitudes', count: gastosSPs.length, total: totalSPs }
+        ].map((cat) => (
           <button
-            onClick={() => setActiveSubTab('materiales')}
-            className="w-full text-left"
+            key={cat.id}
+            onClick={() => setActiveSubTab(cat.id)}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-sm transition-all ${activeSubTab === cat.id
+              ? 'bg-slate-700 text-white border-slate-700 shadow-sm'
+              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+              }`}
           >
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-2xl">🛠️</span>
-              <span className="text-sm font-bold text-blue-700">Materiales</span>
-              <span className="ml-auto text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">{gastosMateriales.length}</span>
-            </div>
-            <div className="text-xl font-bold text-blue-600">{formatCurrency(totalMateriales)}</div>
-            <div className="text-[10px] text-gray-400">Sub: {formatCurrency(getSubtotalIVA(totalMateriales).subtotal)} | IVA: {formatCurrency(getSubtotalIVA(totalMateriales).iva)}</div>
+            <span className="text-base">{cat.icon}</span>
+            <span className="font-medium">{cat.label}</span>
+            <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${activeSubTab === cat.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+              }`}>{cat.count}</span>
+            <span className={`font-bold ${activeSubTab === cat.id ? 'text-white' : 'text-slate-800'}`}>
+              {formatCurrency(cat.total)}
+            </span>
           </button>
-          {/* Botones de Ingreso/Retorno Material */}
-          {activeSubTab === 'materiales' && (onCreateIngresoMaterial || onCreateRetornoMaterial) && (
-            <div className="flex gap-1 mt-2 pt-2 border-t">
-              {onCreateIngresoMaterial && (
-                <button
-                  onClick={onCreateIngresoMaterial}
-                  className="flex-1 px-2 py-1 text-[10px] font-medium bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-                >
-                  📥 Ingreso
-                </button>
-              )}
-              {onCreateRetornoMaterial && (
-                <button
-                  onClick={onCreateRetornoMaterial}
-                  className="flex-1 px-2 py-1 text-[10px] font-medium bg-emerald-500 text-white rounded hover:bg-emerald-600 transition-colors"
-                >
-                  📤 Retorno
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+        ))}
 
-        {/* FICHA RH */}
-        <button
-          onClick={() => setActiveSubTab('rh')}
-          className={`flex-1 p-3 rounded-lg border-2 transition-all ${activeSubTab === 'rh' ? 'shadow-md' : 'hover:shadow-sm'}`}
-          style={{
-            borderColor: activeSubTab === 'rh' ? '#10B981' : '#e5e7eb',
-            backgroundColor: activeSubTab === 'rh' ? '#D1FAE520' : 'white'
-          }}
-        >
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-2xl">👷</span>
-            <span className="text-sm font-bold text-emerald-700">Personal</span>
-            <span className="ml-auto text-xs bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full">{gastosRH.length}</span>
-          </div>
-          <div className="text-xl font-bold text-emerald-600">{formatCurrency(totalRH)}</div>
-          <div className="text-[10px] text-gray-400">Sub: {formatCurrency(getSubtotalIVA(totalRH).subtotal)} | IVA: {formatCurrency(getSubtotalIVA(totalRH).iva)}</div>
-        </button>
+        {/* SEPARADOR */}
+        <div className="h-6 w-px bg-slate-200 mx-1"></div>
 
-        {/* FICHA SPs */}
-        <button
-          onClick={() => setActiveSubTab('sps')}
-          className={`flex-1 p-3 rounded-lg border-2 transition-all ${activeSubTab === 'sps' ? 'shadow-md' : 'hover:shadow-sm'}`}
-          style={{
-            borderColor: activeSubTab === 'sps' ? '#8B5CF6' : '#e5e7eb',
-            backgroundColor: activeSubTab === 'sps' ? '#EDE9FE20' : 'white'
-          }}
-        >
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-2xl">💳</span>
-            <span className="text-sm font-bold text-violet-700">Solicitudes</span>
-            <span className="ml-auto text-xs bg-violet-100 text-violet-600 px-2 py-0.5 rounded-full">{gastosSPs.length}</span>
-          </div>
-          <div className="text-xl font-bold text-violet-600">{formatCurrency(totalSPs)}</div>
-          <div className="text-[10px] text-gray-400">Sub: {formatCurrency(getSubtotalIVA(totalSPs).subtotal)} | IVA: {formatCurrency(getSubtotalIVA(totalSPs).iva)}</div>
-        </button>
-
-        {/* FICHA OTROS - Solo si hay */}
-        {gastosOtros.length > 0 && (
+        {/* BOTONES DE ACCIÓN - AL LADO */}
+        {onShowAnalysis && (
           <button
-            onClick={() => setActiveSubTab('otros')}
-            className={`flex-1 p-3 rounded-lg border-2 transition-all ${activeSubTab === 'otros' ? 'shadow-md' : 'hover:shadow-sm'}`}
+            onClick={onShowAnalysis}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-md border text-xs font-medium transition-all shadow-sm"
             style={{
-              borderColor: activeSubTab === 'otros' ? '#6B7280' : '#e5e7eb',
-              backgroundColor: activeSubTab === 'otros' ? '#F3F4F620' : 'white'
+              borderColor: `${colors.secondary}40`,
+              backgroundColor: `${colors.secondary}10`,
+              color: colors.secondary
             }}
           >
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-2xl">📋</span>
-              <span className="text-sm font-bold text-gray-700">Otros</span>
-              <span className="ml-auto text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">{gastosOtros.length}</span>
-            </div>
-            <div className="text-xl font-bold text-gray-600">{formatCurrency(totalOtros)}</div>
-            <div className="text-[10px] text-gray-400">Sub: {formatCurrency(getSubtotalIVA(totalOtros).subtotal)} | IVA: {formatCurrency(getSubtotalIVA(totalOtros).iva)}</div>
+            <span>✨</span>
+            <span>Intelligent Analysis</span>
           </button>
         )}
 
-        {/* BOTÓN AGREGAR GASTO - A la derecha */}
         {canCreate && (
           <button
             onClick={onCreateGasto}
-            className="flex flex-col items-center justify-center px-6 py-3 rounded-lg border-2 border-dashed transition-all hover:shadow-md"
-            style={{
-              borderColor: colors.secondary,
-              backgroundColor: `${colors.secondary}10`
-            }}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-md border-2 border-dashed text-xs font-medium transition-all hover:shadow-sm"
+            style={{ borderColor: colors.primary, color: colors.primary, backgroundColor: `${colors.primary}08` }}
           >
-            <span className="text-3xl mb-1">➕</span>
-            <span className="text-sm font-bold" style={{ color: colors.secondary }}>Agregar</span>
-            <span className="text-xs" style={{ color: colors.secondary }}>Gasto</span>
+            <span>➕</span>
+            <span>Gasto</span>
+          </button>
+        )}
+
+        {/* Botones Material - Solo si estamos en materiales */}
+        {activeSubTab === 'materiales' && onCreateIngresoMaterial && (
+          <button
+            onClick={onCreateIngresoMaterial}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium text-white transition-all hover:opacity-90"
+            style={{ backgroundColor: '#059669' }}
+          >
+            <span>📥</span>
+            <span>Ingreso</span>
+          </button>
+        )}
+        {activeSubTab === 'materiales' && onCreateRetornoMaterial && (
+          <button
+            onClick={onCreateRetornoMaterial}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium text-white transition-all hover:opacity-90"
+            style={{ backgroundColor: '#6366f1' }}
+          >
+            <span>📤</span>
+            <span>Retorno</span>
           </button>
         )}
       </div>
@@ -2092,46 +1848,46 @@ const GastosTab: React.FC<{
 
         {/* VISTA COMPACTA - TIPO EXCEL PARA GASTOS */}
         <div className="overflow-x-auto border rounded-lg">
-          <table className="min-w-full divide-y divide-gray-200 text-xs">
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-800 text-white">
               <tr>
                 {visibleColumns.status && (
-                  <th onClick={() => handleSort('status')} className="px-2 py-1.5 text-left font-semibold cursor-pointer hover:bg-gray-700 select-none">
+                  <th onClick={() => handleSort('status')} className="px-2 py-1.5 text-left font-semibold cursor-pointer hover:opacity-80 select-none">
                     Status <SortIcon column="status" />
                   </th>
                 )}
                 {visibleColumns.categoria && (
-                  <th onClick={() => handleSort('categoria')} className="px-2 py-1.5 text-left font-semibold cursor-pointer hover:bg-gray-700 select-none">
+                  <th onClick={() => handleSort('categoria')} className="px-2 py-1.5 text-left font-semibold cursor-pointer hover:opacity-80 select-none">
                     Categoría <SortIcon column="categoria" />
                   </th>
                 )}
                 {visibleColumns.proveedor && (
-                  <th onClick={() => handleSort('proveedor')} className="px-2 py-1.5 text-left font-semibold cursor-pointer hover:bg-gray-700 select-none">
+                  <th onClick={() => handleSort('proveedor')} className="px-2 py-1.5 text-left font-semibold cursor-pointer hover:opacity-80 select-none">
                     Proveedor <SortIcon column="proveedor" />
                   </th>
                 )}
                 {visibleColumns.concepto && (
-                  <th onClick={() => handleSort('concepto')} className="px-2 py-1.5 text-left font-semibold cursor-pointer hover:bg-gray-700 select-none">
+                  <th onClick={() => handleSort('concepto')} className="px-2 py-1.5 text-left font-semibold cursor-pointer hover:opacity-80 select-none">
                     Concepto <SortIcon column="concepto" />
                   </th>
                 )}
                 {visibleColumns.subtotal && (
-                  <th onClick={() => handleSort('subtotal')} className="px-2 py-1.5 text-right font-semibold cursor-pointer hover:bg-gray-700 select-none">
+                  <th onClick={() => handleSort('subtotal')} className="px-2 py-1.5 text-right font-semibold cursor-pointer hover:opacity-80 select-none">
                     Sub-Total <SortIcon column="subtotal" />
                   </th>
                 )}
                 {visibleColumns.iva && (
-                  <th onClick={() => handleSort('iva')} className="px-2 py-1.5 text-right font-semibold cursor-pointer hover:bg-gray-700 select-none">
+                  <th onClick={() => handleSort('iva')} className="px-2 py-1.5 text-right font-semibold cursor-pointer hover:opacity-80 select-none">
                     I.V.A <SortIcon column="iva" />
                   </th>
                 )}
                 {visibleColumns.total && (
-                  <th onClick={() => handleSort('total')} className="px-2 py-1.5 text-right font-semibold cursor-pointer hover:bg-gray-700 select-none">
+                  <th onClick={() => handleSort('total')} className="px-2 py-1.5 text-right font-semibold cursor-pointer hover:opacity-80 select-none">
                     Total <SortIcon column="total" />
                   </th>
                 )}
                 {visibleColumns.fecha && (
-                  <th onClick={() => handleSort('fecha')} className="px-2 py-1.5 text-center font-semibold cursor-pointer hover:bg-gray-700 select-none">
+                  <th onClick={() => handleSort('fecha')} className="px-2 py-1.5 text-center font-semibold cursor-pointer hover:opacity-80 select-none">
                     Fecha <SortIcon column="fecha" />
                   </th>
                 )}
@@ -2142,7 +1898,7 @@ const GastosTab: React.FC<{
                       <div className="relative">
                         <button
                           onClick={(e) => { e.stopPropagation(); setShowColumnMenu(!showColumnMenu); }}
-                          className="p-0.5 hover:bg-gray-600 rounded"
+                          className="p-0.5 hover:opacity-80 rounded"
                           title="Configurar columnas"
                         >
                           ⚙️
@@ -2198,10 +1954,9 @@ const GastosTab: React.FC<{
                   const materialLines = esMaterialConsolidado ? parseMaterialLines(gasto.detalle_retorno) : [];
                   const isExpanded = expandedMaterialRows.has(gasto.id);
 
-                  // Colores según categoría y estado
-                  let rowBgColor = idx % 2 === 0 ? 'bg-white hover:bg-gray-50' : 'bg-gray-50 hover:bg-gray-100';
-                  if (isRetorno) rowBgColor = 'bg-emerald-50 hover:bg-emerald-100';
-                  else if (isPagado) rowBgColor = 'bg-yellow-50 hover:bg-yellow-100';
+                  // Colores de fila: blanco/gris alternado + hover menta suave (homologado)
+                  const rowBgColor = idx % 2 === 0 ? colors.rowEven : colors.rowOdd;
+                  const rowHoverColor = colors.rowHover;
 
                   // Color de categoría
                   const catColor = gasto.categoria?.color || '#6B7280';
@@ -2209,88 +1964,137 @@ const GastosTab: React.FC<{
 
                   return (
                     <React.Fragment key={gasto.id}>
-                      <tr className={`${rowBgColor} transition-colors ${esMaterialConsolidado ? 'cursor-pointer' : ''}`}
-                        onClick={esMaterialConsolidado ? () => toggleMaterialRow(gasto.id) : undefined}
+                      <tr
+                        className="transition-colors cursor-pointer"
+                        style={{ backgroundColor: rowBgColor }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = rowHoverColor}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = rowBgColor}
+                        onClick={() => {
+                          if (esMaterialConsolidado) {
+                            toggleMaterialRow(gasto.id);
+                          } else {
+                            onEditGasto(gasto);
+                          }
+                        }}
                       >
                         {visibleColumns.status && (
-                          <td className="px-2 py-1">
+                          <td className="px-2 py-1.5">
                             <div className="flex items-center gap-1">
                               {esMaterialConsolidado && (
-                                <span className="text-gray-400">{isExpanded ? '▼' : '▶'}</span>
+                                <span className="text-slate-400">{isExpanded ? '▼' : '▶'}</span>
                               )}
-                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${isRetorno ? 'bg-emerald-600 text-white' :
-                                isPagado ? 'bg-green-600 text-white' : 'bg-orange-100 text-orange-700'
-                                }`}>
+                              <span
+                                className={`px-1.5 py-0.5 rounded text-xs font-bold ${isRetorno
+                                  ? 'bg-slate-600 text-white'
+                                  : isPagado
+                                    ? 'bg-slate-700 text-white'
+                                    : 'bg-slate-200 text-slate-600 dark:bg-slate-600 dark:text-slate-200'
+                                  }`}
+                              >
                                 {isRetorno ? 'RETORNO' : isPagado ? 'PAGADO' : 'PENDIENTE'}
                               </span>
                             </div>
                           </td>
                         )}
                         {visibleColumns.categoria && (
-                          <td className="px-2 py-1">
+                          <td className="px-2 py-1.5">
                             <span
-                              className="px-1.5 py-0.5 rounded text-[10px] font-medium"
-                              style={{ backgroundColor: catColor + '20', color: catColor }}
+                              className="px-1.5 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-600 dark:text-slate-200"
                             >
                               {catName}
                             </span>
                           </td>
                         )}
                         {visibleColumns.proveedor && (
-                          <td className="px-2 py-1 text-gray-700 max-w-[150px] truncate">
+                          <td className="px-2 py-1.5 max-w-[150px] truncate text-slate-600 dark:text-slate-300">
                             {gasto.proveedor?.razon_social || gasto.proveedor_nombre || 'Sin proveedor'}
                           </td>
                         )}
                         {visibleColumns.concepto && (
-                          <td className="px-2 py-1 text-gray-900 max-w-[180px] truncate font-medium">
+                          <td className="px-2 py-1.5 max-w-[180px] truncate font-medium text-slate-800 dark:text-slate-100">
                             {esMaterialConsolidado ? (
                               <span className="flex items-center gap-1">
-                                <Package className="w-3 h-3 text-blue-500" />
-                                {gasto.concepto} <span className="text-xs text-gray-400">({materialLines.length} items)</span>
+                                <Package className="w-3 h-3 text-slate-500" />
+                                {gasto.concepto} <span className="text-xs text-slate-400">({materialLines.length} items)</span>
                               </span>
                             ) : gasto.concepto}
                           </td>
                         )}
                         {visibleColumns.subtotal && (
-                          <td className="px-2 py-1 text-right font-mono text-gray-700">
-                            {isRetorno ? '-' : ''}{formatCurrency(gastoSubtotal)}
+                          <td className="px-2 py-1.5 text-right font-mono text-slate-700 dark:text-slate-200">
+                            {formatCurrency(gastoSubtotal)}
                           </td>
                         )}
                         {visibleColumns.iva && (
-                          <td className="px-2 py-1 text-right font-mono text-gray-500">
+                          <td className="px-2 py-1.5 text-right font-mono text-slate-500 dark:text-slate-400">
                             {formatCurrency(gastoIVA)}
                           </td>
                         )}
                         {visibleColumns.total && (
-                          <td className="px-2 py-1 text-right font-mono font-bold" style={{ color: isRetorno ? '#10B981' : colors.secondary }}>
-                            {isRetorno ? '-' : ''}{formatCurrency(gastoTotal)}
+                          <td className="px-2 py-1.5 text-right font-mono font-bold text-slate-800 dark:text-slate-100">
+                            {formatCurrency(gastoTotal)}
                           </td>
                         )}
                         {visibleColumns.fecha && (
-                          <td className="px-2 py-1 text-center text-gray-500">
+                          <td className="px-2 py-1.5 text-center text-slate-500 dark:text-slate-400">
                             {formatDate(gasto.fecha_gasto)}
                           </td>
                         )}
                         {visibleColumns.acciones && (
                           <td className="px-2 py-1 text-center">
                             <div className="flex gap-1 justify-center">
-                              {canUpdate('gastos') && (
+                              {/* Icono para ver documentos (PDF/XML) */}
+                              {(gasto.factura_pdf_url || gasto.factura_xml_url) && (
+                                <div className="relative group">
+                                  <button
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="p-1 hover:bg-purple-100 rounded text-purple-600"
+                                    title="Ver documentos"
+                                  >
+                                    <File className="w-3 h-3" />
+                                  </button>
+                                  {/* Dropdown de documentos */}
+                                  <div className="absolute right-0 top-full mt-1 hidden group-hover:block z-50 bg-white border shadow-lg rounded py-1 min-w-[120px]">
+                                    {gasto.factura_pdf_url && (
+                                      <a
+                                        href={gasto.factura_pdf_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-100 text-sm text-gray-700"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <FileText className="w-3.5 h-3.5 text-red-500" />
+                                        PDF
+                                        <ExternalLink className="w-3 h-3 ml-auto text-gray-400" />
+                                      </a>
+                                    )}
+                                    {gasto.factura_xml_url && (
+                                      <a
+                                        href={gasto.factura_xml_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-100 text-sm text-gray-700"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <File className="w-3.5 h-3.5 text-green-600" />
+                                        XML
+                                        <ExternalLink className="w-3 h-3 ml-auto text-gray-400" />
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                              {/* Botón Devolución - solo para gastos positivos */}
+                              {canUpdate('gastos') && !isRetorno && (gasto.total || 0) > 0 && onCreateRefund && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    // Material consolidado: usar onEditMaterialAlmacen
-                                    if (esMaterialConsolidado && onEditMaterialAlmacen) {
-                                      onEditMaterialAlmacen(gasto);
-                                    } else if (isRetorno && onEditRetorno) {
-                                      onEditRetorno(gasto);
-                                    } else {
-                                      onEditGasto(gasto);
-                                    }
+                                    onCreateRefund(gasto);
                                   }}
-                                  className={`p-1 rounded ${esMaterialConsolidado ? 'hover:bg-blue-100 text-blue-600' : 'hover:bg-blue-100 text-blue-600'}`}
-                                  title={esMaterialConsolidado ? 'Editar entrada/salida completa' : 'Editar'}
+                                  className="p-1 hover:bg-orange-100 rounded text-orange-600"
+                                  title="Registrar devolución de este gasto"
                                 >
-                                  {esMaterialConsolidado ? <FileText className="w-3 h-3" /> : <Pencil className="w-3 h-3" />}
+                                  <Undo2 className="w-3 h-3" />
                                 </button>
                               )}
                               {canDelete('gastos') && (
@@ -2308,76 +2112,78 @@ const GastosTab: React.FC<{
                       </tr>
 
                       {/* Sub-tabla de materiales expandida */}
-                      {esMaterialConsolidado && isExpanded && materialLines.length > 0 && (() => {
-                        // Ordenar líneas de material
-                        const sortedLines = [...materialLines].sort((a, b) => {
-                          if (!materialSortConfig) return 0;
-                          const { column, direction } = materialSortConfig;
-                          let aValue: any, bValue: any;
-                          switch (column) {
-                            case 'producto': aValue = a.producto_nombre; bValue = b.producto_nombre; break;
-                            case 'cantidad': aValue = a.cantidad; bValue = b.cantidad; break;
-                            case 'unidad': aValue = a.unidad; bValue = b.unidad; break;
-                            case 'costo': aValue = a.costo_unitario; bValue = b.costo_unitario; break;
-                            case 'subtotal': aValue = a.subtotal; bValue = b.subtotal; break;
-                            default: return 0;
-                          }
-                          if (typeof aValue === 'string') {
-                            return direction === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
-                          }
-                          return direction === 'asc' ? aValue - bValue : bValue - aValue;
-                        });
+                      {
+                        esMaterialConsolidado && isExpanded && materialLines.length > 0 && (() => {
+                          // Ordenar líneas de material
+                          const sortedLines = [...materialLines].sort((a, b) => {
+                            if (!materialSortConfig) return 0;
+                            const { column, direction } = materialSortConfig;
+                            let aValue: any, bValue: any;
+                            switch (column) {
+                              case 'producto': aValue = a.producto_nombre; bValue = b.producto_nombre; break;
+                              case 'cantidad': aValue = a.cantidad; bValue = b.cantidad; break;
+                              case 'unidad': aValue = a.unidad; bValue = b.unidad; break;
+                              case 'costo': aValue = a.costo_unitario; bValue = b.costo_unitario; break;
+                              case 'subtotal': aValue = a.subtotal; bValue = b.subtotal; break;
+                              default: return 0;
+                            }
+                            if (typeof aValue === 'string') {
+                              return direction === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+                            }
+                            return direction === 'asc' ? aValue - bValue : bValue - aValue;
+                          });
 
-                        return (
-                          <tr>
-                            <td colSpan={9} className="p-0">
-                              <div className="bg-blue-50 border-l-4 border-blue-400 ml-4 mr-2 my-1 rounded overflow-hidden">
-                                <table className="w-full text-xs">
-                                  <thead className="bg-blue-100">
-                                    <tr>
-                                      <th className="px-2 py-1 text-left font-semibold text-blue-800 cursor-pointer hover:bg-blue-200" onClick={() => handleMaterialSort('producto')}>
-                                        Producto <MaterialSortIcon column="producto" />
-                                      </th>
-                                      <th className="px-2 py-1 text-center font-semibold text-blue-800 w-16 cursor-pointer hover:bg-blue-200" onClick={() => handleMaterialSort('cantidad')}>
-                                        Cant. <MaterialSortIcon column="cantidad" />
-                                      </th>
-                                      <th className="px-2 py-1 text-center font-semibold text-blue-800 w-16 cursor-pointer hover:bg-blue-200" onClick={() => handleMaterialSort('unidad')}>
-                                        Unidad <MaterialSortIcon column="unidad" />
-                                      </th>
-                                      <th className="px-2 py-1 text-right font-semibold text-blue-800 w-20 cursor-pointer hover:bg-blue-200" onClick={() => handleMaterialSort('costo')}>
-                                        C. Unit. <MaterialSortIcon column="costo" />
-                                      </th>
-                                      <th className="px-2 py-1 text-right font-semibold text-blue-800 w-24 cursor-pointer hover:bg-blue-200" onClick={() => handleMaterialSort('subtotal')}>
-                                        Subtotal <MaterialSortIcon column="subtotal" />
-                                      </th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {sortedLines.map((linea, lineIdx) => (
-                                      <tr key={lineIdx} className="border-t border-blue-200 hover:bg-blue-100/50">
-                                        <td className="px-2 py-1 flex items-center gap-1">
-                                          <Package className="w-3 h-3 text-blue-400" />
-                                          <span className="font-medium text-gray-800">{linea.producto_nombre}</span>
-                                        </td>
-                                        <td className="px-2 py-1 text-center font-semibold text-blue-700">{linea.cantidad}</td>
-                                        <td className="px-2 py-1 text-center text-gray-500">{linea.unidad}</td>
-                                        <td className="px-2 py-1 text-right text-gray-600">{formatCurrency(linea.costo_unitario)}</td>
-                                        <td className="px-2 py-1 text-right font-semibold text-blue-700">{formatCurrency(linea.subtotal)}</td>
+                          return (
+                            <tr>
+                              <td colSpan={9} className="p-0">
+                                <div className="bg-blue-50 border-l-4 border-blue-400 ml-4 mr-2 my-1 rounded overflow-hidden">
+                                  <table className="w-full text-xs">
+                                    <thead className="bg-blue-100">
+                                      <tr>
+                                        <th className="px-2 py-1 text-left font-semibold text-blue-800 cursor-pointer hover:bg-blue-200" onClick={() => handleMaterialSort('producto')}>
+                                          Producto <MaterialSortIcon column="producto" />
+                                        </th>
+                                        <th className="px-2 py-1 text-center font-semibold text-blue-800 w-16 cursor-pointer hover:bg-blue-200" onClick={() => handleMaterialSort('cantidad')}>
+                                          Cant. <MaterialSortIcon column="cantidad" />
+                                        </th>
+                                        <th className="px-2 py-1 text-center font-semibold text-blue-800 w-16 cursor-pointer hover:bg-blue-200" onClick={() => handleMaterialSort('unidad')}>
+                                          Unidad <MaterialSortIcon column="unidad" />
+                                        </th>
+                                        <th className="px-2 py-1 text-right font-semibold text-blue-800 w-20 cursor-pointer hover:bg-blue-200" onClick={() => handleMaterialSort('costo')}>
+                                          C. Unit. <MaterialSortIcon column="costo" />
+                                        </th>
+                                        <th className="px-2 py-1 text-right font-semibold text-blue-800 w-24 cursor-pointer hover:bg-blue-200" onClick={() => handleMaterialSort('subtotal')}>
+                                          Subtotal <MaterialSortIcon column="subtotal" />
+                                        </th>
                                       </tr>
-                                    ))}
-                                  </tbody>
-                                  <tfoot className="bg-blue-200">
-                                    <tr>
-                                      <td colSpan={4} className="px-2 py-1 text-right font-bold text-blue-800">TOTAL:</td>
-                                      <td className="px-2 py-1 text-right font-bold text-blue-900">{formatCurrency(gastoTotal)}</td>
-                                    </tr>
-                                  </tfoot>
-                                </table>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })()}
+                                    </thead>
+                                    <tbody>
+                                      {sortedLines.map((linea, lineIdx) => (
+                                        <tr key={lineIdx} className="border-t border-blue-200 hover:bg-blue-100/50">
+                                          <td className="px-2 py-1 flex items-center gap-1">
+                                            <Package className="w-3 h-3 text-blue-400" />
+                                            <span className="font-medium text-gray-800">{linea.producto_nombre}</span>
+                                          </td>
+                                          <td className="px-2 py-1 text-center font-semibold text-blue-700">{linea.cantidad}</td>
+                                          <td className="px-2 py-1 text-center text-gray-500">{linea.unidad}</td>
+                                          <td className="px-2 py-1 text-right text-gray-600">{formatCurrency(linea.costo_unitario)}</td>
+                                          <td className="px-2 py-1 text-right font-semibold text-blue-700">{formatCurrency(linea.subtotal)}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                    <tfoot style={{ backgroundColor: `${colors.primary}20` }}>
+                                      <tr>
+                                        <td colSpan={4} className="px-2 py-1 text-right font-bold" style={{ color: colors.primaryDark }}>TOTAL:</td>
+                                        <td className="px-2 py-1 text-right font-bold" style={{ color: colors.primaryDark }}>{formatCurrency(gastoTotal)}</td>
+                                      </tr>
+                                    </tfoot>
+                                  </table>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })()
+                      }
                     </React.Fragment>
                   );
                 })
@@ -2385,7 +2191,7 @@ const GastosTab: React.FC<{
             </tbody>
             {/* TOTAL EN FOOTER */}
             {gastosFilter.length > 0 && (
-              <tfoot style={{ backgroundColor: colors.secondary }} className="text-white font-bold">
+              <tfoot style={{ backgroundColor: colors.primaryDark }} className="text-white font-bold">
                 <tr>
                   <td colSpan={4} className="px-2 py-2 text-right">TOTAL GASTOS</td>
                   <td className="px-2 py-2 text-right font-mono">{formatCurrency(subtotalGastos)}</td>
@@ -2410,24 +2216,70 @@ const ProvisionesTab: React.FC<{
   onRefresh: () => void;
   onCreateProvision: () => void;
   onEditProvision: (provision: any) => void;
-}> = ({ provisiones, evento, showIVA = false, isCompactView = false, onRefresh, onCreateProvision, onEditProvision }) => {
+  onConvertToGasto: (provision: any) => void;  // Nueva prop para convertir a gasto
+}> = ({ provisiones, evento, showIVA = false, isCompactView = false, onRefresh, onCreateProvision, onEditProvision, onConvertToGasto }) => {
   const { canCreate, canUpdate, canDelete } = usePermissions();
-  const { paletteConfig } = useTheme();
-  const [activeSubTab, setActiveSubTab] = useState<'todos' | 'combustible' | 'materiales' | 'rh' | 'sps' | 'otros'>('todos');
+  const { paletteConfig, isDark } = useTheme();
+  const [activeSubTab, setActiveSubTab] = useState<'todos' | 'combustible' | 'materiales' | 'rh' | 'sps'>('todos');
 
-  // Colores dinámicos de la paleta
+  // Estado para ordenamiento de columnas
+  const [sortConfig, setSortConfig] = useState<{ column: string; direction: 'asc' | 'desc' } | null>(null);
+
+  // Estado para mostrar/ocultar menú de columnas
+  const [showColumnMenu, setShowColumnMenu] = useState(false);
+
+  // Columnas disponibles con su configuración
+  const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(() => {
+    const saved = localStorage.getItem('provisiones_visible_columns');
+    return saved ? JSON.parse(saved) : {
+      status: true,
+      categoria: true,
+      proveedor: true,
+      concepto: true,
+      subtotal: true,
+      iva: true,
+      total: true,
+      fecha: true,
+      acciones: true
+    };
+  });
+
+  // Guardar columnas visibles en localStorage
+  const toggleColumn = (column: string) => {
+    const newColumns = { ...visibleColumns, [column]: !visibleColumns[column] };
+    setVisibleColumns(newColumns);
+    localStorage.setItem('provisiones_visible_columns', JSON.stringify(newColumns));
+  };
+
+  // Función para ordenar
+  const handleSort = (column: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig?.column === column && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ column, direction });
+  };
+
+  // Icono de ordenamiento
+  const SortIcon = ({ column }: { column: string }) => {
+    if (sortConfig?.column !== column) return <span className="ml-1 text-gray-300">↕</span>;
+    return <span className="ml-1">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>;
+  };
+
+  // Colores dinámicos de la paleta con soporte para modo oscuro
   const colors = {
     primary: paletteConfig.primary,
     primaryLight: paletteConfig.shades[100],
     primaryDark: paletteConfig.shades[700],
     secondary: paletteConfig.secondary,
-  };
-
-  // Helper para calcular subtotal e IVA desde un total
-  const getSubtotalIVA = (total: number) => {
-    const subtotal = total / 1.16;
-    const iva = total - subtotal;
-    return { subtotal, iva };
+    // Colores sobrios para filas alternadas (blanco/gris muy tenue + hover menta)
+    rowEven: isDark ? '#1E293B' : '#FFFFFF',
+    rowOdd: isDark ? '#263244' : '#F8FAFC',
+    rowHover: isDark ? '#334155' : '#E0F2F1',
+    // Textos según modo
+    textPrimary: isDark ? '#F8FAFC' : '#1E293B',
+    textSecondary: isDark ? '#CBD5E1' : '#64748B',
+    textMuted: isDark ? '#94A3B8' : '#9CA3AF',
   };
 
   const handleDelete = async (provision: any) => {
@@ -2435,10 +2287,7 @@ const ProvisionesTab: React.FC<{
       try {
         const { error } = await supabase
           .from('evt_provisiones_erp')
-          .update({
-            deleted_at: new Date().toISOString(),
-            activo: false
-          })
+          .delete()
           .eq('id', provision.id);
 
         if (error) throw error;
@@ -2467,7 +2316,7 @@ const ProvisionesTab: React.FC<{
   ];
 
   // Filtrar provisiones por subtab activo
-  const provisionesFiltered = activeSubTab === 'todos'
+  const provisionesFilteredBase = activeSubTab === 'todos'
     ? provisiones
     : provisiones.filter(p => {
       const categoryMap: Record<string, string[]> = {
@@ -2479,6 +2328,60 @@ const ProvisionesTab: React.FC<{
       const validNames = categoryMap[activeSubTab] || [];
       return validNames.includes(p.categoria?.nombre) || validNames.includes(p.categoria?.clave);
     });
+
+  // Aplicar ordenamiento a provisiones
+  const provisionesFiltered = sortConfig
+    ? [...provisionesFilteredBase].sort((a, b) => {
+      let aValue: string | number = '';
+      let bValue: string | number = '';
+
+      switch (sortConfig.column) {
+        case 'status':
+          aValue = a.estado || 'pendiente';
+          bValue = b.estado || 'pendiente';
+          break;
+        case 'categoria':
+          aValue = a.categoria?.nombre || '';
+          bValue = b.categoria?.nombre || '';
+          break;
+        case 'proveedor':
+          aValue = a.proveedor?.razon_social || '';
+          bValue = b.proveedor?.razon_social || '';
+          break;
+        case 'concepto':
+          aValue = a.concepto || '';
+          bValue = b.concepto || '';
+          break;
+        case 'subtotal':
+          aValue = (a.total || 0) / 1.16;
+          bValue = (b.total || 0) / 1.16;
+          break;
+        case 'iva':
+          aValue = (a.total || 0) - ((a.total || 0) / 1.16);
+          bValue = (b.total || 0) - ((b.total || 0) / 1.16);
+          break;
+        case 'total':
+          aValue = a.total || 0;
+          bValue = b.total || 0;
+          break;
+        case 'fecha':
+          aValue = a.fecha_estimada || '';
+          bValue = b.fecha_estimada || '';
+          break;
+        default:
+          return 0;
+      }
+
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortConfig.direction === 'asc'
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      }
+      return sortConfig.direction === 'asc'
+        ? (aValue as number) - (bValue as number)
+        : (bValue as number) - (aValue as number);
+    })
+    : provisionesFilteredBase;
 
   // Calcular totales por categoría
   const provCombustible = provisiones.filter(p => p.categoria?.nombre === 'Combustible/Peaje' || p.categoria?.clave === 'combustible');
@@ -2498,20 +2401,6 @@ const ProvisionesTab: React.FC<{
   const totalProvRH = showIVA ? totalProvRHConIVA : (totalProvRHConIVA / 1.16);
   const totalProvSPs = showIVA ? totalProvSPsConIVA : (totalProvSPsConIVA / 1.16);
 
-  // Obtener total de la categoría activa
-  const getCategoryTotal = () => {
-    switch (activeSubTab) {
-      case 'combustible': return totalProvCombustible;
-      case 'materiales': return totalProvMateriales;
-      case 'rh': return totalProvRH;
-      case 'sps': return totalProvSPs;
-      default: return totalProvisiones;
-    }
-  };
-
-  const categoryTotal = getCategoryTotal();
-  const { subtotal: catSubtotal, iva: catIVA } = getSubtotalIVA(categoryTotal);
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -2519,111 +2408,46 @@ const ProvisionesTab: React.FC<{
       exit={{ opacity: 0, y: -20 }}
       className="p-4"
     >
-      {/* FICHAS DE CATEGORÍAS + BOTÓN AGREGAR */}
-      <div className="flex items-stretch gap-3 mb-4">
-        {/* FICHA TODOS */}
-        <button
-          onClick={() => setActiveSubTab('todos')}
-          className={`flex-1 p-3 rounded-lg border-2 transition-all ${activeSubTab === 'todos' ? 'shadow-md' : 'hover:shadow-sm'}`}
-          style={{
-            borderColor: activeSubTab === 'todos' ? colors.secondary : '#e5e7eb',
-            backgroundColor: activeSubTab === 'todos' ? `${colors.secondary}10` : 'white'
-          }}
-        >
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-2xl">📦</span>
-            <span className="text-sm font-bold" style={{ color: colors.secondary }}>Todas</span>
-            <span className="ml-auto text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: `${colors.secondary}20`, color: colors.secondary }}>{provisiones.length}</span>
-          </div>
-          <div className="text-xl font-bold" style={{ color: colors.secondary }}>{formatCurrency(totalProvisiones)}</div>
-          <div className="text-[10px] text-gray-400">Sub: {formatCurrency(getSubtotalIVA(totalProvisiones).subtotal)} | IVA: {formatCurrency(getSubtotalIVA(totalProvisiones).iva)}</div>
-        </button>
+      {/* FICHAS DE CATEGORÍAS - Diseño compacto y sobrio (igual que GastosTab) */}
+      <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+        {/* FICHAS DE CATEGORÍA - ESTILO PILL SOBRIO */}
+        {[
+          { id: 'todos' as const, icon: '📦', label: 'Todas', count: provisiones.length, total: totalProvisiones },
+          { id: 'combustible' as const, icon: '⛽', label: 'Combustible', count: provCombustible.length, total: totalProvCombustible },
+          { id: 'materiales' as const, icon: '🛠️', label: 'Materiales', count: provMateriales.length, total: totalProvMateriales },
+          { id: 'rh' as const, icon: '👷', label: 'Personal', count: provRH.length, total: totalProvRH },
+          { id: 'sps' as const, icon: '💳', label: 'Solicitudes', count: provSPs.length, total: totalProvSPs }
+        ].map((cat) => (
+          <button
+            key={cat.id}
+            onClick={() => setActiveSubTab(cat.id)}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-sm transition-all ${activeSubTab === cat.id
+              ? 'bg-slate-700 text-white border-slate-700 shadow-sm'
+              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+              }`}
+          >
+            <span className="text-base">{cat.icon}</span>
+            <span className="font-medium">{cat.label}</span>
+            <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${activeSubTab === cat.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+              }`}>{cat.count}</span>
+            <span className={`font-bold ${activeSubTab === cat.id ? 'text-white' : 'text-slate-800'}`}>
+              {formatCurrency(cat.total)}
+            </span>
+          </button>
+        ))}
 
-        {/* FICHA COMBUSTIBLE */}
-        <button
-          onClick={() => setActiveSubTab('combustible')}
-          className={`flex-1 p-3 rounded-lg border-2 transition-all ${activeSubTab === 'combustible' ? 'shadow-md' : 'hover:shadow-sm'}`}
-          style={{
-            borderColor: activeSubTab === 'combustible' ? '#F59E0B' : '#e5e7eb',
-            backgroundColor: activeSubTab === 'combustible' ? '#FEF3C720' : 'white'
-          }}
-        >
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-2xl">⛽</span>
-            <span className="text-sm font-bold text-amber-700">Combustible</span>
-            <span className="ml-auto text-xs bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full">{provCombustible.length}</span>
-          </div>
-          <div className="text-xl font-bold text-amber-600">{formatCurrency(totalProvCombustible)}</div>
-          <div className="text-[10px] text-gray-400">Sub: {formatCurrency(getSubtotalIVA(totalProvCombustible).subtotal)} | IVA: {formatCurrency(getSubtotalIVA(totalProvCombustible).iva)}</div>
-        </button>
+        {/* SEPARADOR */}
+        <div className="h-6 w-px bg-slate-200 mx-1"></div>
 
-        {/* FICHA MATERIALES */}
-        <button
-          onClick={() => setActiveSubTab('materiales')}
-          className={`flex-1 p-3 rounded-lg border-2 transition-all ${activeSubTab === 'materiales' ? 'shadow-md' : 'hover:shadow-sm'}`}
-          style={{
-            borderColor: activeSubTab === 'materiales' ? '#3B82F6' : '#e5e7eb',
-            backgroundColor: activeSubTab === 'materiales' ? '#DBEAFE20' : 'white'
-          }}
-        >
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-2xl">🛠️</span>
-            <span className="text-sm font-bold text-blue-700">Materiales</span>
-            <span className="ml-auto text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">{provMateriales.length}</span>
-          </div>
-          <div className="text-xl font-bold text-blue-600">{formatCurrency(totalProvMateriales)}</div>
-          <div className="text-[10px] text-gray-400">Sub: {formatCurrency(getSubtotalIVA(totalProvMateriales).subtotal)} | IVA: {formatCurrency(getSubtotalIVA(totalProvMateriales).iva)}</div>
-        </button>
-
-        {/* FICHA RH */}
-        <button
-          onClick={() => setActiveSubTab('rh')}
-          className={`flex-1 p-3 rounded-lg border-2 transition-all ${activeSubTab === 'rh' ? 'shadow-md' : 'hover:shadow-sm'}`}
-          style={{
-            borderColor: activeSubTab === 'rh' ? '#10B981' : '#e5e7eb',
-            backgroundColor: activeSubTab === 'rh' ? '#D1FAE520' : 'white'
-          }}
-        >
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-2xl">👷</span>
-            <span className="text-sm font-bold text-emerald-700">Personal</span>
-            <span className="ml-auto text-xs bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full">{provRH.length}</span>
-          </div>
-          <div className="text-xl font-bold text-emerald-600">{formatCurrency(totalProvRH)}</div>
-          <div className="text-[10px] text-gray-400">Sub: {formatCurrency(getSubtotalIVA(totalProvRH).subtotal)} | IVA: {formatCurrency(getSubtotalIVA(totalProvRH).iva)}</div>
-        </button>
-
-        {/* FICHA SPs */}
-        <button
-          onClick={() => setActiveSubTab('sps')}
-          className={`flex-1 p-3 rounded-lg border-2 transition-all ${activeSubTab === 'sps' ? 'shadow-md' : 'hover:shadow-sm'}`}
-          style={{
-            borderColor: activeSubTab === 'sps' ? '#8B5CF6' : '#e5e7eb',
-            backgroundColor: activeSubTab === 'sps' ? '#EDE9FE20' : 'white'
-          }}
-        >
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-2xl">💳</span>
-            <span className="text-sm font-bold text-violet-700">Solicitudes</span>
-            <span className="ml-auto text-xs bg-violet-100 text-violet-600 px-2 py-0.5 rounded-full">{provSPs.length}</span>
-          </div>
-          <div className="text-xl font-bold text-violet-600">{formatCurrency(totalProvSPs)}</div>
-          <div className="text-[10px] text-gray-400">Sub: {formatCurrency(getSubtotalIVA(totalProvSPs).subtotal)} | IVA: {formatCurrency(getSubtotalIVA(totalProvSPs).iva)}</div>
-        </button>
-
-        {/* BOTÓN NUEVA PROVISIÓN - A la derecha */}
+        {/* BOTÓN NUEVA PROVISIÓN - AL LADO */}
         {canCreate('provisiones') && (
           <button
             onClick={onCreateProvision}
-            className="flex flex-col items-center justify-center px-6 py-3 rounded-lg border-2 border-dashed transition-all hover:shadow-md"
-            style={{
-              borderColor: colors.secondary,
-              backgroundColor: `${colors.secondary}10`
-            }}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-md border-2 border-dashed text-xs font-medium transition-all hover:shadow-sm"
+            style={{ borderColor: colors.secondary, color: colors.secondary, backgroundColor: `${colors.secondary}08` }}
           >
-            <span className="text-3xl mb-1">➕</span>
-            <span className="text-sm font-bold" style={{ color: colors.secondary }}>Nueva</span>
-            <span className="text-xs" style={{ color: colors.secondary }}>Provisión</span>
+            <span>➕</span>
+            <span>Provisión</span>
           </button>
         )}
       </div>
@@ -2634,18 +2458,90 @@ const ProvisionesTab: React.FC<{
         {/* VISTA COMPACTA - TIPO EXCEL PARA PROVISIONES */}
         {isCompactView ? (
           <div className="overflow-x-auto border rounded-lg">
-            <table className="min-w-full divide-y divide-gray-200 text-xs">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-800 text-white">
                 <tr>
-                  <th className="px-2 py-1.5 text-left font-semibold">Estado</th>
-                  <th className="px-2 py-1.5 text-left font-semibold">Categoría</th>
-                  <th className="px-2 py-1.5 text-left font-semibold">Proveedor</th>
-                  <th className="px-2 py-1.5 text-left font-semibold">Concepto</th>
-                  <th className="px-2 py-1.5 text-right font-semibold">Sub-Total</th>
-                  <th className="px-2 py-1.5 text-right font-semibold">I.V.A</th>
-                  <th className="px-2 py-1.5 text-right font-semibold">Total</th>
-                  <th className="px-2 py-1.5 text-center font-semibold">Fecha Est.</th>
-                  <th className="px-2 py-1.5 text-center font-semibold">Acción</th>
+                  {visibleColumns.status && (
+                    <th onClick={() => handleSort('status')} className="px-2 py-1.5 text-left font-semibold cursor-pointer hover:bg-gray-700 select-none">
+                      Estado <SortIcon column="status" />
+                    </th>
+                  )}
+                  {visibleColumns.categoria && (
+                    <th onClick={() => handleSort('categoria')} className="px-2 py-1.5 text-left font-semibold cursor-pointer hover:bg-gray-700 select-none">
+                      Categoría <SortIcon column="categoria" />
+                    </th>
+                  )}
+                  {visibleColumns.proveedor && (
+                    <th onClick={() => handleSort('proveedor')} className="px-2 py-1.5 text-left font-semibold cursor-pointer hover:bg-gray-700 select-none">
+                      Proveedor <SortIcon column="proveedor" />
+                    </th>
+                  )}
+                  {visibleColumns.concepto && (
+                    <th onClick={() => handleSort('concepto')} className="px-2 py-1.5 text-left font-semibold cursor-pointer hover:bg-gray-700 select-none">
+                      Concepto <SortIcon column="concepto" />
+                    </th>
+                  )}
+                  {visibleColumns.subtotal && (
+                    <th onClick={() => handleSort('subtotal')} className="px-2 py-1.5 text-right font-semibold cursor-pointer hover:bg-gray-700 select-none">
+                      Sub-Total <SortIcon column="subtotal" />
+                    </th>
+                  )}
+                  {visibleColumns.iva && (
+                    <th onClick={() => handleSort('iva')} className="px-2 py-1.5 text-right font-semibold cursor-pointer hover:bg-gray-700 select-none">
+                      I.V.A <SortIcon column="iva" />
+                    </th>
+                  )}
+                  {visibleColumns.total && (
+                    <th onClick={() => handleSort('total')} className="px-2 py-1.5 text-right font-semibold cursor-pointer hover:bg-gray-700 select-none">
+                      Total <SortIcon column="total" />
+                    </th>
+                  )}
+                  {visibleColumns.fecha && (
+                    <th onClick={() => handleSort('fecha')} className="px-2 py-1.5 text-center font-semibold cursor-pointer hover:bg-gray-700 select-none">
+                      Fecha Est. <SortIcon column="fecha" />
+                    </th>
+                  )}
+                  {visibleColumns.acciones && (
+                    <th className="px-2 py-1.5 text-center font-semibold">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Acción</span>
+                        <div className="relative">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setShowColumnMenu(!showColumnMenu); }}
+                            className="p-0.5 hover:bg-gray-600 rounded"
+                            title="Configurar columnas"
+                          >
+                            ⚙️
+                          </button>
+                          {showColumnMenu && (
+                            <div className="absolute right-0 top-full mt-1 bg-white border rounded-lg shadow-lg z-50 min-w-[150px] p-2 text-gray-800">
+                              <div className="text-[10px] font-bold text-gray-600 mb-1 pb-1 border-b">Columnas</div>
+                              {[
+                                { key: 'status', label: 'Estado' },
+                                { key: 'categoria', label: 'Categoría' },
+                                { key: 'proveedor', label: 'Proveedor' },
+                                { key: 'concepto', label: 'Concepto' },
+                                { key: 'subtotal', label: 'Sub-Total' },
+                                { key: 'iva', label: 'I.V.A' },
+                                { key: 'total', label: 'Total' },
+                                { key: 'fecha', label: 'Fecha Est.' },
+                              ].map(col => (
+                                <label key={col.key} className="flex items-center gap-1 py-0.5 px-1 hover:bg-gray-100 rounded cursor-pointer text-[10px]">
+                                  <input
+                                    type="checkbox"
+                                    checked={visibleColumns[col.key]}
+                                    onChange={() => toggleColumn(col.key)}
+                                    className="w-2.5 h-2.5"
+                                  />
+                                  {col.label}
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -2661,72 +2557,101 @@ const ProvisionesTab: React.FC<{
                     const provSubtotal = provision.subtotal || (provTotal / 1.16);
                     const provIVA = provision.iva || (provTotal - provSubtotal);
 
-                    // Colores según estado
-                    let rowBgColor = idx % 2 === 0 ? 'bg-white hover:bg-gray-50' : 'bg-gray-50 hover:bg-gray-100';
-                    if (provision.estado === 'pagado') rowBgColor = 'bg-blue-50 hover:bg-blue-100';
-                    else if (provision.estado === 'aprobado') rowBgColor = 'bg-green-50 hover:bg-green-100';
+                    // Colores de fila: blanco/gris alternado + hover menta suave (homologado)
+                    const rowBgColor = idx % 2 === 0 ? colors.rowEven : colors.rowOdd;
+                    const rowHoverColor = colors.rowHover;
 
                     // Color de categoría
                     const catColor = provision.categoria?.color || '#6B7280';
                     const catName = provision.categoria?.nombre || 'Sin categoría';
 
                     return (
-                      <tr key={provision.id} className={`${rowBgColor} transition-colors`}>
-                        <td className="px-2 py-1">
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${provision.estado === 'pagado' ? 'bg-blue-600 text-white' :
-                            provision.estado === 'aprobado' ? 'bg-green-600 text-white' : 'bg-amber-100 text-amber-700'
-                            }`}>
-                            {(provision.estado || 'pendiente').toUpperCase()}
-                          </span>
-                        </td>
-                        <td className="px-2 py-1">
-                          <span
-                            className="px-1.5 py-0.5 rounded text-[10px] font-medium"
-                            style={{ backgroundColor: catColor + '20', color: catColor }}
-                          >
-                            {catName}
-                          </span>
-                        </td>
-                        <td className="px-2 py-1 text-gray-700 max-w-[150px] truncate">
-                          {provision.proveedor?.razon_social || 'Sin proveedor'}
-                        </td>
-                        <td className="px-2 py-1 text-gray-900 max-w-[180px] truncate font-medium">
-                          {provision.concepto}
-                        </td>
-                        <td className="px-2 py-1 text-right font-mono text-gray-700">
-                          {formatCurrency(provSubtotal)}
-                        </td>
-                        <td className="px-2 py-1 text-right font-mono text-gray-500">
-                          {formatCurrency(provIVA)}
-                        </td>
-                        <td className="px-2 py-1 text-right font-mono font-bold text-amber-600">
-                          {formatCurrency(provTotal)}
-                        </td>
-                        <td className="px-2 py-1 text-center text-gray-500">
-                          {provision.fecha_estimada ? formatDate(provision.fecha_estimada) : '—'}
-                        </td>
-                        <td className="px-2 py-1 text-center">
-                          <div className="flex gap-1 justify-center">
-                            {canUpdate('gastos') && (
-                              <button
-                                onClick={() => onEditProvision(provision)}
-                                className="p-1 hover:bg-blue-100 rounded text-blue-600"
-                                title="Editar"
-                              >
-                                <Pencil className="w-3 h-3" />
-                              </button>
-                            )}
-                            {canDelete('gastos') && (
-                              <button
-                                onClick={() => handleDelete(provision)}
-                                className="p-1 hover:bg-red-100 rounded text-red-500"
-                                title="Eliminar"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            )}
-                          </div>
-                        </td>
+                      <tr
+                        key={provision.id}
+                        className="transition-colors cursor-pointer"
+                        style={{ backgroundColor: rowBgColor }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = rowHoverColor}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = rowBgColor}
+                        onClick={() => onEditProvision(provision)}
+                      >
+                        {visibleColumns.status && (
+                          <td className="px-2 py-1.5">
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-xs font-bold ${provision.estado === 'pagado'
+                                ? 'bg-slate-700 text-white'
+                                : provision.estado === 'aprobado'
+                                  ? 'bg-slate-600 text-white'
+                                  : 'bg-slate-200 text-slate-600 dark:bg-slate-600 dark:text-slate-200'
+                                }`}
+                            >
+                              {(provision.estado || 'pendiente').toUpperCase()}
+                            </span>
+                          </td>
+                        )}
+                        {visibleColumns.categoria && (
+                          <td className="px-2 py-1.5">
+                            <span
+                              className="px-1.5 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-600 dark:text-slate-200"
+                            >
+                              {catName}
+                            </span>
+                          </td>
+                        )}
+                        {visibleColumns.proveedor && (
+                          <td className="px-2 py-1.5 max-w-[150px] truncate text-slate-600 dark:text-slate-300">
+                            {provision.proveedor?.razon_social || 'Sin proveedor'}
+                          </td>
+                        )}
+                        {visibleColumns.concepto && (
+                          <td className="px-2 py-1.5 max-w-[180px] truncate font-medium text-slate-800 dark:text-slate-100">
+                            {provision.concepto}
+                          </td>
+                        )}
+                        {visibleColumns.subtotal && (
+                          <td className="px-2 py-1.5 text-right font-mono text-slate-700 dark:text-slate-200">
+                            {formatCurrency(provSubtotal)}
+                          </td>
+                        )}
+                        {visibleColumns.iva && (
+                          <td className="px-2 py-1.5 text-right font-mono text-slate-500 dark:text-slate-400">
+                            {formatCurrency(provIVA)}
+                          </td>
+                        )}
+                        {visibleColumns.total && (
+                          <td className="px-2 py-1.5 text-right font-mono font-bold text-slate-800 dark:text-slate-100">
+                            {formatCurrency(provTotal)}
+                          </td>
+                        )}
+                        {visibleColumns.fecha && (
+                          <td className="px-2 py-1.5 text-center text-slate-500 dark:text-slate-400">
+                            {provision.fecha_estimada ? formatDate(provision.fecha_estimada) : '—'}
+                          </td>
+                        )}
+                        {visibleColumns.acciones && (
+                          <td className="px-2 py-1 text-center">
+                            <div className="flex gap-1 justify-center">
+                              {/* Botón Convertir a Gasto */}
+                              {canUpdate('gastos') && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); onConvertToGasto(provision); }}
+                                  className="p-1 hover:bg-emerald-100 rounded text-emerald-600"
+                                  title="Convertir a Gasto"
+                                >
+                                  <Check className="w-3 h-3" />
+                                </button>
+                              )}
+                              {canDelete('gastos') && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleDelete(provision); }}
+                                  className="p-1 hover:bg-red-100 rounded text-red-500"
+                                  title="Eliminar"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     );
                   })
@@ -2734,7 +2659,7 @@ const ProvisionesTab: React.FC<{
               </tbody>
               {/* TOTAL EN FOOTER */}
               {provisionesFiltered.length > 0 && (
-                <tfoot className="bg-amber-600 text-white font-bold">
+                <tfoot style={{ backgroundColor: colors.primaryDark }} className="text-white font-bold">
                   <tr>
                     <td colSpan={4} className="px-2 py-2 text-right">TOTAL PROVISIONES</td>
                     <td className="px-2 py-2 text-right font-mono">{formatCurrency(subtotalProvisiones)}</td>
@@ -2762,7 +2687,7 @@ const ProvisionesTab: React.FC<{
                     <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-5 gap-x-3 gap-y-0.5 items-center">
                       <div className="col-span-1">
                         <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${provision.estado === 'pagado' ? 'bg-blue-100 text-blue-700' :
-                          provision.estado === 'aprobado' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                          provision.estado === 'aprobado' ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600'
                           }`}>
                           {(provision.estado || 'pendiente').toUpperCase()}
                         </span>
@@ -2771,7 +2696,7 @@ const ProvisionesTab: React.FC<{
                         <h4 className="font-medium text-gray-900 text-sm truncate">{provision.concepto}</h4>
                       </div>
                       <div>
-                        <span className="text-sm font-bold text-amber-600">{formatCurrency(provision.total)}</span>
+                        <span className="text-sm font-bold text-slate-700">{formatCurrency(provision.total)}</span>
                       </div>
                       <div>
                         {provision.categoria && (
@@ -2790,6 +2715,16 @@ const ProvisionesTab: React.FC<{
                     </div>
 
                     <div className="flex gap-1 flex-shrink-0">
+                      {/* Botón Convertir a Gasto */}
+                      {canUpdate('gastos') && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onConvertToGasto(provision); }}
+                          className="p-1.5 rounded-lg transition-colors border bg-emerald-50 hover:bg-emerald-100 text-emerald-600 hover:text-emerald-700 border-emerald-200"
+                          title="Convertir a Gasto"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                       {canUpdate('gastos') && (
                         <button
                           onClick={(e) => { e.stopPropagation(); onEditProvision(provision); }}

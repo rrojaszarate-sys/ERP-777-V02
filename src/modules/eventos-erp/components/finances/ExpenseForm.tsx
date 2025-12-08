@@ -89,7 +89,7 @@ const CurrencyInput = ({ value, onChange, readOnly = false, className = '', plac
 
   return (
     <div className="relative">
-      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+      <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
       <input
         type="text"
         inputMode="decimal"
@@ -99,7 +99,7 @@ const CurrencyInput = ({ value, onChange, readOnly = false, className = '', plac
         onFocus={handleFocus}
         readOnly={readOnly}
         placeholder={placeholder || '0.00'}
-        className={`w-full pl-9 pr-4 py-2.5 border-2 rounded-lg font-mono text-right transition-all ${className}`}
+        className={`w-full pl-7 pr-2 py-1.5 border rounded font-mono text-right transition-all ${className}`}
         style={style}
       />
     </div>
@@ -158,16 +158,23 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   const [cargandoXml, setCargandoXml] = useState(false);
   const [cargandoPdf, setCargandoPdf] = useState(false);
 
-  // Colores dinámicos - Rojo para gastos
+  // Colores dinámicos - Usa la paleta configurada
   const themeColors = useMemo(() => ({
-    primary: '#EF4444', // Rojo para gastos
-    primaryLight: '#FEE2E2',
-    primaryDark: '#DC2626',
+    primary: paletteConfig.primary,
+    primaryLight: paletteConfig.shades[100],
+    primaryDark: paletteConfig.shades[700],
     bg: isDark ? '#1E293B' : '#FFFFFF',
+    bgCard: isDark ? '#0F172A' : '#F8FAFC',
     text: isDark ? '#F8FAFC' : '#1E293B',
     textSecondary: isDark ? '#CBD5E1' : '#64748B',
+    textMuted: isDark ? '#94A3B8' : '#9CA3AF',
     border: isDark ? '#334155' : '#E2E8F0',
-    accent: paletteConfig.accent
+    accent: paletteConfig.accent,
+    secondary: paletteConfig.secondary,
+    // Colores sobrios para filas alternadas (blanco/gris muy tenue + hover menta)
+    rowEven: isDark ? '#1E293B' : '#FFFFFF',
+    rowOdd: isDark ? '#263244' : '#F8FAFC',
+    rowHover: isDark ? '#334155' : '#E0F2F1',
   }), [paletteConfig, isDark]);
 
   const [formData, setFormData] = useState({
@@ -1264,9 +1271,9 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                 onChange={(v) => handleInputChange('total', v)}
                 className="font-bold"
                 style={{
-                  borderColor: errorCuadre ? '#EF4444' : '#10B981',
-                  backgroundColor: errorCuadre ? '#FEF2F2' : '#F0FDF4',
-                  color: errorCuadre ? '#EF4444' : '#10B981'
+                  borderColor: errorCuadre ? '#EF4444' : themeColors.primary,
+                  backgroundColor: errorCuadre ? '#FEF2F2' : `${themeColors.primary}10`,
+                  color: errorCuadre ? '#EF4444' : themeColors.primary
                 }}
               />
             </div>

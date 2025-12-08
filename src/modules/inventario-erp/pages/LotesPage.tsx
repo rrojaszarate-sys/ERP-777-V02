@@ -454,25 +454,25 @@ export const LotesPage: React.FC = () => {
             <table className="w-full">
               <thead>
                 <tr style={{ backgroundColor: isDark ? '#1e293b' : '#f1f5f9' }}>
-                  <th className="text-left px-4 py-3 text-sm font-medium" style={{ color: colors.textMuted }}>
+                  <th className="text-left px-2 py-1.5 text-[10px] font-medium uppercase" style={{ color: colors.textMuted }}>
                     Lote
                   </th>
-                  <th className="text-left px-4 py-3 text-sm font-medium" style={{ color: colors.textMuted }}>
+                  <th className="text-left px-2 py-1.5 text-[10px] font-medium uppercase" style={{ color: colors.textMuted }}>
                     Producto
                   </th>
-                  <th className="text-left px-4 py-3 text-sm font-medium" style={{ color: colors.textMuted }}>
+                  <th className="text-left px-2 py-1.5 text-[10px] font-medium uppercase" style={{ color: colors.textMuted }}>
                     Almacén
                   </th>
-                  <th className="text-center px-4 py-3 text-sm font-medium" style={{ color: colors.textMuted }}>
+                  <th className="text-center px-2 py-1.5 text-[10px] font-medium uppercase" style={{ color: colors.textMuted }}>
                     Cantidad
                   </th>
-                  <th className="text-center px-4 py-3 text-sm font-medium" style={{ color: colors.textMuted }}>
+                  <th className="text-center px-2 py-1.5 text-[10px] font-medium uppercase" style={{ color: colors.textMuted }}>
                     Caducidad
                   </th>
-                  <th className="text-center px-4 py-3 text-sm font-medium" style={{ color: colors.textMuted }}>
+                  <th className="text-center px-2 py-1.5 text-[10px] font-medium uppercase" style={{ color: colors.textMuted }}>
                     Estado
                   </th>
-                  <th className="text-center px-4 py-3 text-sm font-medium" style={{ color: colors.textMuted }}>
+                  <th className="text-center px-2 py-1.5 text-[10px] font-medium uppercase" style={{ color: colors.textMuted }}>
                     Acciones
                   </th>
                 </tr>
@@ -489,50 +489,50 @@ export const LotesPage: React.FC = () => {
                       className="border-t transition-colors hover:opacity-90"
                       style={{ borderColor: colors.border }}
                     >
-                      <td className="px-4 py-3">
-                        <p className="font-mono font-bold" style={{ color: colors.text }}>
+                      <td className="px-2 py-1">
+                        <p className="font-mono font-bold text-xs" style={{ color: colors.text }}>
                           {lote.numero_lote}
                         </p>
                         {lote.documento_compra && (
-                          <p className="text-xs" style={{ color: colors.textMuted }}>
+                          <p className="text-[10px]" style={{ color: colors.textMuted }}>
                             Doc: {lote.documento_compra}
                           </p>
                         )}
                       </td>
-                      <td className="px-4 py-3">
-                        <p style={{ color: colors.text }}>
+                      <td className="px-2 py-1">
+                        <p className="text-xs truncate max-w-[120px]" style={{ color: colors.text }} title={(lote.producto as any)?.nombre}>
                           {(lote.producto as any)?.nombre || `ID: ${lote.producto_id}`}
                         </p>
-                        <p className="text-xs" style={{ color: colors.textMuted }}>
+                        <p className="text-[10px]" style={{ color: colors.textMuted }}>
                           {(lote.producto as any)?.clave}
                         </p>
                       </td>
-                      <td className="px-4 py-3">
-                        <p style={{ color: colors.text }}>
+                      <td className="px-2 py-1">
+                        <p className="text-xs truncate max-w-[100px]" style={{ color: colors.text }} title={(lote.almacen as any)?.nombre}>
                           {(lote.almacen as any)?.nombre || `ID: ${lote.almacen_id}`}
                         </p>
                         {lote.ubicacion_id && (
-                          <p className="text-xs" style={{ color: colors.textMuted }}>
+                          <p className="text-[10px]" style={{ color: colors.textMuted }}>
                             📍 {(lote.ubicacion as any)?.codigo}
                           </p>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <p className="font-bold" style={{ color: colors.text }}>
+                      <td className="px-2 py-1 text-center">
+                        <p className="font-bold text-xs" style={{ color: colors.text }}>
                           {lote.cantidad_actual}
                         </p>
-                        <p className="text-xs" style={{ color: colors.textMuted }}>
+                        <p className="text-[10px]" style={{ color: colors.textMuted }}>
                           de {lote.cantidad_inicial}
                         </p>
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-2 py-1 text-center">
                         {lote.fecha_caducidad ? (
                           <div>
-                            <p className="text-sm" style={{ color: colors.text }}>
+                            <p className="text-[10px]" style={{ color: colors.text }}>
                               {new Date(lote.fecha_caducidad).toLocaleDateString()}
                             </p>
                             <p
-                              className="text-xs font-medium"
+                              className="text-[10px] font-medium"
                               style={{ color: getColorDiasVencer(diasVencer) }}
                             >
                               {diasVencer !== null && (
@@ -543,22 +543,22 @@ export const LotesPage: React.FC = () => {
                             </p>
                           </div>
                         ) : (
-                          <span style={{ color: colors.textMuted }}>-</span>
+                          <span className="text-[10px]" style={{ color: colors.textMuted }}>-</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-2 py-1 text-center">
                         <span
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium"
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium"
                           style={{
                             backgroundColor: `${estadoConfig.color}20`,
                             color: estadoConfig.color,
                           }}
                         >
-                          <IconEstado size={12} />
+                          <IconEstado size={10} />
                           {estadoConfig.label}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-2 py-1 text-center">
                         <div className="flex justify-center gap-1">
                           <button
                             onClick={() => {
@@ -576,10 +576,10 @@ export const LotesPage: React.FC = () => {
                               });
                               setShowForm(true);
                             }}
-                            className="p-2 rounded hover:opacity-80"
+                            className="p-1 rounded hover:opacity-80"
                             style={{ color: colors.primary }}
                           >
-                            <Edit size={16} />
+                            <Edit size={14} />
                           </button>
                         </div>
                       </td>

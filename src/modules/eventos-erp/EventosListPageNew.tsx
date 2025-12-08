@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Plus, Eye, Edit, Trash2, Calendar,
-  Filter, X, Download, Search
+  Filter, X, Download, Search, ToggleLeft, ToggleRight
 } from 'lucide-react';
 import { supabase } from '../../core/config/supabase';
 import { usePermissions } from '../../core/permissions/usePermissions';
@@ -69,7 +69,32 @@ export const EventosListPage: React.FC = () => {
   const setShowCentavos = (value: boolean) => updateDashboard({ mostrarCentavos: value });
   const setMoneyFormat = (value: 'normal' | 'miles' | 'millones') => setFormatoNumeros(value);
 
+  // 💱 Toggle IVA / Subtotales (por defecto: Subtotales)
+  const [showConIVA, setShowConIVA] = useState(false);
+
+  // Helper: Obtener valor de ingresos según toggle IVA (usa campos de la vista SQL)
+  const getIngresos = (row: any) => showConIVA ? (row.ingresos_totales || 0) : (row.ingresos_subtotal || row.ingresos_totales / 1.16 || 0);
+
+  // Helper: Obtener valor de gastos según toggle IVA (usa campos de la vista SQL)
+  const getGastos = (row: any) => showConIVA ? (row.gastos_totales || 0) : (row.gastos_subtotal || row.gastos_totales / 1.16 || 0);
+
+  // Helper: Obtener valor de provisiones según toggle IVA (usa campos de la vista SQL)
+  const getProvisiones = (row: any) => showConIVA ? (row.provisiones_total || 0) : (row.provisiones_subtotal || row.provisiones_total / 1.16 || 0);
+
+  // Helper: Obtener utilidad según toggle IVA (usa campos pre-calculados de la vista SQL)
+  const getUtilidad = (row: any) => showConIVA ? (row.utilidad_real || 0) : (row.utilidad_bruta || row.utilidad_real / 1.16 || 0);
+
+  // Helper: Obtener margen según toggle IVA (usa campos pre-calculados de la vista SQL)
+  const getMargen = (row: any) => showConIVA ? (row.margen_real_pct || 0) : (row.margen_bruto_pct || row.margen_real_pct || 0);
+
+  // Helper: Obtener valor simple según toggle IVA (para valores individuales sin row)
+  const getValor = (valorConIVA: number, valorSinIVA?: number) => {
+    if (showConIVA) return valorConIVA;
+    return valorSinIVA !== undefined ? valorSinIVA : valorConIVA / 1.16;
+  };
+
   // Helper para formatear dinero respetando showCentavos y formato (miles/millones)
+  // NOTA: Ya NO aplica toggle IVA automáticamente, los valores deben venir ya procesados
   const formatMoney = (amount: number, forceDecimals = false): string => {
     let value = amount;
     let suffix = '';
@@ -77,15 +102,14 @@ export const EventosListPage: React.FC = () => {
 
     // Aplicar formato de miles o millones
     if (moneyFormat === 'miles') {
-      value = amount / 1000;
+      value = value / 1000;
       suffix = 'K';
-      decimals = 1; // Siempre 1 decimal en miles
+      decimals = 1;
     } else if (moneyFormat === 'millones') {
-      value = amount / 1000000;
+      value = value / 1000000;
       suffix = 'M';
-      decimals = 1; // Siempre 1 decimal en millones
+      decimals = 1;
     } else {
-      // Formato normal: respetar showCentavos
       decimals = (showCentavos || forceDecimals) ? 2 : 0;
     }
 
@@ -96,7 +120,7 @@ export const EventosListPage: React.FC = () => {
 
     return suffix ? `${formatted}${suffix}` : formatted;
   };
-  
+
   // Estados de filtros
   const currentYear = new Date().getFullYear();
   const [filters, setFilters] = useState<EventosFinancialFilters>({
@@ -236,7 +260,7 @@ export const EventosListPage: React.FC = () => {
         .from('evt_eventos_erp')
         .delete()
         .eq('id', evento.id);
-      
+
       if (error) throw error;
       // Refrescar datos después de eliminar
       window.location.reload();
@@ -386,29 +410,29 @@ export const EventosListPage: React.FC = () => {
     },
     {
       key: 'ingresos_totales',
-      label: 'Ingresos',
+      label: showConIVA ? 'Ingresos (+IVA)' : 'Ingresos',
       filterType: 'number' as const,
       align: 'right' as const,
-      render: (value: number, row: any) => {
+      render: (_value: number, row: any) => {
         const isExpanded = hoveredRow === row.id || expandedRows.has(row.id);
         return (
           <div className="text-right">
             <div className="font-bold text-base" style={{ color: themeColors.primary }}>
-              ${formatMoney(row.ingresos_totales || 0)}
+              ${formatMoney(getIngresos(row))}
             </div>
             {isExpanded && (
               <div className="text-xs mt-1 space-y-0.5 border-t pt-1" style={{ color: themeColors.textSecondary }}>
                 <div className="flex justify-between gap-2">
                   <span>Cobrados:</span>
-                  <span className="font-medium" style={{ color: themeColors.shades[700] }}>${formatMoney(row.ingresos_cobrados || 0)}</span>
+                  <span className="font-medium" style={{ color: themeColors.shades[700] }}>${formatMoney(getValor(row.ingresos_cobrados || 0))}</span>
                 </div>
                 <div className="flex justify-between gap-2">
                   <span>Pendientes:</span>
-                  <span className="font-medium" style={{ color: themeColors.secondary }}>${formatMoney(row.ingresos_pendientes || 0)}</span>
+                  <span className="font-medium" style={{ color: themeColors.secondary }}>${formatMoney(getValor(row.ingresos_pendientes || 0))}</span>
                 </div>
                 <div className="flex justify-between gap-2">
                   <span>Estimados:</span>
-                  <span style={{ color: themeColors.textSecondary }}>${formatMoney(row.ingreso_estimado || 0)}</span>
+                  <span style={{ color: themeColors.textSecondary }}>${formatMoney(getValor(row.ingreso_estimado || 0))}</span>
                 </div>
               </div>
             )}
@@ -418,20 +442,18 @@ export const EventosListPage: React.FC = () => {
     },
     {
       key: 'gastos_totales',
-      label: 'Gastos',
+      label: showConIVA ? 'Gastos (+IVA)' : 'Gastos',
       filterType: 'number' as const,
       align: 'right' as const,
       render: (_value: number, row: any) => {
         const isExpanded = hoveredRow === row.id || expandedRows.has(row.id);
-        const gastosPagados = row.gastos_pagados_total || 0;
-        const gastosPendientes = row.gastos_pendientes_total || 0;
-        const gastosTotal = gastosPagados + gastosPendientes;
+        const gastosTotal = getGastos(row);
 
-        // Desglose por categoría
-        const combustible = (row.gastos_combustible_pagados || 0) + (row.gastos_combustible_pendientes || 0);
-        const materiales = (row.gastos_materiales_pagados || 0) + (row.gastos_materiales_pendientes || 0);
-        const rh = (row.gastos_rh_pagados || 0) + (row.gastos_rh_pendientes || 0);
-        const sps = (row.gastos_sps_pagados || 0) + (row.gastos_sps_pendientes || 0);
+        // Desglose por categoría (aplicar IVA toggle)
+        const combustible = getValor((row.gastos_combustible_pagados || 0) + (row.gastos_combustible_pendientes || 0));
+        const materiales = getValor((row.gastos_materiales_pagados || 0) + (row.gastos_materiales_pendientes || 0));
+        const rh = getValor((row.gastos_rh_pagados || 0) + (row.gastos_rh_pendientes || 0));
+        const sps = getValor((row.gastos_sps_pagados || 0) + (row.gastos_sps_pendientes || 0));
 
         return (
           <div className="text-right">
@@ -464,19 +486,18 @@ export const EventosListPage: React.FC = () => {
     },
     {
       key: 'provisiones',
-      label: 'Provisiones',
+      label: showConIVA ? 'Provisiones (+IVA)' : 'Provisiones',
       filterType: 'number' as const,
       align: 'right' as const,
       render: (_value: any, row: any) => {
         const isExpanded = hoveredRow === row.id || expandedRows.has(row.id);
-        // Usar campos directamente de la vista
-        const provisionesTotal = row.provisiones_total || 0;
+        const provisionesTotal = getProvisiones(row);
 
-        // Desglose por categoría (provisiones)
-        const provComb = row.provision_combustible || 0;
-        const provMat = row.provision_materiales || 0;
-        const provRH = row.provision_rh || 0;
-        const provSPs = row.provision_sps || 0;
+        // Desglose por categoría (aplicar IVA toggle)
+        const provComb = getValor(row.provision_combustible || 0);
+        const provMat = getValor(row.provision_materiales || 0);
+        const provRH = getValor(row.provision_rh || 0);
+        const provSPs = getValor(row.provision_sps || 0);
 
         return (
           <div className="text-right">
@@ -509,19 +530,19 @@ export const EventosListPage: React.FC = () => {
     },
     {
       key: 'utilidad_estimada',
-      label: 'Utilidad',
+      label: showConIVA ? 'Utilidad (+IVA)' : 'Utilidad',
       filterType: 'number' as const,
       align: 'center' as const,
       width: '130px',
       render: (_value: number, row: any) => {
         const isExpanded = hoveredRow === row.id || expandedRows.has(row.id);
-        // Usar campos directamente de la vista vw_eventos_analisis_financiero_erp
-        const ingresosTotales = row.ingresos_totales || 0;
-        const gastosTotales = row.gastos_totales || 0;
-        const provisionesTotal = row.provisiones_total || 0;
-        // La vista ya calcula utilidad_real y margen_real_pct
-        const utilidadReal = row.utilidad_real ?? (ingresosTotales - gastosTotales - Math.max(0, provisionesTotal - gastosTotales));
-        const margenReal = row.margen_real_pct ?? (ingresosTotales > 0 ? (utilidadReal / ingresosTotales) * 100 : 0);
+
+        // Usar campos PRE-CALCULADOS de la vista SQL según toggle IVA
+        const utilidadReal = getUtilidad(row);
+        const margenReal = getMargen(row);
+        const ingresosDisplay = getIngresos(row);
+        const gastosDisplay = getGastos(row);
+        const provisionesDisplay = getProvisiones(row);
 
         const getColorInfo = (margen: number) => {
           if (margen >= 35) return { color: themeColors.shades[700], label: 'Excelente' };
@@ -532,7 +553,7 @@ export const EventosListPage: React.FC = () => {
         const colorInfo = getColorInfo(margenReal);
 
         // Tooltip con fórmula: Utilidad = Ingresos - Gastos - Provisiones
-        const tooltip = `Margen: ${margenReal.toFixed(1)}% (${colorInfo.label})\n\nIngresos: $${formatMoney(ingresosTotales)}\n- Gastos: $${formatMoney(gastosTotales)}\n- Provisiones: $${formatMoney(provisionesTotal)}\n= Utilidad: $${formatMoney(utilidadReal)}`;
+        const tooltip = `Margen: ${margenReal.toFixed(1)}% (${colorInfo.label})\n\nIngresos: $${formatMoney(ingresosDisplay)}\n- Gastos: $${formatMoney(gastosDisplay)}\n- Provisiones: $${formatMoney(provisionesDisplay)}\n= Utilidad: $${formatMoney(utilidadReal)}`;
 
         return (
           <div className="text-center" title={tooltip}>
@@ -597,7 +618,7 @@ export const EventosListPage: React.FC = () => {
             Administra todos los eventos con control financiero y OCR integrado
           </p>
         </div>
-        
+
         <div className="flex gap-2">
           {/* Selector de formato de números - Estilo homologado con GastosNoImpactados */}
           <div className="flex items-center border rounded-lg overflow-hidden" style={{ borderColor: themeColors.border }}>
@@ -636,6 +657,30 @@ export const EventosListPage: React.FC = () => {
               M
             </button>
           </div>
+
+          {/* Toggle IVA / Subtotales */}
+          <button
+            onClick={() => setShowConIVA(!showConIVA)}
+            className="flex items-center px-3 py-2 border rounded-lg text-sm font-medium transition-all"
+            style={{
+              borderColor: themeColors.border,
+              backgroundColor: showConIVA ? themeColors.primary : themeColors.cardBg,
+              color: showConIVA ? '#fff' : themeColors.textSecondary
+            }}
+            title={showConIVA ? 'Mostrando totales con IVA incluido' : 'Mostrando subtotales (sin IVA)'}
+          >
+            {showConIVA ? (
+              <>
+                <ToggleRight className="w-4 h-4 mr-1" />
+                +IVA
+              </>
+            ) : (
+              <>
+                <ToggleLeft className="w-4 h-4 mr-1" />
+                Subtotal
+              </>
+            )}
+          </button>
 
           {/* Botón centavos - Solo cuando está en formato normal */}
           {moneyFormat === 'normal' && (
@@ -829,147 +874,171 @@ export const EventosListPage: React.FC = () => {
       )}
 
       {/* Dashboard de Sumatorias - Diseño con separadores verticales */}
-      {dashboard && (
-        <div
-          className="rounded-lg border cursor-pointer hover:shadow-md transition-shadow"
-          style={{ backgroundColor: themeColors.cardBg, borderColor: themeColors.border }}
-          onClick={() => setShowAllCardDetails(!showAllCardDetails)}
-        >
-          <div className="flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-gray-200">
+      {dashboard && (() => {
+        // Calcular totales directamente desde los eventos filtrados para que coincidan con la tabla
+        // Usar los campos correctos según el toggle IVA
+        const totalEventos = eventosFiltrados.length;
 
-            {/* Total Eventos */}
-            <div className="flex-1 p-4">
-              <div className="flex flex-col">
-                <div className="flex items-center gap-2 mb-2">
-                  <Calendar className="w-4 h-4" style={{ color: themeColors.primary }} />
-                  <p className="text-sm font-medium" style={{ color: themeColors.textSecondary }}>Eventos</p>
-                </div>
-                <p className="text-2xl font-bold" style={{ color: themeColors.textPrimary }}>
-                  {dashboard.total_eventos}
-                </p>
-              </div>
-            </div>
+        // Ingresos: usar ingresos_subtotal o ingresos_totales según toggle
+        const totalIngresosReales = eventosFiltrados.reduce((sum, e: any) =>
+          sum + (showConIVA ? (e.ingresos_totales || 0) : (e.ingresos_subtotal || e.ingresos_totales / 1.16 || 0)), 0);
+        const totalIngresosCobrados = eventosFiltrados.reduce((sum, e: any) =>
+          sum + getValor(e.ingresos_cobrados || 0), 0);
+        const totalIngresosPendientes = eventosFiltrados.reduce((sum, e: any) =>
+          sum + getValor(e.ingresos_pendientes || 0), 0);
+        const totalIngresosEstimados = eventosFiltrados.reduce((sum, e: any) =>
+          sum + getValor(e.ingreso_estimado || 0), 0);
 
-            {/* Ingresos */}
-            <div className="flex-1 p-4">
-              <div className="flex flex-col">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium" style={{ color: themeColors.textSecondary }}>Ingresos</p>
-                  <span className="text-xs" style={{ color: themeColors.primary }}>{showAllCardDetails ? '▲' : '▼'}</span>
-                </div>
-                <p className="text-xl font-bold" style={{ color: themeColors.primary }}>
-                  ${formatMoney(dashboard.total_ingresos_reales)}
-                </p>
-                {showAllCardDetails && (
-                  <div className="text-xs mt-2 pt-2 border-t space-y-1" style={{ color: themeColors.textSecondary }}>
-                    <div className="flex justify-between"><span>Cobrados:</span><span style={{ color: themeColors.shades[700] }}>${formatMoney(dashboard.total_ingresos_cobrados)}</span></div>
-                    <div className="flex justify-between"><span>Pendientes:</span><span style={{ color: themeColors.secondary }}>${formatMoney(dashboard.total_ingresos_pendientes)}</span></div>
-                    <div className="flex justify-between"><span>Estimados:</span><span style={{ color: themeColors.textSecondary }}>${formatMoney(dashboard.total_ingresos_estimados)}</span></div>
+        // Gastos: usar gastos_subtotal o gastos_totales según toggle
+        const totalGastosTotales = eventosFiltrados.reduce((sum, e: any) =>
+          sum + (showConIVA ? (e.gastos_totales || 0) : (e.gastos_subtotal || e.gastos_totales / 1.16 || 0)), 0);
+
+        // Provisiones: usar provisiones_subtotal o provisiones_total según toggle
+        const totalProvisiones = eventosFiltrados.reduce((sum, e: any) =>
+          sum + (showConIVA ? (e.provisiones_total || 0) : (e.provisiones_subtotal || e.provisiones_total / 1.16 || 0)), 0);
+
+        // Gastos por categoría (aplicar toggle IVA)
+        const totalGastosCombustible = eventosFiltrados.reduce((sum, e: any) =>
+          sum + getValor((e.gastos_combustible_pagados || 0) + (e.gastos_combustible_pendientes || 0)), 0);
+        const totalGastosMateriales = eventosFiltrados.reduce((sum, e: any) =>
+          sum + getValor((e.gastos_materiales_pagados || 0) + (e.gastos_materiales_pendientes || 0)), 0);
+        const totalGastosRH = eventosFiltrados.reduce((sum, e: any) =>
+          sum + getValor((e.gastos_rh_pagados || 0) + (e.gastos_rh_pendientes || 0)), 0);
+        const totalGastosSPS = eventosFiltrados.reduce((sum, e: any) =>
+          sum + getValor((e.gastos_sps_pagados || 0) + (e.gastos_sps_pendientes || 0)), 0);
+
+        // Provisiones por categoría (aplicar toggle IVA)
+        const provCombustible = getValor(dashboard.total_provision_combustible || 0);
+        const provMateriales = getValor(dashboard.total_provision_materiales || 0);
+        const provRH = getValor(dashboard.total_provision_rh || 0);
+        const provSPS = getValor(dashboard.total_provision_sps || 0);
+
+        // Utilidad: sumar campos pre-calculados de la vista SQL
+        const utilidadTotal = eventosFiltrados.reduce((sum, e: any) =>
+          sum + (showConIVA ? (e.utilidad_real || 0) : (e.utilidad_bruta || e.utilidad_real / 1.16 || 0)), 0);
+
+        // Margen: calcular desde totales
+        const margenUtilidad = totalIngresosReales > 0 ? (utilidadTotal / totalIngresosReales) * 100 : 0;
+
+        return (
+          <div
+            className="rounded-lg border cursor-pointer hover:shadow-md transition-shadow"
+            style={{ backgroundColor: themeColors.cardBg, borderColor: themeColors.border }}
+            onClick={() => setShowAllCardDetails(!showAllCardDetails)}
+          >
+            <div className="flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-gray-200">
+
+              {/* Total Eventos */}
+              <div className="flex-1 p-4">
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Calendar className="w-4 h-4" style={{ color: themeColors.primary }} />
+                    <p className="text-sm font-medium" style={{ color: themeColors.textSecondary }}>Eventos</p>
                   </div>
-                )}
-              </div>
-            </div>
-
-            {/* Gastos Totales */}
-            <div className="flex-1 p-4">
-              <div className="flex flex-col">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium" style={{ color: themeColors.textSecondary }}>Gastos</p>
-                  <span className="text-xs" style={{ color: themeColors.primary }}>{showAllCardDetails ? '▲' : '▼'}</span>
+                  <p className="text-2xl font-bold" style={{ color: themeColors.textPrimary }}>
+                    {totalEventos}
+                  </p>
                 </div>
-                <p className="text-xl font-bold" style={{ color: themeColors.accent }}>
-                  ${formatMoney(dashboard.total_gastos_totales)}
-                </p>
-                {showAllCardDetails && (
-                  <div className="text-xs mt-2 pt-2 border-t space-y-1" style={{ color: themeColors.textSecondary }}>
-                    <div className="flex justify-between"><span>🚗⛽</span><span>${formatMoney(dashboard.total_gastos_combustible_pagados + dashboard.total_gastos_combustible_pendientes)}</span></div>
-                    <div className="flex justify-between"><span>🛠️</span><span>${formatMoney(dashboard.total_gastos_materiales_pagados + dashboard.total_gastos_materiales_pendientes)}</span></div>
-                    <div className="flex justify-between"><span>👥</span><span>${formatMoney(dashboard.total_gastos_rh_pagados + dashboard.total_gastos_rh_pendientes)}</span></div>
-                    <div className="flex justify-between"><span>💳</span><span>${formatMoney(dashboard.total_gastos_sps_pagados + dashboard.total_gastos_sps_pendientes)}</span></div>
+              </div>
+
+              {/* Ingresos */}
+              <div className="flex-1 p-4">
+                <div className="flex flex-col">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium" style={{ color: themeColors.textSecondary }}>
+                      {showConIVA ? 'Ingresos (+IVA)' : 'Ingresos'}
+                    </p>
+                    <span className="text-xs" style={{ color: themeColors.primary }}>{showAllCardDetails ? '▲' : '▼'}</span>
                   </div>
-                )}
-              </div>
-            </div>
-
-            {/* Provisiones - Gastos pendientes de pago */}
-            <div className="flex-1 p-4">
-              <div className="flex flex-col">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium" style={{ color: themeColors.textSecondary }}>Provisiones</p>
-                  <span className="text-xs" style={{ color: themeColors.primary }}>{showAllCardDetails ? '▲' : '▼'}</span>
+                  <p className="text-xl font-bold" style={{ color: themeColors.primary }}>
+                    ${formatMoney(totalIngresosReales)}
+                  </p>
+                  {showAllCardDetails && (
+                    <div className="text-xs mt-2 pt-2 border-t space-y-1" style={{ color: themeColors.textSecondary }}>
+                      <div className="flex justify-between"><span>Cobrados:</span><span style={{ color: themeColors.shades[700] }}>${formatMoney(totalIngresosCobrados)}</span></div>
+                      <div className="flex justify-between"><span>Pendientes:</span><span style={{ color: themeColors.secondary }}>${formatMoney(totalIngresosPendientes)}</span></div>
+                      <div className="flex justify-between"><span>Estimados:</span><span style={{ color: themeColors.textSecondary }}>${formatMoney(totalIngresosEstimados)}</span></div>
+                    </div>
+                  )}
                 </div>
-                {(() => {
-                  // Provisiones = Gastos pendientes de pago (sin concepto de disponible)
-                  const provisionesTotal = dashboard.total_provisiones || 0;
-
-                  return (
-                    <>
-                      <p className="text-xl font-bold" style={{ color: themeColors.shades[700] }}>
-                        ${formatMoney(provisionesTotal)}
-                      </p>
-                      {showAllCardDetails && (
-                        <div className="text-xs mt-2 pt-2 border-t space-y-1" style={{ color: themeColors.textSecondary }}>
-                          <div className="flex justify-between">
-                            <span>🚗⛽</span><span>${formatMoney(dashboard.total_provision_combustible || 0)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>🛠️</span><span>${formatMoney(dashboard.total_provision_materiales || 0)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>👥</span><span>${formatMoney(dashboard.total_provision_rh || 0)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>💳</span><span>${formatMoney(dashboard.total_provision_sps || 0)}</span>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
               </div>
-            </div>
 
-            {/* Utilidad - Colapsado: solo monto, Expandido: monto + gauge */}
-            <div className="flex-1 p-4">
-              <div className="flex flex-col">
-                {(() => {
-                  // FÓRMULA CORRECTA: Utilidad = Ingresos - (Gastos + Provisiones)
-                  // Provisiones son gastos pendientes de pago
-                  const totalEgresos = dashboard.total_gastos_totales + dashboard.total_provisiones;
-                  const utilidad = dashboard.total_ingresos_reales - totalEgresos;
-                  const margenUtilidad = dashboard.total_ingresos_reales > 0
-                    ? (utilidad / dashboard.total_ingresos_reales) * 100
-                    : 0;
+              {/* Gastos Totales */}
+              <div className="flex-1 p-4">
+                <div className="flex flex-col">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium" style={{ color: themeColors.textSecondary }}>
+                      {showConIVA ? 'Gastos (+IVA)' : 'Gastos'}
+                    </p>
+                    <span className="text-xs" style={{ color: themeColors.primary }}>{showAllCardDetails ? '▲' : '▼'}</span>
+                  </div>
+                  <p className="text-xl font-bold" style={{ color: themeColors.accent }}>
+                    ${formatMoney(totalGastosTotales)}
+                  </p>
+                  {showAllCardDetails && (
+                    <div className="text-xs mt-2 pt-2 border-t space-y-1" style={{ color: themeColors.textSecondary }}>
+                      <div className="flex justify-between"><span>🚗⛽</span><span>${formatMoney(totalGastosCombustible)}</span></div>
+                      <div className="flex justify-between"><span>🛠️</span><span>${formatMoney(totalGastosMateriales)}</span></div>
+                      <div className="flex justify-between"><span>👥</span><span>${formatMoney(totalGastosRH)}</span></div>
+                      <div className="flex justify-between"><span>💳</span><span>${formatMoney(totalGastosSPS)}</span></div>
+                    </div>
+                  )}
+                </div>
+              </div>
 
-                  return (
-                    <>
-                      {/* Etiqueta y flecha - SIEMPRE VISIBLE */}
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-sm font-medium" style={{ color: themeColors.textSecondary }}>UTILIDAD</p>
-                        <span className="text-xs" style={{ color: themeColors.primary }}>{showAllCardDetails ? '▲' : '▼'}</span>
-                      </div>
-                      {/* Monto - SIEMPRE VISIBLE */}
-                      <p className="text-xl font-bold" style={{ color: utilidad >= 0 ? themeColors.shades[700] : themeColors.accent }}>
-                        ${formatMoney(utilidad)}
-                      </p>
-                      {/* Gauge - SOLO CUANDO EXPANDIDO */}
-                      {showAllCardDetails && (
-                        <div className="flex justify-center mt-2">
-                          <GaugeChart
-                            value={Math.max(0, Math.min(100, margenUtilidad))}
-                            size="sm"
-                            showLabel={true}
-                          />
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
+              {/* Provisiones - Gastos pendientes de pago */}
+              <div className="flex-1 p-4">
+                <div className="flex flex-col">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium" style={{ color: themeColors.textSecondary }}>
+                      {showConIVA ? 'Provisiones (+IVA)' : 'Provisiones'}
+                    </p>
+                    <span className="text-xs" style={{ color: themeColors.primary }}>{showAllCardDetails ? '▲' : '▼'}</span>
+                  </div>
+                  <p className="text-xl font-bold" style={{ color: themeColors.shades[700] }}>
+                    ${formatMoney(totalProvisiones)}
+                  </p>
+                  {showAllCardDetails && (
+                    <div className="text-xs mt-2 pt-2 border-t space-y-1" style={{ color: themeColors.textSecondary }}>
+                      <div className="flex justify-between"><span>🚗⛽</span><span>${formatMoney(provCombustible)}</span></div>
+                      <div className="flex justify-between"><span>🛠️</span><span>${formatMoney(provMateriales)}</span></div>
+                      <div className="flex justify-between"><span>👥</span><span>${formatMoney(provRH)}</span></div>
+                      <div className="flex justify-between"><span>💳</span><span>${formatMoney(provSPS)}</span></div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Utilidad - Colapsado: solo monto, Expandido: monto + gauge */}
+              <div className="flex-1 p-4">
+                <div className="flex flex-col">
+                  {/* Etiqueta y flecha - SIEMPRE VISIBLE */}
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium" style={{ color: themeColors.textSecondary }}>
+                      {showConIVA ? 'UTILIDAD (+IVA)' : 'UTILIDAD'}
+                    </p>
+                    <span className="text-xs" style={{ color: themeColors.primary }}>{showAllCardDetails ? '▲' : '▼'}</span>
+                  </div>
+                  {/* Monto - SIEMPRE VISIBLE */}
+                  <p className="text-xl font-bold" style={{ color: utilidadTotal >= 0 ? themeColors.shades[700] : themeColors.accent }}>
+                    ${formatMoney(utilidadTotal, false, false)}
+                  </p>
+                  {/* Gauge - SOLO CUANDO EXPANDIDO */}
+                  {showAllCardDetails && (
+                    <div className="flex justify-center mt-2">
+                      <GaugeChart
+                        value={Math.max(0, Math.min(100, margenUtilidad))}
+                        size="sm"
+                        showLabel={true}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Información de eventos filtrados */}
       <div className="flex items-center justify-between text-sm px-4 py-2 rounded-lg" style={{ color: themeColors.textSecondary, backgroundColor: themeColors.headerBg }}>
@@ -991,10 +1060,9 @@ export const EventosListPage: React.FC = () => {
                 {columns.map((column) => (
                   <th
                     key={column.key}
-                    className={`px-3 py-3 text-xs font-medium uppercase tracking-wider ${
-                      column.align === 'right' ? 'text-right' :
+                    className={`px-3 py-3 text-xs font-medium uppercase tracking-wider ${column.align === 'right' ? 'text-right' :
                       column.align === 'center' ? 'text-center' : 'text-center'
-                    }`}
+                      }`}
                     style={{ width: column.width, color: themeColors.textSecondary }}
                   >
                     {column.label}
@@ -1019,10 +1087,9 @@ export const EventosListPage: React.FC = () => {
                     {columns.map((column) => (
                       <td
                         key={column.key}
-                        className={`px-3 py-4 text-sm ${
-                          column.align === 'right' ? 'text-right' :
+                        className={`px-3 py-4 text-sm ${column.align === 'right' ? 'text-right' :
                           column.align === 'center' ? 'text-center' : 'text-center'
-                        }`}
+                          }`}
                         style={{ color: themeColors.textPrimary }}
                         onClick={(e) => {
                           // Si es la columna de expand, dejar que el botón maneje el click

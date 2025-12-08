@@ -298,45 +298,37 @@ export const MovimientosPage: React.FC = () => {
             <table className="w-full">
               <thead style={{ backgroundColor: isDark ? '#374151' : '#f9fafb' }}>
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Fecha</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Tipo</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Producto</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Almacén</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Cantidad</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Costo Unit.</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Referencia</th>
+                  <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase" style={{ color: colors.textMuted }}>Fecha</th>
+                  <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase" style={{ color: colors.textMuted }}>Tipo</th>
+                  <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase" style={{ color: colors.textMuted }}>Producto</th>
+                  <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase" style={{ color: colors.textMuted }}>Almacén</th>
+                  <th className="px-2 py-1.5 text-right text-[10px] font-semibold uppercase" style={{ color: colors.textMuted }}>Cant.</th>
+                  <th className="px-2 py-1.5 text-right text-[10px] font-semibold uppercase" style={{ color: colors.textMuted }}>C.Unit.</th>
+                  <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase" style={{ color: colors.textMuted }}>Ref.</th>
                 </tr>
               </thead>
               <tbody className="divide-y" style={{ borderColor: colors.border }}>
                 {filteredMovimientos.map((movimiento: any) => (
-                  <motion.tr
+                  <tr
                     key={movimiento.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="transition-colors"
+                    className="transition-colors hover:bg-gray-50"
                     style={{ backgroundColor: colors.card }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.cardHover}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = colors.card}
                   >
-                    <td className="px-6 py-4 text-sm" style={{ color: colors.text }}>
-                      <div className="flex items-center space-x-1">
-                        <Calendar className="w-4 h-4" style={{ color: colors.textMuted }} />
-                        <span>{new Date(movimiento.created_at || movimiento.fecha).toLocaleDateString('es-MX')}</span>
-                      </div>
+                    <td className="px-2 py-1 text-xs" style={{ color: colors.text }}>
+                      {new Date(movimiento.created_at || movimiento.fecha).toLocaleDateString('es-MX')}
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center space-x-1 px-2 py-1 text-xs font-semibold rounded-full ${getTipoColor(movimiento.tipo)}`}>
+                    <td className="px-2 py-1">
+                      <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-semibold rounded ${getTipoColor(movimiento.tipo)}`}>
                         {getTipoIcon(movimiento.tipo)}
-                        <span>{movimiento.tipo.charAt(0).toUpperCase() + movimiento.tipo.slice(1)}</span>
+                        <span>{movimiento.tipo.charAt(0).toUpperCase()}</span>
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="font-medium" style={{ color: colors.text }}>{movimiento.producto?.nombre || 'N/A'}</div>
-                      <div className="text-xs" style={{ color: colors.textMuted }}>{movimiento.producto?.codigo || ''}</div>
+                    <td className="px-2 py-1">
+                      <div className="text-xs font-medium truncate max-w-[150px]" style={{ color: colors.text }} title={movimiento.producto?.nombre}>{movimiento.producto?.nombre || 'N/A'}</div>
                     </td>
-                    <td className="px-6 py-4 text-sm" style={{ color: colors.text }}>{movimiento.almacen?.nombre || 'N/A'}</td>
-                    <td className="px-6 py-4">
-                      <span className={`font-mono font-semibold ${
+                    <td className="px-2 py-1 text-xs" style={{ color: colors.text }}>{movimiento.almacen?.nombre || 'N/A'}</td>
+                    <td className="px-2 py-1 text-right">
+                      <span className={`font-mono text-xs font-semibold ${
                         movimiento.tipo === 'entrada' ? 'text-green-600' :
                         movimiento.tipo === 'salida' ? 'text-red-600' :
                         'text-yellow-600'
@@ -345,11 +337,11 @@ export const MovimientosPage: React.FC = () => {
                         {movimiento.cantidad}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm" style={{ color: colors.text }}>
+                    <td className="px-2 py-1 text-right text-xs font-mono" style={{ color: colors.text }}>
                       {movimiento.costo_unitario > 0 ? `$${movimiento.costo_unitario.toLocaleString()}` : '-'}
                     </td>
-                    <td className="px-6 py-4 text-sm" style={{ color: colors.textSecondary }}>{movimiento.referencia || '-'}</td>
-                  </motion.tr>
+                    <td className="px-2 py-1 text-xs truncate max-w-[100px]" style={{ color: colors.textSecondary }} title={movimiento.referencia}>{movimiento.referencia || '-'}</td>
+                  </tr>
                 ))}
               </tbody>
             </table>

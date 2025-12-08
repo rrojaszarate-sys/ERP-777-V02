@@ -274,22 +274,16 @@ export const createFormaPago = async (
 // ============================================================================
 
 export const fetchProveedores = async (
-  companyId: string,
-  modulo?: string | null
+  companyId: string
 ) => {
-  let query = supabase
+  // Los proveedores son unificados en todo el ERP
+  const { data, error } = await supabase
     .from('cont_proveedores')
     .select('*')
     .eq('company_id', companyId)
     .eq('activo', true)
     .order('razon_social');
 
-  // Si se especifica módulo, filtrar por módulo o globales
-  if (modulo !== undefined) {
-    query = query.or(`modulo_origen.is.null,modulo_origen.eq.${modulo}`);
-  }
-
-  const { data, error } = await query;
   if (error) throw error;
   return data as Proveedor[];
 };
@@ -298,12 +292,13 @@ export const searchProveedores = async (
   companyId: string,
   busqueda: string
 ) => {
+  // Buscar por razón social, RFC o nombre
   const { data, error } = await supabase
     .from('cont_proveedores')
     .select('*')
     .eq('company_id', companyId)
     .eq('activo', true)
-    .or(`razon_social.ilike.%${busqueda}%,rfc.ilike.%${busqueda}%,nombre_comercial.ilike.%${busqueda}%`)
+    .or(`razon_social.ilike.%${busqueda}%,rfc.ilike.%${busqueda}%,nombre.ilike.%${busqueda}%`)
     .order('razon_social')
     .limit(20);
 
@@ -315,13 +310,38 @@ export const createProveedor = async (
   proveedor: ProveedorFormData,
   companyId: string
 ) => {
+  // El campo 'nombre' es requerido en cont_proveedores (NOT NULL)
+  // Usar razon_social como valor del campo nombre
+  const nombreProveedor = proveedor.razon_social || 'Sin nombre';
+
+  // Solo enviar campos que existen en la tabla cont_proveedores
+  // La tabla NO tiene: modulo_origen, nombre_comercial (se usa 'nombre' en su lugar)
   const { data, error } = await supabase
     .from('cont_proveedores')
-    .insert([{ ...proveedor, company_id: companyId }])
+    .insert([{
+      company_id: companyId,
+      nombre: nombreProveedor,
+      rfc: proveedor.rfc || null,
+      razon_social: proveedor.razon_social || null,
+      direccion: proveedor.direccion || null,
+      telefono: proveedor.telefono || null,
+      email: proveedor.email || null,
+      contacto_nombre: proveedor.contacto_nombre || null,
+      activo: true
+    }])
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    // Mejorar mensaje de error para el usuario
+    if (error.code === '23502' && error.message.includes('nombre')) {
+      throw new Error('El nombre del proveedor es requerido. Verifica que se haya ingresado la razón social.');
+    }
+    if (error.code === '23505') {
+      throw new Error('Ya existe un proveedor con estos datos (RFC o nombre duplicado).');
+    }
+    throw new Error(`Error al crear proveedor: ${error.message}`);
+  }
   return data as Proveedor;
 };
 
@@ -342,14 +362,37 @@ export const updateProveedor = async (
 
 export const findOrCreateProveedor = async (
   razonSocial: string,
-  companyId: string
+  companyId: string,
+  rfc?: string
 ): Promise<Proveedor> => {
-  // Buscar existente
+  if (!razonSocial || razonSocial.trim() === '') {
+    throw new Error('La razón social del proveedor es requerida');
+  }
+
+  // Buscar existente por RFC (más preciso) o por razón social
+  let query = supabase
+    .from('cont_proveedores')
+    .select('*')
+    .eq('company_id', companyId);
+
+  // Si hay RFC, buscar primero por RFC
+  if (rfc && rfc.trim() !== '') {
+    const { data: byRfc } = await query
+      .eq('rfc', rfc.toUpperCase().trim())
+      .limit(1)
+      .maybeSingle();
+
+    if (byRfc) {
+      return byRfc as Proveedor;
+    }
+  }
+
+  // Buscar por razón social
   const { data: existing } = await supabase
     .from('cont_proveedores')
     .select('*')
     .eq('company_id', companyId)
-    .ilike('razon_social', razonSocial)
+    .ilike('razon_social', razonSocial.trim())
     .limit(1)
     .maybeSingle();
 
@@ -357,16 +400,14 @@ export const findOrCreateProveedor = async (
     return existing as Proveedor;
   }
 
-  // Crear nuevo
+  // Crear nuevo proveedor
   return createProveedor({
-    rfc: '',
-    razon_social: razonSocial,
-    nombre_comercial: '',
+    rfc: rfc?.toUpperCase().trim() || '',
+    razon_social: razonSocial.trim(),
     direccion: '',
     telefono: '',
     email: '',
-    contacto_nombre: '',
-    modulo_origen: 'contabilidad'
+    contacto_nombre: ''
   }, companyId);
 };
 

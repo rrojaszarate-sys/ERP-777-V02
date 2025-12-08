@@ -395,32 +395,32 @@ export const ProductosPage: React.FC = () => {
           <table className="w-full">
             <thead className="border-b" style={{ backgroundColor: isDark ? '#374151' : '#f9fafb', borderColor: colors.border }}>
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>
+                <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase" style={{ color: colors.textMuted }}>
                   Código
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>
+                <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase" style={{ color: colors.textMuted }}>
                   Nombre
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>
+                <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase" style={{ color: colors.textMuted }}>
                   Categoría
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>
+                <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase" style={{ color: colors.textMuted }}>
                   Unidad
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>
-                  P. Compra
+                <th className="px-2 py-1.5 text-right text-[10px] font-semibold uppercase" style={{ color: colors.textMuted }}>
+                  P.Compra
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>
-                  P. Venta
+                <th className="px-2 py-1.5 text-right text-[10px] font-semibold uppercase" style={{ color: colors.textMuted }}>
+                  P.Venta
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>
+                <th className="px-2 py-1.5 text-center text-[10px] font-semibold uppercase" style={{ color: colors.textMuted }}>
                   Margen
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>
+                <th className="px-2 py-1.5 text-center text-[10px] font-semibold uppercase" style={{ color: colors.textMuted }}>
                   Estado
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>
-                  Acciones
+                <th className="px-2 py-1.5 text-right text-[10px] font-semibold uppercase" style={{ color: colors.textMuted }}>
+                  Acc.
                 </th>
               </tr>
             </thead>
@@ -448,76 +448,70 @@ export const ProductosPage: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                paginatedProductos.map((producto) => {
+                paginatedProductos.map((producto, idx) => {
                   const margen = producto.precio_venta > 0 && producto.precio_base > 0
                     ? ((producto.precio_venta - producto.precio_base) / producto.precio_venta) * 100
                     : producto.margen || 0;
 
                   return (
-                    <tr key={producto.id} className="transition-colors" style={{ backgroundColor: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.cardHover} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-mono font-medium" style={{ color: colors.text }}>
+                    <tr key={producto.id} className="transition-colors hover:bg-[#E0F2F1]" style={{ backgroundColor: isDark ? (idx % 2 === 0 ? '#1E293B' : '#263244') : (idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC') }}>
+                      <td className="px-2 py-1">
+                        <span className="text-xs font-mono font-medium" style={{ color: colors.text }}>
                           {producto.clave}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
-                        <div>
-                          <div className="text-sm font-medium" style={{ color: colors.text }}>{producto.nombre}</div>
-                          {producto.descripcion && (
-                            <div className="text-sm truncate max-w-xs" style={{ color: colors.textMuted }}>
-                              {producto.descripcion}
-                            </div>
-                          )}
+                      <td className="px-2 py-1">
+                        <div className="text-xs font-medium truncate max-w-[180px]" style={{ color: colors.text }} title={producto.nombre}>
+                          {producto.nombre}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="px-2 py-1 text-xs font-medium rounded-full" style={{ backgroundColor: `${colors.secondary}20`, color: colors.secondary }}>
-                          {producto.categoria || 'Sin categoría'}
+                      <td className="px-2 py-1">
+                        <span className="px-1.5 py-0.5 text-[10px] font-medium rounded" style={{ backgroundColor: `${colors.secondary}20`, color: colors.secondary }}>
+                          {producto.categoria || 'Sin cat.'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm" style={{ color: colors.text }}>
+                      <td className="px-2 py-1 text-xs" style={{ color: colors.text }}>
                         {producto.unidad}
                       </td>
-                      <td className="px-6 py-4 text-right text-sm" style={{ color: colors.text }}>
+                      <td className="px-2 py-1 text-right text-xs font-mono" style={{ color: colors.text }}>
                         ${(producto.precio_base || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                       </td>
-                      <td className="px-6 py-4 text-right text-sm font-medium" style={{ color: colors.text }}>
+                      <td className="px-2 py-1 text-right text-xs font-mono font-medium" style={{ color: colors.text }}>
                         ${(producto.precio_venta || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                       </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                      <td className="px-2 py-1 text-center">
+                        <span className={`px-1.5 py-0.5 text-[10px] font-semibold rounded ${
                           margen >= 30 ? 'bg-green-100 text-green-800' :
                           margen >= 15 ? 'bg-yellow-100 text-yellow-800' :
                           'bg-red-100 text-red-800'
                         }`}>
-                          {margen.toFixed(1)}%
+                          {margen.toFixed(0)}%
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                      <td className="px-2 py-1 text-center">
+                        <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${
                           producto.activo
                             ? 'bg-green-100 text-green-800'
                             : 'bg-gray-100 text-gray-800'
                         }`}>
-                          {producto.activo ? 'Activo' : 'Inactivo'}
+                          {producto.activo ? '✓' : '✗'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="px-2 py-1 text-right">
+                        <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => handleEdit(producto)}
-                            className="p-2 rounded-lg transition-colors hover:opacity-80"
-                            style={{ color: colors.primary, backgroundColor: `${colors.primary}10` }}
+                            className="p-1 rounded hover:bg-blue-100 text-blue-600"
                             title="Editar"
                           >
-                            <Edit className="w-4 h-4" />
+                            <Edit className="w-3 h-3" />
                           </button>
                           <button
                             onClick={() => handleDelete(producto.id!)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="p-1 text-red-500 hover:bg-red-50 rounded"
                             title="Eliminar"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3 h-3" />
                           </button>
                         </div>
                       </td>
@@ -531,7 +525,7 @@ export const ProductosPage: React.FC = () => {
 
         {/* Paginación */}
         {filteredProductos.length > 0 && (
-          <div className="px-6 py-4 border-t flex flex-col sm:flex-row items-center justify-between gap-4" style={{ borderColor: colors.border }}>
+          <div className="px-3 py-2 border-t flex flex-col sm:flex-row items-center justify-between gap-2" style={{ borderColor: colors.border }}>
             {/* Info de registros */}
             <div className="text-sm" style={{ color: colors.textMuted }}>
               Mostrando {startIndex + 1} - {endIndex} de {filteredProductos.length} productos

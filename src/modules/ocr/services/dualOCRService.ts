@@ -7,7 +7,6 @@
  * - VITE_OCR_PROVIDER='tesseract' → Solo Tesseract (sin Google Vision)
  */
 
-import { supabase } from '../../../core/config/supabase';
 
 interface OCRResult {
   texto_completo: string;
@@ -31,7 +30,7 @@ interface OCRError {
  */
 export async function processFileWithOCR(file: File): Promise<OCRResult> {
   const provider = import.meta.env.VITE_OCR_PROVIDER || 'nodejs';
-  
+
   console.log(`📄 Iniciando OCR con provider: ${provider}`);
   console.log(`   Archivo: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`);
 
@@ -54,7 +53,7 @@ export async function processFileWithOCR(file: File): Promise<OCRResult> {
 async function processWithSupabase(file: File): Promise<OCRResult> {
   try {
     console.log('🔗 Usando Supabase Edge Function...');
-    
+
     const base64 = await fileToBase64(file);
     const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ocr-process`;
 
@@ -81,14 +80,14 @@ async function processWithSupabase(file: File): Promise<OCRResult> {
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ Supabase error:', errorText);
-        
+
         let errorData: OCRError;
         try {
           errorData = JSON.parse(errorText);
         } catch {
           errorData = { error: errorText || `HTTP ${response.status}` };
         }
-        
+
         throw new Error(errorData.message || errorData.error || `HTTP ${response.status}`);
       }
 
@@ -98,11 +97,11 @@ async function processWithSupabase(file: File): Promise<OCRResult> {
       return result;
     } catch (fetchError) {
       clearTimeout(timeoutId);
-      
+
       if (fetchError instanceof Error && fetchError.name === 'AbortError') {
         throw new Error('Timeout: Supabase Edge Function no respondió en 60 segundos');
       }
-      
+
       throw fetchError;
     }
   } catch (error) {
@@ -118,52 +117,76 @@ async function processWithNodeJS(file: File): Promise<OCRResult> {
   try {
     // Detectar si estamos en producción (Vercel) o desarrollo (local)
     const isProduction = import.meta.env.PROD || window.location.hostname !== 'localhost';
-    
-    // 🚫 DESHABILITADO EN DESARROLLO: El servidor Node.js no existe en Vite dev server
-    if (!isProduction) {
-      console.log('⚠️ Node.js OCR deshabilitado en desarrollo (usar Tesseract directo)');
-      throw new Error('Node.js OCR server no disponible en desarrollo');
+
+    // En desarrollo: usar servidor local en puerto 3001
+    // En producción: usar endpoint de Vercel
+    const apiUrl = isProduction
+      ? '/api/ocr/process'
+      : 'http://localhost:3001/api/ocr/process';
+
+    console.log(`🔗 Usando Node.js server: ${isProduction ? 'Vercel' : 'Local (puerto 3001)'}`);
+
+    let response: Response;
+
+    if (isProduction) {
+      // En producción (Vercel): enviar base64 como JSON
+      const base64 = await fileToBase64(file);
+      const body = JSON.stringify({ image: base64 });
+      response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      });
+    } else {
+      // En desarrollo (local): enviar FormData con archivo
+      const formData = new FormData();
+      formData.append('file', file);
+      response = await fetch(apiUrl, {
+        method: 'POST',
+        body: formData,
+      });
     }
-    
-    const apiUrl = import.meta.env.VITE_OCR_API_URL || '';
-    const endpoint = '/api/ocr-process';
-    
-    console.log('🔗 Usando Node.js server: Vercel (producción)');
-
-    // En producción (Vercel): enviar base64 como JSON
-    const base64 = await fileToBase64(file);
-    const body = JSON.stringify({ image: base64 });
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers,
-      body,
-    });
 
     if (!response.ok) {
       const errorData: OCRError = await response.json();
-      
+
       // Si el servidor no está disponible, lanzar error específico
       if (response.status === 503 || errorData.fallback === 'use_tesseract') {
         throw new Error('Node.js OCR server no disponible');
       }
-      
+
       throw new Error(errorData.message || errorData.error || `HTTP ${response.status}`);
     }
 
     const rawResult = await response.json();
-    
-    // Adaptar respuesta de Vercel al formato esperado
-    const result: OCRResult = rawResult.success !== undefined
-      ? {
-          texto_completo: rawResult.text || '',
-          confianza_general: Math.round((rawResult.confidence || 0) * 100),
-          lineas: rawResult.text ? rawResult.text.split('\n') : [],
-          datos_extraidos: rawResult.data || {},
-        }
-      : rawResult;
-    
+
+    console.log('📥 [OCR] Respuesta raw:', {
+      success: rawResult.success,
+      hasTexto: !!rawResult.texto_completo,
+      hasDatos: !!rawResult.datos_extraidos
+    });
+
+    // El servidor local ya devuelve el formato correcto
+    // Solo transformar si viene de Vercel (tiene 'text' en lugar de 'texto_completo')
+    let result: OCRResult;
+
+    if (rawResult.texto_completo !== undefined) {
+      // Respuesta del servidor local - ya está en formato correcto
+      result = rawResult;
+    } else if (rawResult.text !== undefined) {
+      // Respuesta de Vercel - necesita transformación
+      result = {
+        texto_completo: rawResult.text || '',
+        confianza_general: Math.round((rawResult.confidence || 0) * 100),
+        lineas: rawResult.text ? rawResult.text.split('\n') : [],
+        datos_extraidos: rawResult.data || {},
+        procesador: 'vercel'
+      };
+    } else {
+      // Formato desconocido
+      result = rawResult;
+    }
+
     const lineas = result.lineas?.length || 0;
     const confianza = result.confianza_general || 0;
     console.log(`✅ Node.js OCR: ${confianza}% confianza${lineas > 0 ? `, ${lineas} líneas` : ''}`);
@@ -171,12 +194,12 @@ async function processWithNodeJS(file: File): Promise<OCRResult> {
     return result;
   } catch (error) {
     console.error('❌ Error en Node.js OCR:', error);
-    
+
     // Si es error de red (servidor no corriendo), dar mensaje específico
     if (error instanceof TypeError && error.message.includes('fetch')) {
       throw new Error('Node.js OCR server no está corriendo. Ejecuta: node server/ocr-api.js');
     }
-    
+
     throw error;
   }
 }
@@ -187,13 +210,13 @@ async function processWithNodeJS(file: File): Promise<OCRResult> {
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    
+
     reader.onload = () => {
       const base64 = reader.result as string;
       const base64Clean = base64.split(',')[1];
       resolve(base64Clean);
     };
-    
+
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
@@ -214,14 +237,14 @@ export function useOCRInfo() {
   const provider = getOCRProvider();
   const isProduction = import.meta.env.PROD || window.location.hostname !== 'localhost';
   const apiUrl = import.meta.env.VITE_OCR_API_URL || (isProduction ? window.location.origin : 'http://localhost:3001');
-  
+
   return {
     provider,
     apiUrl: provider === 'nodejs' ? apiUrl : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ocr-process`,
-    displayName: provider === 'supabase' 
-      ? 'Supabase Edge Function' 
+    displayName: provider === 'supabase'
+      ? 'Supabase Edge Function'
       : provider === 'nodejs'
-      ? isProduction ? 'Vercel Serverless' : 'Node.js Local Server'
-      : 'Tesseract Only',
+        ? isProduction ? 'Vercel Serverless' : 'Node.js Local Server'
+        : 'Tesseract Only',
   };
 }

@@ -274,55 +274,53 @@ export const AlmacenesPage: React.FC = () => {
             <table className="w-full">
               <thead style={{ backgroundColor: isDark ? '#374151' : '#f9fafb' }}>
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Código</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Nombre</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Tipo</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Ubicación</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Responsable</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Capacidad</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Estado</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Acciones</th>
+                  <th className="px-2 py-1.5 text-left text-[10px] font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Código</th>
+                  <th className="px-2 py-1.5 text-left text-[10px] font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Nombre</th>
+                  <th className="px-2 py-1.5 text-left text-[10px] font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Tipo</th>
+                  <th className="px-2 py-1.5 text-left text-[10px] font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Ubicación</th>
+                  <th className="px-2 py-1.5 text-left text-[10px] font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Responsable</th>
+                  <th className="px-2 py-1.5 text-left text-[10px] font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Capacidad</th>
+                  <th className="px-2 py-1.5 text-left text-[10px] font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Estado</th>
+                  <th className="px-2 py-1.5 text-left text-[10px] font-medium uppercase tracking-wider" style={{ color: colors.textMuted }}>Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y" style={{ borderColor: colors.border }}>
                 {filteredAlmacenes.map((almacen: Almacen) => (
-                  <motion.tr
+                  <tr
                     key={almacen.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
                     className="transition-colors"
                     style={{ backgroundColor: 'transparent' }}
                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.cardHover}
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                   >
-                    <td className="px-6 py-4 font-mono text-sm" style={{ color: colors.text }}>{almacen.codigo}</td>
-                    <td className="px-6 py-4">
-                      <div className="font-semibold" style={{ color: colors.text }}>{almacen.nombre}</div>
+                    <td className="px-2 py-1 font-mono text-[10px]" style={{ color: colors.text }}>{almacen.codigo}</td>
+                    <td className="px-2 py-1">
+                      <div className="font-semibold text-xs truncate max-w-[150px]" style={{ color: colors.text }} title={almacen.nombre}>{almacen.nombre}</div>
                       {almacen.descripcion && (
-                        <div className="text-sm" style={{ color: colors.textMuted }}>{almacen.descripcion}</div>
+                        <div className="text-[10px] truncate max-w-[150px]" style={{ color: colors.textMuted }} title={almacen.descripcion}>{almacen.descripcion}</div>
                       )}
                     </td>
-                    <td className="px-6 py-4">
-                      <span className="px-2 py-1 text-xs font-semibold rounded-full" style={{ backgroundColor: `${colors.primary}20`, color: colors.primary }}>
+                    <td className="px-2 py-1">
+                      <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full" style={{ backgroundColor: `${colors.primary}20`, color: colors.primary }}>
                         {tiposLabels[almacen.tipo] || almacen.tipo}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm" style={{ color: colors.textMuted }}>
+                    <td className="px-2 py-1">
+                      <div className="text-[10px]" style={{ color: colors.textMuted }}>
                         {almacen.ciudad && almacen.estado ? (
                           <div className="flex items-center space-x-1">
-                            <MapPin className="w-3 h-3" />
-                            <span>{almacen.ciudad}, {almacen.estado}</span>
+                            <MapPin className="w-2.5 h-2.5" />
+                            <span className="truncate max-w-[100px]" title={`${almacen.ciudad}, ${almacen.estado}`}>{almacen.ciudad}, {almacen.estado}</span>
                           </div>
                         ) : '-'}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm" style={{ color: colors.text }}>{almacen.responsable || '-'}</td>
-                    <td className="px-6 py-4 text-sm" style={{ color: colors.text }}>
+                    <td className="px-2 py-1 text-[10px] truncate max-w-[100px]" style={{ color: colors.text }} title={almacen.responsable || '-'}>{almacen.responsable || '-'}</td>
+                    <td className="px-2 py-1 text-[10px]" style={{ color: colors.text }}>
                       {almacen.capacidad_m3 > 0 ? `${almacen.capacidad_m3.toLocaleString()} m³` : '-'}
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                    <td className="px-2 py-1">
+                      <span className={`px-1.5 py-0.5 text-[10px] font-semibold rounded-full ${
                         almacen.activo
                           ? 'bg-green-100 text-green-800'
                           : 'bg-red-100 text-red-800'
@@ -330,26 +328,26 @@ export const AlmacenesPage: React.FC = () => {
                         {almacen.activo ? 'Activo' : 'Inactivo'}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center space-x-2">
+                    <td className="px-2 py-1">
+                      <div className="flex items-center space-x-1">
                         <button
                           onClick={() => openModal(almacen)}
-                          className="p-1 rounded hover:opacity-80"
+                          className="p-0.5 rounded hover:opacity-80"
                           style={{ color: colors.primary, backgroundColor: `${colors.primary}10` }}
                           title="Editar"
                         >
-                          <Edit className="w-5 h-5" />
+                          <Edit className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => handleDelete(almacen.id!)}
-                          className="p-1 text-red-600 hover:bg-red-50 rounded"
+                          className="p-0.5 text-red-600 hover:bg-red-50 rounded"
                           title="Eliminar"
                         >
-                          <Trash2 className="w-5 h-5" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </td>
-                  </motion.tr>
+                  </tr>
                 ))}
               </tbody>
             </table>

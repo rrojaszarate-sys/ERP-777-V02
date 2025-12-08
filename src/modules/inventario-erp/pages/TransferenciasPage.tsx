@@ -3,10 +3,10 @@
  * Gestiona el movimiento de stock entre diferentes almacenes
  */
 
-import React, { useState, useEffect } from 'react';
-import { 
-  ArrowLeftRight, 
-  Plus, 
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  ArrowLeftRight,
+  Plus,
   Search,
   Truck,
   CheckCircle,
@@ -19,6 +19,7 @@ import {
   Filter
 } from 'lucide-react';
 import { supabase } from '../../../core/config/supabase';
+import { useTheme } from '../../../shared/components/theme';
 import { 
   obtenerTransferencias, 
   crearTransferencia,
@@ -46,8 +47,8 @@ const EstadoBadge: React.FC<{ estado: EstadoTransferencia }> = ({ estado }) => {
   const { color, texto, icon: Icon } = config[estado] || config['borrador'];
   
   return (
-    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${color}`}>
-      <Icon className="w-3 h-3" />
+    <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${color}`}>
+      <Icon className="w-2.5 h-2.5" />
       {texto}
     </span>
   );
@@ -520,6 +521,21 @@ const ModalDetalleTransferencia: React.FC<{
 
 // Componente Principal
 const TransferenciasPage: React.FC = () => {
+  const { paletteConfig, isDark } = useTheme();
+
+  // Colores dinámicos
+  const colors = useMemo(() => ({
+    primary: paletteConfig.primary,
+    secondary: paletteConfig.secondary,
+    bg: isDark ? '#111827' : '#f9fafb',
+    card: isDark ? '#1f2937' : '#ffffff',
+    cardHover: isDark ? '#374151' : '#f3f4f6',
+    border: isDark ? '#374151' : '#e5e7eb',
+    text: isDark ? '#f9fafb' : '#111827',
+    textMuted: isDark ? '#9ca3af' : '#6b7280',
+    textSecondary: isDark ? '#d1d5db' : '#4b5563',
+  }), [paletteConfig, isDark]);
+
   const [transferencias, setTransferencias] = useState<Transferencia[]>([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
@@ -593,21 +609,26 @@ const TransferenciasPage: React.FC = () => {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6 min-h-screen" style={{ backgroundColor: colors.bg }}>
       {/* Header */}
       <div className="flex justify-between items-start mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-            <ArrowLeftRight className="w-7 h-7 text-purple-600" />
-            Transferencias entre Almacenes
-          </h1>
-          <p className="text-gray-500 mt-1">
-            Gestiona el movimiento de inventario entre diferentes almacenes
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="p-3 rounded-lg" style={{ backgroundColor: `${colors.primary}20` }}>
+            <ArrowLeftRight className="w-7 h-7" style={{ color: colors.primary }} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold" style={{ color: colors.text }}>
+              Transferencias entre Almacenes
+            </h1>
+            <p style={{ color: colors.textMuted }}>
+              Gestiona el movimiento de inventario entre diferentes almacenes
+            </p>
+          </div>
         </div>
         <button
           onClick={() => setModalNueva(true)}
-          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+          className="px-4 py-2 text-white rounded-lg hover:opacity-90 flex items-center gap-2"
+          style={{ backgroundColor: colors.primary }}
         >
           <Plus className="w-5 h-5" />
           Nueva Transferencia
@@ -616,43 +637,45 @@ const TransferenciasPage: React.FC = () => {
 
       {/* KPIs */}
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-xl shadow-sm p-4 border-l-4 border-yellow-500">
-          <p className="text-sm text-gray-500">Pendientes</p>
-          <p className="text-2xl font-bold text-gray-800">{resumen.pendientes}</p>
+        <div className="rounded-xl shadow-sm p-4 border-l-4 border-yellow-500" style={{ backgroundColor: colors.card }}>
+          <p className="text-sm" style={{ color: colors.textMuted }}>Pendientes</p>
+          <p className="text-2xl font-bold text-yellow-600">{resumen.pendientes}</p>
         </div>
-        <div className="bg-white rounded-xl shadow-sm p-4 border-l-4 border-purple-500">
-          <p className="text-sm text-gray-500">En Tránsito</p>
-          <p className="text-2xl font-bold text-gray-800">{resumen.en_transito}</p>
+        <div className="rounded-xl shadow-sm p-4 border-l-4" style={{ backgroundColor: colors.card, borderColor: colors.primary }}>
+          <p className="text-sm" style={{ color: colors.textMuted }}>En Tránsito</p>
+          <p className="text-2xl font-bold" style={{ color: colors.primary }}>{resumen.en_transito}</p>
         </div>
-        <div className="bg-white rounded-xl shadow-sm p-4 border-l-4 border-green-500">
-          <p className="text-sm text-gray-500">Recibidas Hoy</p>
-          <p className="text-2xl font-bold text-gray-800">{resumen.recibidas_hoy}</p>
+        <div className="rounded-xl shadow-sm p-4 border-l-4 border-green-500" style={{ backgroundColor: colors.card }}>
+          <p className="text-sm" style={{ color: colors.textMuted }}>Recibidas Hoy</p>
+          <p className="text-2xl font-bold text-green-600">{resumen.recibidas_hoy}</p>
         </div>
-        <div className="bg-white rounded-xl shadow-sm p-4 border-l-4 border-blue-500">
-          <p className="text-sm text-gray-500">Total Mes</p>
-          <p className="text-2xl font-bold text-gray-800">{resumen.total_mes}</p>
+        <div className="rounded-xl shadow-sm p-4 border-l-4" style={{ backgroundColor: colors.card, borderColor: colors.secondary }}>
+          <p className="text-sm" style={{ color: colors.textMuted }}>Total Mes</p>
+          <p className="text-2xl font-bold" style={{ color: colors.secondary }}>{resumen.total_mes}</p>
         </div>
       </div>
 
       {/* Filtros */}
-      <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
+      <div className="rounded-xl shadow-sm p-4 mb-6" style={{ backgroundColor: colors.card }}>
         <div className="flex gap-4">
           <div className="flex-1 relative">
-            <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: colors.textMuted }} />
             <input
               type="text"
               placeholder="Buscar por número..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+              className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:outline-none"
+              style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}
             />
           </div>
           <div className="relative">
-            <Filter className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Filter className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: colors.textMuted }} />
             <select
               value={filtroEstado}
               onChange={(e) => setFiltroEstado(e.target.value as EstadoTransferencia | '')}
-              className="pl-10 pr-8 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 appearance-none bg-white"
+              className="pl-10 pr-8 py-2 border rounded-lg focus:ring-2 focus:outline-none appearance-none"
+              style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}
             >
               <option value="">Todos los estados</option>
               <option value="borrador">Borrador</option>
@@ -667,75 +690,81 @@ const TransferenciasPage: React.FC = () => {
       </div>
 
       {/* Tabla */}
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+      <div className="rounded-xl shadow-sm overflow-hidden" style={{ backgroundColor: colors.card }}>
         {loading ? (
-          <div className="p-12 text-center text-gray-500">
-            <div className="animate-spin w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <div className="p-12 text-center" style={{ color: colors.textMuted }}>
+            <div className="animate-spin w-8 h-8 border-4 border-t-transparent rounded-full mx-auto mb-4" style={{ borderColor: colors.primary, borderTopColor: 'transparent' }}></div>
             Cargando transferencias...
           </div>
         ) : transferencias.length === 0 ? (
-          <div className="p-12 text-center text-gray-500">
-            <ArrowLeftRight className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+          <div className="p-12 text-center" style={{ color: colors.textMuted }}>
+            <ArrowLeftRight className="w-12 h-12 mx-auto mb-4" style={{ color: colors.textMuted }} />
             <p>No hay transferencias registradas</p>
             <button
               onClick={() => setModalNueva(true)}
-              className="mt-4 text-purple-600 hover:text-purple-700"
+              className="mt-4 hover:opacity-80"
+              style={{ color: colors.primary }}
             >
               Crear primera transferencia
             </button>
           </div>
         ) : (
           <table className="w-full">
-            <thead className="bg-gray-50">
+            <thead style={{ backgroundColor: isDark ? '#374151' : '#f9fafb' }}>
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Número</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Origen → Destino</th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Productos</th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estado</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                <th className="px-2 py-1.5 text-left text-[10px] font-medium uppercase" style={{ color: colors.textMuted }}>Número</th>
+                <th className="px-2 py-1.5 text-left text-[10px] font-medium uppercase" style={{ color: colors.textMuted }}>Fecha</th>
+                <th className="px-2 py-1.5 text-left text-[10px] font-medium uppercase" style={{ color: colors.textMuted }}>Origen → Destino</th>
+                <th className="px-2 py-1.5 text-center text-[10px] font-medium uppercase" style={{ color: colors.textMuted }}>Productos</th>
+                <th className="px-2 py-1.5 text-center text-[10px] font-medium uppercase" style={{ color: colors.textMuted }}>Estado</th>
+                <th className="px-2 py-1.5 text-right text-[10px] font-medium uppercase" style={{ color: colors.textMuted }}>Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
-              {transferencias.map((trans) => (
-                <tr key={trans.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <span className="font-mono font-medium text-purple-600">{trans.numero}</span>
+            <tbody className="divide-y" style={{ borderColor: colors.border }}>
+              {transferencias.map((trans, idx) => (
+                <tr
+                  key={trans.id}
+                  className="transition-colors hover:bg-[#E0F2F1]"
+                  style={{ backgroundColor: isDark ? (idx % 2 === 0 ? '#1E293B' : '#263244') : (idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC') }}
+                >
+                  <td className="px-2 py-1">
+                    <span className="font-mono font-medium text-xs" style={{ color: colors.primary }}>{trans.numero}</span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
+                  <td className="px-2 py-1 text-[10px]" style={{ color: colors.textMuted }}>
                     {new Date(trans.fecha).toLocaleDateString('es-MX')}
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-800">{trans.almacen_origen?.nombre}</span>
-                      <span className="text-gray-400">→</span>
-                      <span className="text-sm text-gray-800">{trans.almacen_destino?.nombre}</span>
+                  <td className="px-2 py-1">
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] truncate max-w-[80px]" style={{ color: colors.text }} title={trans.almacen_origen?.nombre}>{trans.almacen_origen?.nombre}</span>
+                      <span className="text-[10px]" style={{ color: colors.textMuted }}>→</span>
+                      <span className="text-[10px] truncate max-w-[80px]" style={{ color: colors.text }} title={trans.almacen_destino?.nombre}>{trans.almacen_destino?.nombre}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-center">
-                    <span className="px-2 py-1 bg-gray-100 rounded-full text-xs font-medium">
+                  <td className="px-2 py-1 text-center">
+                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium" style={{ backgroundColor: isDark ? '#374151' : '#f3f4f6', color: colors.text }}>
                       {trans.detalles?.length || 0} items
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-center">
+                  <td className="px-2 py-1 text-center">
                     <EstadoBadge estado={trans.estado} />
                   </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-2">
+                  <td className="px-2 py-1 text-right">
+                    <div className="flex justify-end gap-1">
                       <button
                         onClick={() => setTransferenciaSeleccionada(trans)}
-                        className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg"
+                        className="p-1 rounded hover:opacity-80"
+                        style={{ color: colors.textMuted }}
                         title="Ver detalle"
                       >
-                        <Eye className="w-5 h-5" />
+                        <Eye className="w-3.5 h-3.5" />
                       </button>
                       {trans.estado === 'borrador' && (
                         <button
                           onClick={() => handleEliminar(trans)}
-                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                          className="p-1 text-red-500 hover:text-red-600 hover:bg-red-50 rounded"
                           title="Eliminar"
                         >
-                          <Trash2 className="w-5 h-5" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </div>

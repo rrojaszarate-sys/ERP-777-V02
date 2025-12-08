@@ -46,17 +46,19 @@ async function calcularProvisionesPorCategoria(eventosIds: number[]): Promise<To
     return { total: 0, combustible: 0, materiales: 0, rh: 0, sps: 0 };
   }
 
+  // evt_provisiones_erp usa cat_categorias_gasto (con clave: COMB, MAT, RH, SP)
   const { data: provisiones, error } = await supabase
     .from('evt_provisiones_erp')
-    .select('total, categoria:evt_categorias_gastos_erp(clave)')
+    .select('total, categoria:cat_categorias_gasto(clave, nombre)')
     .in('evento_id', eventosIds)
     .eq('activo', true);
 
   if (error || !provisiones) {
-    console.error('Error cargando provisiones:', error);
+    console.error('Error cargando provisiones por categoría:', error);
     return { total: 0, combustible: 0, materiales: 0, rh: 0, sps: 0 };
   }
 
+  console.log('📊 Provisiones cargadas para categorías:', provisiones.length);
   return agruparPorCategoria(provisiones);
 }
 
@@ -72,7 +74,7 @@ async function calcularGastosPorCategoria(eventosIds: number[]): Promise<{
     };
   }
 
-  // Gastos usan evt_categorias_gastos_erp (nombre, no clave)
+  // Gastos usan evt_categorias_gastos_erp (con nombre de categoría)
   const { data: gastos, error } = await supabase
     .from('evt_gastos_erp')
     .select('total, pagado, categoria_id, categoria:evt_categorias_gastos_erp(nombre)')
@@ -80,21 +82,28 @@ async function calcularGastosPorCategoria(eventosIds: number[]): Promise<{
     .is('deleted_at', null);
 
   if (error || !gastos) {
-    console.error('Error cargando gastos:', error);
+    console.error('Error cargando gastos por categoría:', error);
     return {
       pagados: { total: 0, combustible: 0, materiales: 0, rh: 0, sps: 0 },
       pendientes: { total: 0, combustible: 0, materiales: 0, rh: 0, sps: 0 }
     };
   }
 
+  console.log('📊 Gastos cargados para categorías:', gastos.length);
+
   // Agrupar por estado de pago
   const pagados = gastos.filter((g: any) => g.pagado);
   const pendientes = gastos.filter((g: any) => !g.pagado);
 
-  return {
+  const resultado = {
     pagados: agruparGastosPorCategoria(pagados),
     pendientes: agruparGastosPorCategoria(pendientes)
   };
+
+  console.log('📊 Gastos pagados:', resultado.pagados);
+  console.log('📊 Gastos pendientes:', resultado.pendientes);
+
+  return resultado;
 }
 
 // Función para agrupar gastos por categoría usando nombre
@@ -341,11 +350,11 @@ export const useEventosFinancialList = (filters?: EventosFinancialFilters) => {
  */
 export const useEventosFinancialDashboard = (filters?: EventosFinancialFilters) => {
   return useQuery({
-    queryKey: ['eventos-financial-dashboard-v2', filters], // v2 para forzar refresh
+    queryKey: ['eventos-financial-dashboard-v3', filters], // v3 con desglose por categoría
     queryFn: async (): Promise<DashboardEventosFinancial> => {
       try {
-        console.log('📊 Calculando dashboard financiero...');
-        
+        console.log('📊 Calculando dashboard financiero con desglose por categoría...');
+
         let query = supabase
           .from('vw_eventos_analisis_financiero_erp')
           .select('*');
@@ -365,7 +374,7 @@ export const useEventosFinancialDashboard = (filters?: EventosFinancialFilters) 
           const siguienteAño = filters.mes === 12 ? filters.año + 1 : filters.año;
           const siguienteMesStr = siguienteMes.toString().padStart(2, '0');
           const siguienteAñoStr = siguienteAño.toString();
-          
+
           query = query
             .gte('fecha_evento', `${añoStr}-${mesStr}-01`)
             .lt('fecha_evento', `${siguienteAñoStr}-${siguienteMesStr}-01`);
@@ -407,6 +416,18 @@ export const useEventosFinancialDashboard = (filters?: EventosFinancialFilters) 
           });
         }
 
+        // Obtener IDs de eventos para consultar desglose por categoría
+        const eventosIds = eventos.map((e: any) => e.id);
+
+        // Calcular provisiones y gastos por categoría usando las funciones auxiliares
+        const [provisionesPorCategoria, gastosPorCategoria] = await Promise.all([
+          calcularProvisionesPorCategoria(eventosIds),
+          calcularGastosPorCategoria(eventosIds)
+        ]);
+
+        console.log('📊 Provisiones por categoría:', provisionesPorCategoria);
+        console.log('📊 Gastos por categoría:', gastosPorCategoria);
+
         // Calcular sumatorias
         const dashboard: DashboardEventosFinancial = {
           total_eventos: total,
@@ -417,34 +438,34 @@ export const useEventosFinancialDashboard = (filters?: EventosFinancialFilters) 
           total_ingresos_pendientes: eventos.reduce((sum: number, e: any) => sum + (e.ingresos_pendientes || 0), 0),
           total_ingresos_reales: eventos.reduce((sum: number, e: any) => sum + (e.ingresos_totales || 0), 0),
 
-          // PROVISIONES - directamente de la vista
+          // PROVISIONES - ahora con desglose por categoría
           total_provisiones: eventos.reduce((sum: number, e: any) => sum + (e.provisiones_total || 0), 0),
-          total_provision_combustible: 0, // Vista no desglosa por categoría
-          total_provision_materiales: 0,
-          total_provision_rh: 0,
-          total_provision_sps: eventos.reduce((sum: number, e: any) => sum + (e.provisiones_total || 0), 0),
+          total_provision_combustible: provisionesPorCategoria.combustible,
+          total_provision_materiales: provisionesPorCategoria.materiales,
+          total_provision_rh: provisionesPorCategoria.rh,
+          total_provision_sps: provisionesPorCategoria.sps,
 
           // GASTOS - directamente de la vista
           total_gastos_totales: eventos.reduce((sum: number, e: any) => sum + (e.gastos_totales || 0), 0),
           total_gastos_pagados: eventos.reduce((sum: number, e: any) => sum + (e.gastos_pagados_total || 0), 0),
           total_gastos_pendientes: eventos.reduce((sum: number, e: any) => sum + (e.gastos_pendientes_total || 0), 0),
 
-          // GASTOS POR CATEGORÍA (sin desglose porque gastos no tienen categoría)
-          total_gastos_combustible_pagados: 0,
-          total_gastos_combustible_pendientes: 0,
-          total_gastos_materiales_pagados: 0,
-          total_gastos_materiales_pendientes: 0,
-          total_gastos_rh_pagados: 0,
-          total_gastos_rh_pendientes: 0,
-          total_gastos_sps_pagados: eventos.reduce((sum: number, e: any) => sum + (e.gastos_pagados_total || 0), 0),
-          total_gastos_sps_pendientes: eventos.reduce((sum: number, e: any) => sum + (e.gastos_pendientes_total || 0), 0),
+          // GASTOS POR CATEGORÍA - ahora con desglose real
+          total_gastos_combustible_pagados: gastosPorCategoria.pagados.combustible,
+          total_gastos_combustible_pendientes: gastosPorCategoria.pendientes.combustible,
+          total_gastos_materiales_pagados: gastosPorCategoria.pagados.materiales,
+          total_gastos_materiales_pendientes: gastosPorCategoria.pendientes.materiales,
+          total_gastos_rh_pagados: gastosPorCategoria.pagados.rh,
+          total_gastos_rh_pendientes: gastosPorCategoria.pendientes.rh,
+          total_gastos_sps_pagados: gastosPorCategoria.pagados.sps,
+          total_gastos_sps_pendientes: gastosPorCategoria.pendientes.sps,
 
-          // DISPONIBLE = Provisiones - Gastos Pagados
+          // DISPONIBLE = Provisiones - Gastos Pagados (por categoría)
           total_disponible: eventos.reduce((sum: number, e: any) => sum + ((e.provisiones_total || 0) - (e.gastos_pagados_total || 0)), 0),
-          total_disponible_combustible: 0,
-          total_disponible_materiales: 0,
-          total_disponible_rh: 0,
-          total_disponible_sps: eventos.reduce((sum: number, e: any) => sum + ((e.provisiones_total || 0) - (e.gastos_pagados_total || 0)), 0),
+          total_disponible_combustible: provisionesPorCategoria.combustible - gastosPorCategoria.pagados.combustible,
+          total_disponible_materiales: provisionesPorCategoria.materiales - gastosPorCategoria.pagados.materiales,
+          total_disponible_rh: provisionesPorCategoria.rh - gastosPorCategoria.pagados.rh,
+          total_disponible_sps: provisionesPorCategoria.sps - gastosPorCategoria.pagados.sps,
 
           // PROVISIONES COMPROMETIDAS Y DISPONIBLES
           total_provisiones_comprometidas: eventos.reduce((sum: number, e: any) => sum + (e.gastos_pendientes_total || 0), 0),
@@ -480,7 +501,7 @@ export const useEventosFinancialDashboard = (filters?: EventosFinancialFilters) 
           })(),
         };
 
-        console.log('✅ Dashboard calculado:', dashboard);
+        console.log('✅ Dashboard calculado con desglose:', dashboard);
         return dashboard;
       } catch (error) {
         console.error('❌ Error crítico en dashboard:', error);

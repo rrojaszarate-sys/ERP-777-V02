@@ -20,6 +20,8 @@ import { MEXICAN_CONFIG, BUSINESS_RULES } from '../../../../core/config/constant
 import { Income } from '../../types/Finance';
 import { parseCFDIXml, cfdiToIncomeData } from '../../utils/cfdiXmlParser';
 import { toast } from 'react-hot-toast';
+import { useSATValidation } from '../../hooks/useSATValidation';
+import SATStatusBadge, { SATAlertBox } from '../ui/SATStatusBadge';
 
 // IVA desde config
 const IVA_PORCENTAJE = MEXICAN_CONFIG.ivaRate;
@@ -85,7 +87,7 @@ const CurrencyInput = ({ value, onChange, readOnly = false, className = '', plac
 
   return (
     <div className="relative">
-      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+      <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
       <input
         type="text"
         inputMode="decimal"
@@ -95,7 +97,7 @@ const CurrencyInput = ({ value, onChange, readOnly = false, className = '', plac
         onFocus={handleFocus}
         readOnly={readOnly}
         placeholder={placeholder || '0.00'}
-        className={`w-full pl-9 pr-4 py-2.5 border-2 rounded-lg font-mono text-right transition-all ${className}`}
+        className={`w-full pl-7 pr-2 py-1.5 border rounded font-mono text-right transition-all ${className}`}
         style={style}
       />
     </div>
@@ -115,16 +117,34 @@ export const IncomeForm: React.FC<IncomeFormProps> = ({
   // Hook de tema para colores dinámicos
   const { paletteConfig, isDark } = useTheme();
 
-  // Colores dinámicos - Verde para ingresos
+  // Hook de validación SAT
+  const { validar: validarSAT, resultado: resultadoSAT, isValidating: validandoSAT, resetear: resetearSAT } = useSATValidation();
+
+  // Estado para datos CFDI necesarios para validación SAT
+  const [cfdiData, setCfdiData] = useState<{
+    rfcEmisor?: string;
+    rfcReceptor?: string;
+    total?: number;
+    uuid?: string;
+  }>({});
+
+  // Colores dinámicos - Usa la paleta configurada
   const themeColors = useMemo(() => ({
-    primary: '#10B981', // Verde esmeralda para ingresos
-    primaryLight: '#D1FAE5',
-    primaryDark: '#059669',
+    primary: paletteConfig.primary,
+    primaryLight: paletteConfig.shades[100],
+    primaryDark: paletteConfig.shades[700],
     bg: isDark ? '#1E293B' : '#FFFFFF',
+    bgCard: isDark ? '#0F172A' : '#F8FAFC',
     text: isDark ? '#F8FAFC' : '#1E293B',
     textSecondary: isDark ? '#CBD5E1' : '#64748B',
+    textMuted: isDark ? '#94A3B8' : '#9CA3AF',
     border: isDark ? '#334155' : '#E2E8F0',
-    accent: paletteConfig.accent
+    accent: paletteConfig.accent,
+    secondary: paletteConfig.secondary,
+    // Colores sobrios para filas alternadas (blanco/gris muy tenue + hover menta)
+    rowEven: isDark ? '#1E293B' : '#FFFFFF',
+    rowOdd: isDark ? '#263244' : '#F8FAFC',
+    rowHover: isDark ? '#334155' : '#E0F2F1',
   }), [paletteConfig, isDark]);
 
   const [formData, setFormData] = useState({
@@ -218,15 +238,45 @@ export const IncomeForm: React.FC<IncomeFormProps> = ({
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
   };
 
-  // Procesar XML CFDI
+  // Procesar XML CFDI con validación SAT
   const processXMLCFDI = async (xmlFile: File) => {
     try {
       const xmlContent = await xmlFile.text();
-      const cfdiData = await parseCFDIXml(xmlContent);
-      const incomeData = cfdiToIncomeData(cfdiData);
+      const parsedCfdi = await parseCFDIXml(xmlContent);
+      const incomeData = cfdiToIncomeData(parsedCfdi);
+
+      // Guardar datos CFDI para validación SAT
+      setCfdiData({
+        rfcEmisor: parsedCfdi.emisor?.rfc,
+        rfcReceptor: parsedCfdi.receptor?.rfc,
+        total: parsedCfdi.total,
+        uuid: parsedCfdi.timbreFiscal?.uuid
+      });
 
       setFormData(prev => ({ ...prev, ...incomeData, evento_id: eventId }));
-      toast.success(`XML procesado: ${cfdiData.receptor.nombre} - $${cfdiData.total.toFixed(2)}`);
+      toast.success(`XML procesado: ${parsedCfdi.receptor?.nombre || 'Cliente'} - $${parsedCfdi.total.toFixed(2)}`);
+
+      // Validar con SAT si hay UUID
+      if (parsedCfdi.timbreFiscal?.uuid) {
+        toast.loading('Validando con SAT...', { id: 'sat-validation' });
+        const satResult = await validarSAT({
+          rfcEmisor: parsedCfdi.emisor?.rfc || '',
+          rfcReceptor: parsedCfdi.receptor?.rfc || '',
+          total: parsedCfdi.total,
+          uuid: parsedCfdi.timbreFiscal.uuid
+        });
+        toast.dismiss('sat-validation');
+
+        if (satResult.esValida) {
+          toast.success('✅ CFDI válido ante el SAT');
+        } else if (satResult.esCancelada) {
+          toast.error('❌ CFDI CANCELADO - No se puede registrar');
+        } else if (satResult.noEncontrada) {
+          toast.error('⚠️ CFDI no encontrado en el SAT');
+        } else {
+          toast.error(`⚠️ ${satResult.mensaje || 'Error en validación SAT'}`);
+        }
+      }
     } catch (error: any) {
       toast.error(`Error procesando XML: ${error.message}`);
     }
@@ -272,6 +322,18 @@ export const IncomeForm: React.FC<IncomeFormProps> = ({
     if (Math.abs(totalCalculado - formData.total) > 0.01) {
       toast.error('Los montos no cuadran');
       return;
+    }
+
+    // Validar que el CFDI no esté cancelado (si hay resultado SAT)
+    if (resultadoSAT) {
+      if (resultadoSAT.esCancelada) {
+        toast.error('❌ No se puede guardar: CFDI CANCELADO ante el SAT');
+        return;
+      }
+      if (resultadoSAT.noEncontrada) {
+        toast.error('⚠️ No se puede guardar: CFDI no encontrado en el SAT');
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -337,6 +399,9 @@ export const IncomeForm: React.FC<IncomeFormProps> = ({
         regimen_fiscal_receptor: (formData as any).regimen_fiscal_receptor,
         regimen_fiscal_emisor: (formData as any).regimen_fiscal_emisor,
         detalle_compra: (formData as any).detalle_compra,
+        // Campos de validación SAT
+        sat_estado: resultadoSAT?.estado,
+        sat_validado: resultadoSAT?.success ? true : false,
         // Campos de evento y timestamp
         evento_id: parseInt(eventId),
         fecha_actualizacion: new Date().toISOString()
@@ -351,20 +416,19 @@ export const IncomeForm: React.FC<IncomeFormProps> = ({
 
   return (
     <div
-      className={`rounded-xl shadow-lg overflow-hidden ${className}`}
+      className={`rounded-lg shadow-lg overflow-hidden ${className}`}
       style={{ backgroundColor: themeColors.bg }}
     >
-      {/* Header */}
+      {/* Header compacto */}
       <div
-        className="flex items-center justify-between px-6 py-4 border-b"
+        className="flex items-center justify-between px-4 py-2"
         style={{
-          background: `linear-gradient(135deg, ${themeColors.primary} 0%, ${themeColors.primaryDark} 100%)`,
-          borderColor: themeColors.border
+          background: `linear-gradient(135deg, ${themeColors.primary} 0%, ${themeColors.primaryDark} 100%)`
         }}
       >
-        <div className="flex items-center gap-3">
-          <DollarSign className="w-6 h-6 text-white" />
-          <h2 className="text-xl font-semibold text-white">
+        <div className="flex items-center gap-2">
+          <DollarSign className="w-5 h-5 text-white" />
+          <h2 className="text-base font-semibold text-white">
             {income ? 'Editar Ingreso' : 'Nuevo Ingreso'}
           </h2>
         </div>
@@ -372,330 +436,300 @@ export const IncomeForm: React.FC<IncomeFormProps> = ({
           <button
             onClick={() => handleSubmit()}
             disabled={isSubmitting}
-            className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-white font-medium"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded text-white text-sm font-medium"
           >
-            {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-            <span className="hidden sm:inline">Guardar</span>
+            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            Guardar
           </button>
-          <button onClick={onCancel} className="p-2 hover:bg-white/20 rounded-lg">
-            <X className="w-5 h-5 text-white" />
+          <button onClick={onCancel} className="p-1.5 hover:bg-white/20 rounded">
+            <X className="w-4 h-4 text-white" />
           </button>
         </div>
       </div>
 
-      {/* Form */}
-      <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+      {/* Form compacto */}
+      <form onSubmit={handleSubmit} className="p-3 space-y-3 max-h-[75vh] overflow-y-auto">
 
-        {/* Documentos XML + PDF */}
-        <div>
-          <h3 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: themeColors.primary }}>
-            Documentos de Factura
-          </h3>
-          <div className="grid grid-cols-2 gap-3">
-            {/* XML */}
-            <div className="border-2 rounded-lg p-3" style={{ borderColor: xmlFile ? themeColors.primary : themeColors.border }}>
-              <label className="block text-xs font-medium mb-2" style={{ color: themeColors.text }}>
-                XML CFDI *
+        {/* Documentos XML + PDF - Compacto en línea */}
+        <div className="flex gap-2 items-center">
+          {/* XML */}
+          <div className="flex-1">
+            {!xmlFile ? (
+              <label className="flex items-center gap-1.5 px-2 py-1.5 border border-dashed rounded cursor-pointer hover:bg-gray-50 text-sm"
+                style={{ borderColor: themeColors.border }}>
+                <Upload className="w-3.5 h-3.5" style={{ color: themeColors.primary }} />
+                <span style={{ color: themeColors.textSecondary }}>XML CFDI</span>
+                <input type="file" accept=".xml" className="hidden"
+                  onChange={(e) => e.target.files?.[0] && setXmlFile(e.target.files[0])} />
               </label>
-              {!xmlFile ? (
-                <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
-                  style={{ borderColor: themeColors.border }}>
-                  <Upload className="w-4 h-4" style={{ color: themeColors.primary }} />
-                  <span className="text-sm" style={{ color: themeColors.textSecondary }}>Subir XML</span>
-                  <input type="file" accept=".xml" className="hidden"
-                    onChange={(e) => e.target.files?.[0] && setXmlFile(e.target.files[0])} />
-                </label>
-              ) : (
-                <div className="flex items-center justify-between p-2 rounded-lg" style={{ backgroundColor: themeColors.primaryLight }}>
-                  <span className="text-sm font-medium truncate" style={{ color: themeColors.primaryDark }}>{xmlFile.name}</span>
-                  <button type="button" onClick={() => setXmlFile(null)} className="text-xs px-2 py-1 hover:bg-white/50 rounded">✕</button>
-                </div>
-              )}
-            </div>
-
-            {/* PDF */}
-            <div className="border-2 rounded-lg p-3" style={{ borderColor: pdfFile ? themeColors.primary : themeColors.border }}>
-              <label className="block text-xs font-medium mb-2" style={{ color: themeColors.text }}>
-                PDF Factura
-              </label>
-              {!pdfFile ? (
-                <label className="flex items-center justify-center gap-2 p-3 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
-                  style={{ borderColor: themeColors.border }}>
-                  <FileText className="w-4 h-4" style={{ color: themeColors.primary }} />
-                  <span className="text-sm" style={{ color: themeColors.textSecondary }}>Subir PDF</span>
-                  <input type="file" accept=".pdf" className="hidden"
-                    onChange={(e) => e.target.files?.[0] && setPdfFile(e.target.files[0])} />
-                </label>
-              ) : (
-                <div className="flex items-center justify-between p-2 rounded-lg" style={{ backgroundColor: themeColors.primaryLight }}>
-                  <span className="text-sm font-medium truncate" style={{ color: themeColors.primaryDark }}>{pdfFile.name}</span>
-                  <button type="button" onClick={() => setPdfFile(null)} className="text-xs px-2 py-1 hover:bg-white/50 rounded">✕</button>
-                </div>
-              )}
-            </div>
+            ) : (
+              <div className="flex items-center gap-1 px-2 py-1 rounded text-xs" style={{ backgroundColor: themeColors.primaryLight }}>
+                <span className="font-medium truncate max-w-[120px]" style={{ color: themeColors.primaryDark }}>{xmlFile.name}</span>
+                <button type="button" onClick={() => setXmlFile(null)} className="text-gray-500 hover:text-red-500">✕</button>
+              </div>
+            )}
           </div>
 
+          {/* PDF */}
+          <div className="flex-1">
+            {!pdfFile ? (
+              <label className="flex items-center gap-1.5 px-2 py-1.5 border border-dashed rounded cursor-pointer hover:bg-gray-50 text-sm"
+                style={{ borderColor: themeColors.border }}>
+                <FileText className="w-3.5 h-3.5" style={{ color: themeColors.primary }} />
+                <span style={{ color: themeColors.textSecondary }}>PDF</span>
+                <input type="file" accept=".pdf" className="hidden"
+                  onChange={(e) => e.target.files?.[0] && setPdfFile(e.target.files[0])} />
+              </label>
+            ) : (
+              <div className="flex items-center gap-1 px-2 py-1 rounded text-xs" style={{ backgroundColor: themeColors.primaryLight }}>
+                <span className="font-medium truncate max-w-[120px]" style={{ color: themeColors.primaryDark }}>{pdfFile.name}</span>
+                <button type="button" onClick={() => setPdfFile(null)} className="text-gray-500 hover:text-red-500">✕</button>
+              </div>
+            )}
+          </div>
+
+          {/* Botón procesar */}
           {(xmlFile || pdfFile) && (
             <button type="button" onClick={processDocuments} disabled={isUploading}
-              className="w-full mt-3 py-2.5 rounded-lg font-medium text-white flex items-center justify-center gap-2 transition-colors"
+              className="px-3 py-1.5 rounded text-xs font-medium text-white flex items-center gap-1"
               style={{ backgroundColor: themeColors.primary }}>
-              {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calculator className="w-4 h-4" />}
-              Procesar y Extraer Datos
+              {isUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Calculator className="w-3 h-3" />}
+              Procesar
             </button>
           )}
         </div>
 
-        {/* Cliente y Responsable */}
-        <div>
-          <h3 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: themeColors.primary }}>
-            Cliente y Responsable
-          </h3>
-          <div className="grid grid-cols-2 gap-4">
-            {/* Cliente */}
-            <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
-                <Building2 className="w-4 h-4 inline mr-1" />Cliente *
-              </label>
-              <select
-                value={formData.cliente_id}
-                onChange={(e) => {
-                  const cliente = clients?.find(c => String(c.id) === e.target.value);
-                  handleInputChange('cliente_id', e.target.value);
-                  if (cliente) {
-                    handleInputChange('cliente', cliente.nombre_comercial || cliente.razon_social);
-                    handleInputChange('rfc_cliente', cliente.rfc || '');
-                  }
-                }}
-                className="w-full px-4 py-2.5 border-2 rounded-lg focus:ring-2"
-                style={{ borderColor: errors.cliente_id ? '#EF4444' : themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
-                disabled={loadingClients}
-              >
-                <option value="">Seleccionar cliente...</option>
-                {clients?.map(c => (
-                  <option key={c.id} value={c.id}>{c.nombre_comercial || c.razon_social}</option>
-                ))}
-              </select>
-              {errors.cliente_id && <p className="text-red-500 text-xs mt-1">{errors.cliente_id}</p>}
+        {/* Estado de validación SAT */}
+        {(validandoSAT || resultadoSAT) && (
+          <div className="px-2 py-2 rounded-lg" style={{ backgroundColor: themeColors.bgCard, border: `1px solid ${themeColors.border}` }}>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium" style={{ color: themeColors.textSecondary }}>Estado SAT:</span>
+              <SATStatusBadge resultado={resultadoSAT} isValidating={validandoSAT} size="md" />
             </div>
-
-            {/* Responsable */}
-            <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
-                <UserCheck className="w-4 h-4 inline mr-1" />Responsable *
-              </label>
-              <select
-                value={formData.responsable_id}
-                onChange={(e) => handleInputChange('responsable_id', e.target.value)}
-                className="w-full px-4 py-2.5 border-2 rounded-lg focus:ring-2"
-                style={{ borderColor: errors.responsable_id ? '#EF4444' : themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
-                disabled={loadingUsers}
-              >
-                <option value="">Seleccionar...</option>
-                {users?.map(u => (
-                  <option key={u.id} value={u.id}>{u.nombre}</option>
-                ))}
-              </select>
-              {errors.responsable_id && <p className="text-red-500 text-xs mt-1">{errors.responsable_id}</p>}
-            </div>
-          </div>
-        </div>
-
-        {/* Concepto */}
-        <div>
-          <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
-            Concepto *
-          </label>
-          <input
-            type="text"
-            value={formData.concepto}
-            onChange={(e) => handleInputChange('concepto', e.target.value)}
-            placeholder="Descripción del servicio facturado"
-            className="w-full px-4 py-2.5 border-2 rounded-lg"
-            style={{ borderColor: errors.concepto ? '#EF4444' : themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
-          />
-          {errors.concepto && <p className="text-red-500 text-xs mt-1">{errors.concepto}</p>}
-        </div>
-
-        {/* Montos */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold uppercase tracking-wide" style={{ color: themeColors.primary }}>
-              Montos
-            </h3>
-            {formData.total > 0 && (
-              <span className={`px-3 py-1 rounded-lg text-sm font-medium ${errorCuadre ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                {errorCuadre ? 'No cuadra' : 'Cuadre OK'}
-              </span>
+            {resultadoSAT && !resultadoSAT.esValida && (
+              <SATAlertBox resultado={resultadoSAT} onClose={() => { resetearSAT(); setXmlFile(null); }} />
             )}
           </div>
+        )}
 
-          <div className="p-2 rounded-lg text-xs text-center mb-3" style={{ backgroundColor: themeColors.primaryLight, color: themeColors.primaryDark }}>
-            <strong>Fórmula:</strong> Total = Subtotal + IVA
+        {/* Cliente, Responsable y Concepto - Todo en una fila */}
+        <div className="grid grid-cols-4 gap-2">
+          {/* Cliente */}
+          <div>
+            <label className="block text-xs font-medium mb-0.5 text-gray-500">
+              <Building2 className="w-3 h-3 inline mr-0.5" />Cliente
+            </label>
+            <select
+              value={formData.cliente_id}
+              onChange={(e) => {
+                const cliente = clients?.find(c => String(c.id) === e.target.value);
+                handleInputChange('cliente_id', e.target.value);
+                if (cliente) {
+                  handleInputChange('cliente', cliente.nombre_comercial || cliente.razon_social);
+                  handleInputChange('rfc_cliente', cliente.rfc || '');
+                }
+              }}
+              className="w-full px-2 py-1.5 border rounded text-sm"
+              style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
+              disabled={loadingClients}
+            >
+              <option value="">Seleccionar...</option>
+              {clients?.map(c => (
+                <option key={c.id} value={c.id}>{c.nombre_comercial || c.razon_social}</option>
+              ))}
+            </select>
           </div>
 
-          <div className="grid grid-cols-4 gap-3">
-            {/* Subtotal */}
-            <div>
-              <label className="block text-xs font-medium mb-1" style={{ color: themeColors.text }}>Subtotal *</label>
-              <CurrencyInput
-                value={formData.subtotal}
-                onChange={(v) => handleInputChange('subtotal', v)}
-                style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
-              />
-            </div>
+          {/* Responsable */}
+          <div>
+            <label className="block text-xs font-medium mb-0.5 text-gray-500">
+              <UserCheck className="w-3 h-3 inline mr-0.5" />Responsable
+            </label>
+            <select
+              value={formData.responsable_id}
+              onChange={(e) => handleInputChange('responsable_id', e.target.value)}
+              className="w-full px-2 py-1.5 border rounded text-sm"
+              style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
+              disabled={loadingUsers}
+            >
+              <option value="">Seleccionar...</option>
+              {users?.map(u => (
+                <option key={u.id} value={u.id}>{u.nombre}</option>
+              ))}
+            </select>
+          </div>
 
-            {/* IVA */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-medium" style={{ color: themeColors.text }}>IVA</label>
-                <button type="button" onClick={calcularIvaDesdeSubtotal}
-                  className="px-2 py-0.5 rounded text-xs font-medium"
-                  style={{ backgroundColor: themeColors.primaryLight, color: themeColors.primaryDark }}>
-                  <Calculator className="w-3 h-3 inline mr-1" />{IVA_PORCENTAJE}%
-                </button>
-              </div>
-              <CurrencyInput
-                value={formData.iva}
-                onChange={(v) => handleInputChange('iva', v)}
-                style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
-              />
-            </div>
+          {/* Concepto - más ancho */}
+          <div className="col-span-2">
+            <label className="block text-xs font-medium mb-0.5 text-gray-500">Concepto *</label>
+            <input
+              type="text"
+              value={formData.concepto}
+              onChange={(e) => handleInputChange('concepto', e.target.value)}
+              placeholder="Descripción del servicio facturado"
+              className="w-full px-2 py-1.5 border rounded text-sm"
+              style={{ borderColor: errors.concepto ? '#EF4444' : themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
+            />
+          </div>
+        </div>
 
-            {/* Total */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-medium" style={{ color: themeColors.text }}>Total *</label>
-                <button type="button" onClick={calcularTotal}
-                  className="px-2 py-0.5 rounded text-xs font-medium"
-                  style={{ backgroundColor: themeColors.primaryLight, color: themeColors.primaryDark }}>
-                  <Calculator className="w-3 h-3 inline mr-1" />Calc
-                </button>
-              </div>
-              <CurrencyInput
-                value={formData.total}
-                onChange={(v) => handleInputChange('total', v)}
-                className="font-bold"
+        {/* Montos - Compacto en una línea */}
+        <div className="flex gap-2 items-end">
+          {/* Subtotal */}
+          <div className="w-28">
+            <label className="block text-xs font-medium mb-0.5 text-gray-500">Subtotal</label>
+            <CurrencyInput
+              value={formData.subtotal}
+              onChange={(v) => handleInputChange('subtotal', v)}
+              className="text-sm"
+              style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
+            />
+          </div>
+
+          {/* IVA */}
+          <div className="w-24">
+            <div className="flex items-center justify-between mb-0.5">
+              <label className="text-xs font-medium text-gray-500">IVA</label>
+              <button type="button" onClick={calcularIvaDesdeSubtotal}
+                className="px-1 py-0 rounded text-[10px] font-medium bg-slate-100 text-slate-600 hover:bg-slate-200">
+                {IVA_PORCENTAJE}%
+              </button>
+            </div>
+            <CurrencyInput
+              value={formData.iva}
+              onChange={(v) => handleInputChange('iva', v)}
+              className="text-sm"
+              style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
+            />
+          </div>
+
+          {/* Total */}
+          <div className="w-32">
+            <div className="flex items-center justify-between mb-0.5">
+              <label className="text-xs font-medium" style={{ color: themeColors.textSecondary }}>Total</label>
+              <span
+                className="px-1.5 py-0 rounded text-[10px] font-medium"
                 style={{
-                  borderColor: errorCuadre ? '#EF4444' : '#10B981',
-                  backgroundColor: errorCuadre ? '#FEF2F2' : '#F0FDF4',
-                  color: errorCuadre ? '#EF4444' : '#10B981'
+                  backgroundColor: errorCuadre ? '#FEE2E2' : `${themeColors.primary}20`,
+                  color: errorCuadre ? '#EF4444' : themeColors.primary
                 }}
-              />
+              >
+                {errorCuadre ? '✗' : '✓'}
+              </span>
             </div>
-
-            {/* Fecha */}
-            <div>
-              <label className="block text-xs font-medium mb-1" style={{ color: themeColors.text }}>Fecha *</label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="date"
-                  value={formData.fecha_ingreso}
-                  onChange={(e) => handleInputChange('fecha_ingreso', e.target.value)}
-                  className="w-full pl-9 pr-2 py-2.5 border-2 rounded-lg"
-                  style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
-                />
-              </div>
-            </div>
+            <CurrencyInput
+              value={formData.total}
+              onChange={(v) => handleInputChange('total', v)}
+              className="text-sm font-bold"
+              style={{
+                borderColor: errorCuadre ? '#EF4444' : themeColors.primary,
+                backgroundColor: errorCuadre ? '#FEF2F2' : `${themeColors.primary}10`,
+                color: errorCuadre ? '#EF4444' : themeColors.primary
+              }}
+            />
           </div>
 
-          {errorCuadre && (
-            <div className="mt-2 p-2 rounded-lg text-sm bg-red-100 text-red-600">{errorCuadre}</div>
-          )}
-        </div>
+          {/* Fecha */}
+          <div className="w-32">
+            <label className="block text-xs font-medium mb-0.5 text-gray-500">
+              <Calendar className="w-3 h-3 inline mr-0.5" />Fecha
+            </label>
+            <input
+              type="date"
+              value={formData.fecha_ingreso}
+              onChange={(e) => handleInputChange('fecha_ingreso', e.target.value)}
+              className="w-full px-2 py-1.5 border rounded text-sm"
+              style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
+            />
+          </div>
 
-        {/* Pago y Crédito */}
-        <div>
-          <h3 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: themeColors.primary }}>
-            Pago y Crédito
-          </h3>
-          <div className="grid grid-cols-4 gap-3">
-            <div>
-              <label className="block text-xs font-medium mb-1" style={{ color: themeColors.text }}>Método Cobro</label>
-              <select
-                value={formData.metodo_cobro}
-                onChange={(e) => handleInputChange('metodo_cobro', e.target.value)}
-                className="w-full px-3 py-2.5 border-2 rounded-lg"
-                style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
-              >
-                <option value="transferencia">Transferencia</option>
-                <option value="efectivo">Efectivo</option>
-                <option value="cheque">Cheque</option>
-                <option value="tarjeta">Tarjeta</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium mb-1" style={{ color: themeColors.text }}>Días Crédito</label>
-              <input
-                type="number"
-                min="0"
-                value={formData.dias_credito}
-                onChange={(e) => handleInputChange('dias_credito', parseInt(e.target.value) || 0)}
-                className="w-full px-3 py-2.5 border-2 rounded-lg"
-                style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium mb-1" style={{ color: themeColors.text }}>Fecha Vencimiento</label>
-              <input
-                type="date"
-                value={formData.fecha_compromiso_pago}
-                readOnly
-                className="w-full px-3 py-2.5 border-2 rounded-lg bg-gray-50"
-                style={{ borderColor: themeColors.border, color: themeColors.textSecondary }}
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium mb-1" style={{ color: themeColors.text }}>
-                <CreditCard className="w-3 h-3 inline mr-1" />Cuenta Contable
-              </label>
-              <select
-                value={formData.cuenta_contable_id}
-                onChange={(e) => handleInputChange('cuenta_contable_id', e.target.value)}
-                className="w-full px-3 py-2.5 border-2 rounded-lg"
-                style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
-              >
-                <option value="">Seleccionar...</option>
-                {filteredCuentas?.map(c => (
-                  <option key={c.id} value={c.id}>{c.codigo} - {c.nombre}</option>
-                ))}
-              </select>
-            </div>
+          {/* Método cobro */}
+          <div className="flex-1">
+            <label className="block text-xs font-medium mb-0.5 text-gray-500">Método</label>
+            <select
+              value={formData.metodo_cobro}
+              onChange={(e) => handleInputChange('metodo_cobro', e.target.value)}
+              className="w-full px-2 py-1.5 border rounded text-sm"
+              style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
+            >
+              <option value="transferencia">Transferencia</option>
+              <option value="efectivo">Efectivo</option>
+              <option value="cheque">Cheque</option>
+              <option value="tarjeta">Tarjeta</option>
+            </select>
           </div>
         </div>
 
-        {/* Descripción */}
-        <div>
-          <label className="block text-sm font-medium mb-1" style={{ color: themeColors.text }}>
-            Descripción (opcional)
-          </label>
-          <textarea
-            value={formData.descripcion}
-            onChange={(e) => handleInputChange('descripcion', e.target.value)}
-            rows={2}
-            placeholder="Detalles adicionales..."
-            className="w-full px-4 py-2.5 border-2 rounded-lg resize-none"
-            style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
-          />
+        {/* Crédito y Cuenta - En una línea */}
+        <div className="flex gap-2 items-end">
+          <div className="w-20">
+            <label className="block text-xs font-medium mb-0.5 text-gray-500">Días Créd.</label>
+            <input
+              type="number"
+              min="0"
+              value={formData.dias_credito}
+              onChange={(e) => handleInputChange('dias_credito', parseInt(e.target.value) || 0)}
+              className="w-full px-2 py-1.5 border rounded text-sm text-center"
+              style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
+            />
+          </div>
+
+          <div className="w-32">
+            <label className="block text-xs font-medium mb-0.5 text-gray-500">Vencimiento</label>
+            <input
+              type="date"
+              value={formData.fecha_compromiso_pago}
+              readOnly
+              className="w-full px-2 py-1.5 border rounded text-sm bg-gray-50 text-gray-500"
+              style={{ borderColor: themeColors.border }}
+            />
+          </div>
+
+          <div className="flex-1">
+            <label className="block text-xs font-medium mb-0.5 text-gray-500">
+              <CreditCard className="w-3 h-3 inline mr-0.5" />Cuenta Contable
+            </label>
+            <select
+              value={formData.cuenta_contable_id}
+              onChange={(e) => handleInputChange('cuenta_contable_id', e.target.value)}
+              className="w-full px-2 py-1.5 border rounded text-sm"
+              style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
+            >
+              <option value="">Seleccionar...</option>
+              {filteredCuentas?.map(c => (
+                <option key={c.id} value={c.id}>{c.codigo} - {c.nombre}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Descripción inline */}
+          <div className="flex-1">
+            <label className="block text-xs font-medium mb-0.5 text-gray-500">Descripción</label>
+            <input
+              type="text"
+              value={formData.descripcion}
+              onChange={(e) => handleInputChange('descripcion', e.target.value)}
+              placeholder="Detalles adicionales..."
+              className="w-full px-2 py-1.5 border rounded text-sm"
+              style={{ borderColor: themeColors.border, backgroundColor: themeColors.bg, color: themeColors.text }}
+            />
+          </div>
         </div>
       </form>
 
-      {/* Footer */}
+      {/* Footer compacto */}
       <div
-        className="flex justify-between items-center px-6 py-4 border-t"
-        style={{ backgroundColor: `${themeColors.border}30`, borderColor: themeColors.border }}
+        className="flex justify-between items-center px-3 py-1.5 border-t"
+        style={{ backgroundColor: themeColors.primaryLight, borderColor: themeColors.border }}
       >
-        <div className="text-sm" style={{ color: themeColors.textSecondary }}>
-          IVA: {IVA_PORCENTAJE}% | Total: {formatCurrency(formData.total)}
+        <div className="text-xs" style={{ color: themeColors.primaryDark }}>
+          Total: <b>{formatCurrency(formData.total)}</b>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           <button
             type="button"
             onClick={onCancel}
-            className="px-6 py-2.5 border-2 rounded-lg font-medium transition-colors hover:bg-gray-100"
+            className="px-3 py-1.5 border rounded text-sm font-medium hover:bg-gray-100"
             style={{ borderColor: themeColors.border, color: themeColors.text }}
           >
             Cancelar
@@ -703,11 +737,11 @@ export const IncomeForm: React.FC<IncomeFormProps> = ({
           <button
             onClick={() => handleSubmit()}
             disabled={isSubmitting}
-            className="px-8 py-2.5 rounded-lg font-medium flex items-center gap-2 text-white disabled:opacity-50"
+            className="px-4 py-1.5 rounded text-sm font-medium flex items-center gap-1.5 text-white disabled:opacity-50"
             style={{ backgroundColor: themeColors.primary }}
           >
-            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            {income ? 'Actualizar' : 'Crear Ingreso'}
+            {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+            {income ? 'Actualizar' : 'Guardar'}
           </button>
         </div>
       </div>

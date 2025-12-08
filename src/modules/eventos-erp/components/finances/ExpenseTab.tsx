@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Pencil, Trash2, TrendingDown, DollarSign, Loader2, FileText, Paperclip, Sparkles, Bot } from 'lucide-react';
+import { Plus, Pencil, Trash2, TrendingDown, DollarSign, Loader2, FileText, Paperclip, Sparkles, Bot, Undo2 } from 'lucide-react';
 import { Button } from '../../../../shared/components/ui/Button';
 import { Badge } from '../../../../shared/components/ui/Badge';
 import { Modal } from '../../../../shared/components/ui/Modal';
@@ -11,6 +11,7 @@ import { formatCurrency, formatDate } from '../../../../shared/utils/formatters'
 import { Expense } from '../../types/Finance';
 import { ExpenseForm } from './ExpenseForm';
 import { DualOCRExpenseForm } from './DualOCRExpenseForm';
+import { RefundModal } from './RefundModal';
 
 interface ExpenseTabProps {
   eventId: string;
@@ -25,7 +26,8 @@ export const ExpenseTab: React.FC<ExpenseTabProps> = ({
 }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
-  
+  const [refundingExpense, setRefundingExpense] = useState<Expense | null>(null);
+
   const { canCreate, canUpdate, canDelete } = usePermissions();
   const { user } = useAuth();
   const { createExpense, updateExpense, deleteExpense } = useExpenses(eventId);
@@ -62,14 +64,14 @@ export const ExpenseTab: React.FC<ExpenseTabProps> = ({
         <div>
           <h3 className="text-lg font-medium text-gray-900">Gastos del Evento</h3>
           <p className="text-sm text-gray-600">
-            Total: {formatCurrency(totalGastos)} • 
+            Total: {formatCurrency(totalGastos)} •
             {gastosConArchivo.length} con archivo • {gastosSinArchivo.length} sin archivo
             {gastosPendientes.length > 0 && (
               <span className="text-yellow-600"> • {gastosPendientes.length} pendientes</span>
             )}
           </p>
         </div>
-        
+
         {canCreate('gastos') && (
           <div className="flex space-x-3">
             <Button
@@ -100,7 +102,7 @@ export const ExpenseTab: React.FC<ExpenseTabProps> = ({
             </div>
           </div>
         </div>
-        
+
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-center space-x-3">
             <Paperclip className="w-6 h-6 text-blue-600" />
@@ -110,7 +112,7 @@ export const ExpenseTab: React.FC<ExpenseTabProps> = ({
             </div>
           </div>
         </div>
-        
+
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
           <div className="flex items-center space-x-3">
             <Pencil className="w-6 h-6 text-gray-600" />
@@ -120,7 +122,7 @@ export const ExpenseTab: React.FC<ExpenseTabProps> = ({
             </div>
           </div>
         </div>
-        
+
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <div className="flex items-center space-x-3">
             <DollarSign className="w-6 h-6 text-yellow-600" />
@@ -179,6 +181,7 @@ export const ExpenseTab: React.FC<ExpenseTabProps> = ({
                 setShowForm(true);
               }}
               onDelete={() => handleDelete(expense)}
+              onCreateRefund={() => setRefundingExpense(expense)}
               canEdit={canUpdate('gastos')}
               canDelete={canDelete('gastos')}
             />
@@ -224,6 +227,19 @@ export const ExpenseTab: React.FC<ExpenseTabProps> = ({
           />
         </Modal>
       )}
+
+      {/* Modal de Devolución */}
+      {refundingExpense && (
+        <RefundModal
+          gastoOriginal={refundingExpense}
+          eventoId={eventId}
+          onSave={() => {
+            setRefundingExpense(null);
+            onRefresh();
+          }}
+          onClose={() => setRefundingExpense(null)}
+        />
+      )}
     </motion.div>
   );
 };
@@ -233,22 +249,25 @@ const ExpenseCard: React.FC<{
   expense: Expense;
   onEdit: () => void;
   onDelete: () => void;
+  onCreateRefund: () => void;
   canEdit: boolean;
   canDelete: boolean;
-}> = ({ expense, onEdit, onDelete, canEdit, canDelete }) => {
+}> = ({ expense, onEdit, onDelete, onCreateRefund, canEdit, canDelete }) => {
+  // Verificar si es una devolución (monto negativo o concepto con [DEVOLUCIÓN])
+  const esDevolucion = expense.total < 0 || expense.concepto?.startsWith('[DEVOLUCIÓN]');
   const getApprovalBadge = (status: string) => {
     const variants = {
       'pendiente': 'warning',
       'aprobado': 'success',
       'rechazado': 'danger'
     };
-    
+
     const labels = {
       'pendiente': 'Pendiente',
       'aprobado': 'Aprobado',
       'rechazado': 'Rechazado'
     };
-    
+
     return (
       <Badge variant={variants[status as keyof typeof variants] as any} size="sm">
         {labels[status as keyof typeof labels]}
@@ -270,10 +289,10 @@ const ExpenseCard: React.FC<{
               {formatCurrency(expense.total)}
             </span>
             {expense.categoria && (
-              <Badge 
-                variant="default" 
-                style={{ 
-                  backgroundColor: expense.categoria.color + '20', 
+              <Badge
+                variant="default"
+                style={{
+                  backgroundColor: expense.categoria.color + '20',
                   color: expense.categoria.color,
                   borderColor: expense.categoria.color + '40'
                 }}
@@ -295,7 +314,7 @@ const ExpenseCard: React.FC<{
               </Badge>
             )}
           </div>
-          
+
           <div className="text-sm text-gray-500 space-y-1">
             <div className="grid grid-cols-2 gap-4">
               <div>Fecha: {formatDate(expense.fecha_gasto)}</div>
@@ -317,16 +336,16 @@ const ExpenseCard: React.FC<{
             {expense.referencia && (
               <div>Referencia: {expense.referencia}</div>
             )}
-            
+
             {/* 📎 ARCHIVOS ADJUNTOS - XML Y PDF */}
             <div className="space-y-2">
               {/* XML CFDI */}
               {expense.xml_file_url && (
                 <div className="flex items-center space-x-2">
                   <FileText className="w-3 h-3 text-purple-600" />
-                  <a 
-                    href={expense.xml_file_url} 
-                    target="_blank" 
+                  <a
+                    href={expense.xml_file_url}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-purple-600 hover:text-purple-800 text-sm font-medium"
                   >
@@ -334,14 +353,14 @@ const ExpenseCard: React.FC<{
                   </a>
                 </div>
               )}
-              
+
               {/* PDF/Imagen */}
               {expense.archivo_adjunto && (
                 <div className="flex items-center space-x-2">
                   <Paperclip className="w-3 h-3 text-blue-500" />
-                  <a 
-                    href={expense.archivo_adjunto} 
-                    target="_blank" 
+                  <a
+                    href={expense.archivo_adjunto}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:text-blue-800 text-sm"
                   >
@@ -351,7 +370,7 @@ const ExpenseCard: React.FC<{
               )}
             </div>
           </div>
-          
+
           {/* Status and approval */}
           <div className="flex space-x-2 mt-3">
             {getApprovalBadge(expense.status_aprobacion)}
@@ -360,7 +379,7 @@ const ExpenseCard: React.FC<{
             </Badge>
           </div>
         </div>
-        
+
         <div className="flex space-x-2 ml-4">
           {canEdit && (
             <Button
@@ -369,6 +388,18 @@ const ExpenseCard: React.FC<{
               size="sm"
             >
               <Pencil className="w-4 h-4" />
+            </Button>
+          )}
+          {/* Botón de devolución - solo para gastos positivos (no para devoluciones) */}
+          {canEdit && !esDevolucion && (
+            <Button
+              onClick={onCreateRefund}
+              variant="outline"
+              size="sm"
+              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              title="Registrar devolución de este gasto"
+            >
+              <Undo2 className="w-4 h-4" />
             </Button>
           )}
           {canDelete && (
@@ -449,7 +480,7 @@ const ExpenseFormModal: React.FC<{
               placeholder="Descripción del gasto"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Categoría *
@@ -468,7 +499,7 @@ const ExpenseFormModal: React.FC<{
               ))}
             </select>
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Proveedor
@@ -481,7 +512,7 @@ const ExpenseFormModal: React.FC<{
               placeholder="Nombre del proveedor"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               RFC Proveedor
@@ -495,7 +526,7 @@ const ExpenseFormModal: React.FC<{
               maxLength={13}
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Cantidad *
@@ -510,7 +541,7 @@ const ExpenseFormModal: React.FC<{
               required
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Precio Unitario *
@@ -526,7 +557,7 @@ const ExpenseFormModal: React.FC<{
               placeholder="0.00"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Fecha del Gasto *
@@ -539,7 +570,7 @@ const ExpenseFormModal: React.FC<{
               required
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Forma de Pago
@@ -556,7 +587,7 @@ const ExpenseFormModal: React.FC<{
             </select>
           </div>
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Descripción
@@ -569,7 +600,7 @@ const ExpenseFormModal: React.FC<{
             placeholder="Detalles adicionales del gasto"
           />
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Referencia
@@ -617,7 +648,7 @@ const ExpenseFormModal: React.FC<{
             <option value="rechazado">Rechazado</option>
           </select>
         </div>
-        
+
         <div className="flex justify-end space-x-3 pt-4 border-t">
           <Button
             type="button"
