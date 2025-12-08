@@ -1,0 +1,28 @@
+{
+    "recommendations": [
+        "andrepimenta.claude-code-chat",
+        "anthropic.claude-code",
+        "asf.apache-netbeans-java",
+        "christian-kohler.npm-intellisense",
+        "codeontherocks.claude-config",
+        "davidanson.vscode-markdownlint",
+        "dbaeumer.vscode-eslint",
+        "donjayamanne.githistory",
+        "github.copilot",
+        "github.copilot-chat",
+        "github.vscode-pull-request-github",
+        "google.gemini-cli-vscode-ide-companion",
+        "google.geminicodeassist",
+        "ms-ceintl.vscode-language-pack-es",
+        "ms-mssql.data-workspace-vscode",
+        "ms-mssql.mssql",
+        "ms-mssql.sql-bindings-vscode",
+        "ms-mssql.sql-database-projects-vscode",
+        "ms-python.debugpy",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.vscode-python-envs",
+        "mtxr.sqltools",
+        "openai.chatgpt"
+    ]
+}

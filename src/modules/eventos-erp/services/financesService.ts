@@ -6,7 +6,7 @@ import type { OCRDocument } from '../../ocr/types/OCRTypes';
 export class FinancesService {
   private static instance: FinancesService;
 
-  private constructor() {}
+  private constructor() { }
 
   public static getInstance(): FinancesService {
     if (!FinancesService.instance) {
@@ -22,6 +22,7 @@ export class FinancesService {
         .from('evt_ingresos_erp')
         .select('*')
         .eq('evento_id', eventId)
+        .or('activo.eq.true,activo.is.null')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -35,13 +36,13 @@ export class FinancesService {
   async createIncome(incomeData: Partial<Income>): Promise<Income> {
     try {
       console.log('📥 [createIncome] Datos recibidos:', incomeData);
-      
+
       // ✅ Los cálculos ya vienen del formulario o se hacen desde el total
       // El trigger de BD también recalcula si es necesario
-      
-            // ✅ DESPUÉS DE EJECUTAR LA MIGRACIÓN SQL:
+
+      // ✅ DESPUÉS DE EJECUTAR LA MIGRACIÓN SQL:
       // Ya no es necesario filtrar campos, ingresos_erp tiene los mismos campos que gastos_erp
-      
+
       // Solo remover campos obsoletos que ya no se usan
       const {
         cantidad, // ❌ Campo obsoleto
@@ -82,7 +83,7 @@ export class FinancesService {
         console.error('❌ [createIncome] Error de Supabase:', error);
         throw error;
       }
-      
+
       console.log('✅ [createIncome] Ingreso creado exitosamente:', data);
       return data;
     } catch (error) {
@@ -173,6 +174,7 @@ export class FinancesService {
         .from('evt_ingresos_erp')
         .select('*')
         .eq('id', id)
+        .or('activo.eq.true,activo.is.null')
         .single();
 
       if (error) throw error;
@@ -193,6 +195,7 @@ export class FinancesService {
         `)
         .eq('evento_id', eventId)
         .is('deleted_at', null)
+        .or('activo.eq.true,activo.is.null')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -208,7 +211,7 @@ export class FinancesService {
       console.log('🚀 [financesService.createExpense] Iniciando creación de gasto');
       console.log('📋 [financesService] Datos recibidos:', expenseData);
       console.log('🛒 [financesService] detalle_compra:', expenseData.detalle_compra);
-      
+
       // Validar y parsear detalle_compra si viene como string
       let detalleCompraFinal = expenseData.detalle_compra;
       if (typeof detalleCompraFinal === 'string' && detalleCompraFinal) {
@@ -221,19 +224,19 @@ export class FinancesService {
           console.warn('  ⚠️ detalle_compra no es JSON válido, guardando como está');
         }
       }
-      
+
       // Calculate totals ONLY if not provided (preserve OCR values)
       const hasProvidedTotal = expenseData.total && expenseData.total > 0;
-      
+
       let cantidad: number, precio_unitario: number, subtotal: number, iva: number, total: number;
-      
+
       if (hasProvidedTotal) {
         // Preserve OCR-provided total
         console.log('  ✅ Usando total del OCR:', expenseData.total);
         total = expenseData.total!;
         subtotal = expenseData.subtotal || (total / (1 + (expenseData.iva_porcentaje || MEXICAN_CONFIG.ivaRate) / 100));
         iva = total - subtotal;
-        
+
         // 🔧 CORRECCIÓN: Calcular cantidad y precio_unitario desde el total si no vienen
         if (!expenseData.cantidad || !expenseData.precio_unitario) {
           cantidad = expenseData.cantidad || 1;
@@ -310,7 +313,7 @@ export class FinancesService {
           console.log(`  🔧 Campo ${campo} convertido de "" a ${dataToInsert[campo]}`);
         }
       });
-      
+
       console.log('📤 [financesService] Datos a insertar en BD:', dataToInsert);
       console.log('🛒 [financesService] detalle_compra final:', dataToInsert.detalle_compra);
 
@@ -327,10 +330,10 @@ export class FinancesService {
         console.error('❌ [financesService] Error de Supabase:', error);
         throw error;
       }
-      
+
       console.log('✅ [financesService] Gasto creado exitosamente:', data);
       console.log('🛒 [financesService] detalle_compra guardado:', data.detalle_compra);
-      
+
       return data;
     } catch (error) {
       console.error('❌ [financesService] Error creating expense:', error);
@@ -363,7 +366,7 @@ export class FinancesService {
         const moneda = calculatedData.moneda || currentExpense?.moneda || 'MXN';
         (calculatedData as any).tipo_cambio = moneda !== 'MXN' ? 1 : null;
       }
-      
+
       // ✅ REGLA: Si NO vienen campos monetarios, preservar los actuales
       // Esto evita que se recalculen incorrectamente
       if (calculatedData.total === undefined) {
@@ -381,7 +384,7 @@ export class FinancesService {
       if (calculatedData.precio_unitario === undefined) {
         calculatedData.precio_unitario = currentExpense?.precio_unitario ?? 0;
       }
-      
+
       console.log('📊 Valores finales para actualizar:', {
         cantidad: calculatedData.cantidad,
         precio_unitario: calculatedData.precio_unitario,
@@ -429,7 +432,7 @@ export class FinancesService {
         query = query.eq('updated_at', lastUpdatedAt);
       }
 
-      const { data, error} = await query
+      const { data, error } = await query
         .select(`
           *,
           categoria:evt_categorias_gastos_erp(id, nombre, color)
@@ -455,7 +458,7 @@ export class FinancesService {
     try {
       // Handle mock development user - set to null to avoid foreign key constraint
       const deletedBy = userId === '00000000-0000-0000-0000-000000000001' ? null : userId;
-      
+
       // Soft delete
       const { error } = await supabase
         .from('evt_gastos_erp')
@@ -480,6 +483,7 @@ export class FinancesService {
         .from('evt_gastos_erp')
         .select('*')
         .eq('id', id)
+        .or('activo.eq.true,activo.is.null')
         .single();
 
       if (error) throw error;
@@ -619,7 +623,7 @@ export class FinancesService {
     if (data.documento_url) {
       const fileExtension = data.documento_url.split('.').pop()?.toLowerCase();
       const allowedTypes = ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx', 'xls', 'xlsx'];
-      
+
       if (fileExtension && !allowedTypes.includes(fileExtension)) {
         errors.push('Tipo de archivo no permitido');
       }
@@ -634,7 +638,7 @@ export class FinancesService {
     const rfcClean = rfc.toUpperCase().trim();
     const rfcMoral = /^[A-Z&Ñ]{3}[0-9]{6}[A-Z0-9]{3}$/;
     const rfcFisica = /^[A-Z&Ñ]{4}[0-9]{6}[A-Z0-9]{3}$/;
-    
+
     return rfcMoral.test(rfcClean) || rfcFisica.test(rfcClean);
   }
 
@@ -708,7 +712,7 @@ export class FinancesService {
   async createExpenseFromOCR(eventId: string, ocrData: OCRDocument, userId: string): Promise<Expense> {
     try {
       const ticketData = ocrData.datos_ticket || {};
-      
+
       // Validar que es un ticket válido
       if (!ticketData || !ocrData.confianza_general) {
         throw new Error('Datos de ticket OCR inválidos o confianza muy baja');
@@ -734,13 +738,13 @@ export class FinancesService {
         forma_pago: ticketData.forma_pago || 'No especificado',
         notas: this.formatOCRProducts(ticketData.productos),
         archivo_adjunto: ocrData.archivo_url || null,
-        
+
         // Campos específicos OCR
         documento_ocr_id: ocrData.id,
         ocr_confianza: confidence,
         ocr_validado: !needsValidation,
         ocr_datos_originales: JSON.stringify(ticketData),
-        
+
         // Metadata
         created_by: userId,
         created_at: new Date().toISOString(),
@@ -761,10 +765,10 @@ export class FinancesService {
         .single();
 
       if (error) throw error;
-      
+
       console.log('✅ Gasto creado exitosamente desde OCR');
       return data;
-      
+
     } catch (error) {
       console.error('❌ Error creando gasto desde OCR:', error);
       throw new Error(`Error al crear gasto desde OCR: ${error instanceof Error ? error.message : 'Error desconocido'}`);
@@ -777,7 +781,7 @@ export class FinancesService {
   async createIncomeFromOCR(eventId: string, ocrData: OCRDocument, userId: string): Promise<Income> {
     try {
       const facturaData = ocrData.datos_factura || {};
-      
+
       // Validar que es una factura válida
       if (!facturaData || !ocrData.confianza_general) {
         throw new Error('Datos de factura OCR inválidos o confianza muy baja');
@@ -802,17 +806,17 @@ export class FinancesService {
         referencia: facturaData.uuid || `${facturaData.serie || 'N/A'}-${facturaData.folio || 'N/A'}`,
         rfc_cliente: facturaData.rfc_receptor || null,
         archivo_adjunto: ocrData.archivo_url || null,
-        
+
         // Campos específicos OCR
         documento_ocr_id: ocrData.id,
         ocr_confianza: confidence,
         ocr_validado: !needsValidation,
         ocr_datos_originales: JSON.stringify(facturaData),
-        
+
         // Estados por defecto
         facturado: true, // Si viene de OCR de factura, ya está facturado
         cobrado: false,  // Por defecto no cobrado
-        
+
         // Metadata
         created_by: userId,
         created_at: new Date().toISOString(),
@@ -834,10 +838,10 @@ export class FinancesService {
         .single();
 
       if (error) throw error;
-      
+
       console.log('✅ Ingreso creado exitosamente desde OCR');
       return data;
-      
+
     } catch (error) {
       console.error('❌ Error creando ingreso desde OCR:', error);
       throw new Error(`Error al crear ingreso desde OCR: ${error instanceof Error ? error.message : 'Error desconocido'}`);
@@ -892,7 +896,7 @@ export class FinancesService {
         total_ocr_documents: allOCRRecords.length,
         expenses_from_ocr: expenses.length,
         incomes_from_ocr: incomes.length,
-        average_confidence: allOCRRecords.length > 0 
+        average_confidence: allOCRRecords.length > 0
           ? Math.round(allOCRRecords.reduce((sum, record) => sum + (record.ocr_confianza || 0), 0) / allOCRRecords.length)
           : 0,
         pending_validation: allOCRRecords.filter(record => !record.ocr_validado).length

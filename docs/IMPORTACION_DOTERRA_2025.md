@@ -1,6 +1,7 @@
 # 📋 DOCUMENTACIÓN DE IMPORTACIÓN - DOTERRA CONVENCIÓN 2025
 
 ## 📁 Archivo Fuente
+
 - **Nombre**: `DOT2025-003 _ CONVENCIÓN DOTERRA 2025--analis.xlsx`
 - **Ubicación**: `/home/rodri/proyectos/ERP-777-V02-pc/ERP-777-V02/`
 - **Fecha de importación**: 2025-12-05
@@ -59,7 +60,7 @@
 
 ## 📂 ESTRUCTURA DEL EXCEL
 
-### Hojas del archivo:
+### Hojas del archivo
 
 1. **RESUMEN CIERRE INTERNO** - Información general e ingresos
 2. **SP´S** - Solicitudes de Pago
@@ -68,9 +69,10 @@
 5. **MATERIALES** - Materiales y suministros
 6. **PROVISIONES** - Gastos pendientes/estimados
 
-### Estructura de columnas por hoja:
+### Estructura de columnas por hoja
 
-#### GASTOS (SP's, Combustible, RH):
+#### GASTOS (SP's, Combustible, RH)
+
 | Columna | Campo |
 |---------|-------|
 | A | Status (PAGADO/PENDIENTE) |
@@ -83,7 +85,8 @@
 | H | Monto a Pagar |
 | I | Fecha de Pago |
 
-#### MATERIALES:
+#### MATERIALES
+
 | Columna | Campo |
 |---------|-------|
 | A | Status |
@@ -98,7 +101,8 @@
 | J | Monto a Pagar |
 | K | Fecha de Pago |
 
-#### PROVISIONES:
+#### PROVISIONES
+
 | Columna | Campo |
 |---------|-------|
 | A | Proveedor / Razón Social |
@@ -114,13 +118,15 @@
 
 **Archivo**: `/home/rodri/proyectos/ERP-777-V02-pc/ERP-777-V02/scripts/reimportar_evento_completo.mjs`
 
-### Ejecución:
+### Ejecución
+
 ```bash
 cd /home/rodri/proyectos/ERP-777-V02-pc/ERP-777-V02
 node scripts/reimportar_evento_completo.mjs
 ```
 
-### Proceso del script:
+### Proceso del script
+
 1. **Borrado de datos existentes** del evento ID=1
    - Gastos
    - Ingresos
@@ -161,6 +167,23 @@ node scripts/reimportar_evento_completo.mjs
 | Fecha | Acción | Resultado |
 |-------|--------|-----------|
 | 2025-12-05 | Reimportación completa | ✅ Exitosa |
+| 2025-12-07 | Reimportación con ID=32 | ✅ Exitosa (Corregidos totales duplicados). Utilidad: $1,471,210.04 |
+| 2025-12-07 | Importación final con devoluciones | ✅ CUADRADO. Incluye montos negativos (2 devol SP's, 12 retornos Mat). |
+
+---
+
+## 📊 CUADRATURA FINAL (2025-12-07)
+
+| Categoría | Esperado | Importado | Registros | Notas |
+|-----------|----------|-----------|-----------|-------|
+| SP's | $859,674.39 | $859,674.39 | 115 | Incluye 2 devoluciones (-$35,999) |
+| Combustible | $30,350.78 | $30,350.78 | 24 | ✅ |
+| RH | $40,552.09 | $40,552.09 | 7 | ✅ |
+| Materiales | $477,883.94 | $477,883.96 | 132 | Incluye 12 retornos (-$6,047.66) |
+| Provisiones | $1,500,970.64 | $1,500,970.64 | 24 | ✅ |
+| Ingresos | $4,390,556.57 | $4,390,556.57 | 3 | ✅ |
+
+### Utilidad Final: $1,481,124.71
 
 ---
 

@@ -8,9 +8,9 @@ const supabase = createClient(
   process.env.VITE_SUPABASE_ANON_KEY
 );
 
-const EXCEL_PATH = '/home/rodri/proyectos/ERP-777-V02-pc/ERP-777-V02/DOT2025-003 _ CONVENCIÓN DOTERRA 2025--analis.xlsx';
+const EXCEL_PATH = '/home/rodrichrz/ERP-777-V03/ERP-777-V02/DOT2025-003 _ CONVENCIÓN DOTERRA 2025--analis.xlsx';
 const COMPANY_ID = '00000000-0000-0000-0000-000000000001';
-const EVENTO_ID = 1;
+const EVENTO_ID = 32;
 
 // Mapeo de pestañas a categorías de gastos (evt_categorias_gastos_erp)
 const PESTANAS_GASTOS = [
@@ -56,6 +56,12 @@ async function importarGastos(workbook) {
     while (fila < 1200 && filasSinDatos < 10) {
       const monto = getCellValue(sheet, config.colMonto, fila);
       const concepto = getCellValue(sheet, config.colConcepto, fila);
+
+      // Debug para las primeras 5 filas de cada hoja
+      if (fila < config.filaInicio + 5) {
+        console.log(`     [DEBUG] ${config.nombre} Fila ${fila}: Monto(${config.colMonto})=${monto}, Concepto(${config.colConcepto})=${concepto}`);
+      }
+
       const proveedor = getCellValue(sheet, config.colProveedor, fila);
       const status = getCellValue(sheet, config.colStatus, fila);
 
@@ -67,12 +73,38 @@ async function importarGastos(workbook) {
 
       filasSinDatos = 0;
       const montoNum = parseFloat(monto);
-      if (isNaN(montoNum) || montoNum <= 0) {
+      // Permitir montos negativos (devoluciones/retornos) pero excluir ceros
+      if (isNaN(montoNum) || montoNum === 0) {
         fila++;
         continue;
       }
 
       const conceptoFinal = concepto || proveedor || 'Gasto ' + config.nombre;
+
+      // 🚫 EXCLUIR FILAS DE TOTALES
+      // Solo excluir si:
+      // 1. El concepto está vacío (fila de suma automática)
+      // 2. O explícitamente dice "TOTAL DE" o "SUMA DE" (no "PAGO TOTAL" que es un concepto válido)
+      const conceptoUpper = String(concepto || '').toUpperCase().trim();
+      const proveedorUpper = String(proveedor || '').toUpperCase().trim();
+
+      const esFilaTotal = (
+        // Fila sin concepto con valor = probablemente es una suma
+        (conceptoUpper === '' && proveedorUpper === '') ||
+        // Fila que explícitamente es un total de sección
+        conceptoUpper.startsWith('TOTAL DE') ||
+        conceptoUpper.startsWith('SUMA DE') ||
+        conceptoUpper === 'TOTAL' ||
+        proveedorUpper.startsWith('TOTAL DE') ||
+        proveedorUpper === 'TOTAL'
+      );
+
+      if (esFilaTotal) {
+        console.log(`   🔸 Saltando fila de TOTALES (${config.nombre} fila ${fila}): ${conceptoFinal} - $${montoNum}`);
+        fila++;
+        continue;
+      }
+
       const pagado = status && String(status).toUpperCase().includes('PAGADO');
 
       const { error } = await supabase
@@ -93,6 +125,8 @@ async function importarGastos(workbook) {
       if (!error) {
         insertados++;
         sumaMonto += montoNum;
+      } else {
+        console.log(`     [ERROR] Falló inserción fila ${fila}:`, error.message);
       }
       fila++;
     }
@@ -176,6 +210,27 @@ async function importarProvisiones(workbook) {
     }
 
     const conceptoFinal = concepto || proveedor || 'Provisión';
+
+    // 🚫 EXCLUIR FILAS DE TOTALES
+    // Solo excluir si el concepto explícitamente es un TOTAL DE sección
+    const conceptoUpper = String(concepto || '').toUpperCase().trim();
+    const proveedorUpper = String(proveedor || '').toUpperCase().trim();
+
+    const esFilaTotal = (
+      (conceptoUpper === '' && proveedorUpper === '') ||
+      conceptoUpper.startsWith('TOTAL DE') ||
+      conceptoUpper === 'TOTAL DE PROVISIONES' ||
+      conceptoUpper === 'TOTAL' ||
+      proveedorUpper.startsWith('TOTAL DE') ||
+      proveedorUpper === 'TOTAL'
+    );
+
+    if (esFilaTotal) {
+      console.log(`   🔸 Saltando fila de TOTALES (Provisiones fila ${fila}): ${conceptoFinal} - $${montoNum}`);
+      fila++;
+      continue;
+    }
+
     const proveedorId = await obtenerOCrearProveedor(proveedor);
     const subtotal = montoNum / 1.16;
     const iva = montoNum - subtotal;
@@ -277,6 +332,7 @@ async function main() {
 
   const workbook = XLSX.readFile(EXCEL_PATH);
   console.log('\n📂 Excel cargado');
+  console.log('   Hojas detectadas:', workbook.SheetNames);
 
   await borrarDatosEvento();
   await importarGastos(workbook);

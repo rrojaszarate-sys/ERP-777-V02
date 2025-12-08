@@ -79,7 +79,8 @@ async function calcularGastosPorCategoria(eventosIds: number[]): Promise<{
     .from('evt_gastos_erp')
     .select('total, pagado, categoria_id, categoria:evt_categorias_gastos_erp(nombre)')
     .in('evento_id', eventosIds)
-    .is('deleted_at', null);
+    .is('deleted_at', null)
+    .or('activo.eq.true,activo.is.null');
 
   if (error || !gastos) {
     console.error('Error cargando gastos por categoría:', error);
@@ -259,7 +260,7 @@ export const useEventosFinancialList = (filters?: EventosFinancialFilters) => {
     queryFn: async (): Promise<EventoFinancialListItem[]> => {
       try {
         console.log('🔍 Cargando eventos desde vw_eventos_analisis_financiero_erp...');
-        
+
         let query = supabase
           .from('vw_eventos_analisis_financiero_erp')
           .select('*')
@@ -280,7 +281,7 @@ export const useEventosFinancialList = (filters?: EventosFinancialFilters) => {
           const siguienteAño = filters.mes === 12 ? filters.año + 1 : filters.año;
           const siguienteMesStr = siguienteMes.toString().padStart(2, '0');
           const siguienteAñoStr = siguienteAño.toString();
-          
+
           query = query
             .gte('fecha_evento', `${añoStr}-${mesStr}-01`)
             .lt('fecha_evento', `${siguienteAñoStr}-${siguienteMesStr}-01`);
@@ -505,7 +506,7 @@ export const useEventosFinancialDashboard = (filters?: EventosFinancialFilters) 
         return dashboard;
       } catch (error) {
         console.error('❌ Error crítico en dashboard:', error);
-        
+
         // Retornar dashboard vacío en caso de error
         return {
           total_eventos: 0,

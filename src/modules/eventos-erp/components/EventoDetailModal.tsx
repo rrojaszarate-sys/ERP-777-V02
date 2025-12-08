@@ -1606,20 +1606,58 @@ const GastosTab: React.FC<{
   };
 
   const handleDelete = async (gasto: any) => {
-    if (confirm(`¿Está seguro de que desea eliminar este gasto de ${formatCurrency(gasto.total)}?`)) {
-      try {
-        const { error } = await supabase
-          .from('evt_gastos_erp')
-          .delete()
-          .eq('id', gasto.id);
+    const motivo = prompt(`¿Por qué desea eliminar este gasto de ${formatCurrency(gasto.total)}?\n\n(Escriba el motivo o deje vacío para cancelar)`);
 
-        if (error) throw error;
-        toast.success('Gasto eliminado correctamente');
-        onRefresh();
-      } catch (error) {
-        console.error('Error deleting gasto:', error);
-        toast.error('Error al eliminar el gasto');
-      }
+    if (motivo === null) return; // Usuario canceló
+    if (motivo.trim() === '') {
+      toast.error('Debe proporcionar un motivo para eliminar');
+      return;
+    }
+
+    try {
+      // Obtener información del dispositivo
+      const userAgent = navigator.userAgent;
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      const userEmail = (await supabase.auth.getUser()).data.user?.email;
+
+      // Soft delete - marcar como inactivo
+      const { error: updateError } = await supabase
+        .from('evt_gastos_erp')
+        .update({
+          activo: false,
+          deleted_at: new Date().toISOString(),
+          deleted_by: userId,
+          deleted_reason: motivo,
+          deleted_user_agent: userAgent
+        })
+        .eq('id', gasto.id);
+
+      if (updateError) throw updateError;
+
+      // Registrar en tabla de auditoría
+      await supabase
+        .from('audit_eliminaciones_financieras')
+        .insert({
+          tabla_origen: 'evt_gastos_erp',
+          registro_id: gasto.id,
+          evento_id: gasto.evento_id,
+          company_id: gasto.company_id,
+          registro_snapshot: gasto,
+          concepto: gasto.concepto,
+          subtotal: gasto.subtotal,
+          iva: gasto.iva,
+          total: gasto.total,
+          deleted_by: userId,
+          deleted_by_email: userEmail,
+          deleted_reason: motivo,
+          deleted_user_agent: userAgent
+        });
+
+      toast.success('Gasto eliminado correctamente');
+      onRefresh();
+    } catch (error) {
+      console.error('Error deleting gasto:', error);
+      toast.error('Error al eliminar el gasto');
     }
   };
 
@@ -2283,20 +2321,57 @@ const ProvisionesTab: React.FC<{
   };
 
   const handleDelete = async (provision: any) => {
-    if (confirm(`¿Está seguro de que desea eliminar esta provisión de ${formatCurrency(provision.total)}?`)) {
-      try {
-        const { error } = await supabase
-          .from('evt_provisiones_erp')
-          .delete()
-          .eq('id', provision.id);
+    const motivo = prompt(`¿Por qué desea eliminar esta provisión de ${formatCurrency(provision.total)}?\n\n(Escriba el motivo o deje vacío para cancelar)`);
 
-        if (error) throw error;
-        toast.success('Provisión eliminada');
-        onRefresh();
-      } catch (error) {
-        console.error('Error deleting provision:', error);
-        toast.error('Error al eliminar provisión');
-      }
+    if (motivo === null) return;
+    if (motivo.trim() === '') {
+      toast.error('Debe proporcionar un motivo para eliminar');
+      return;
+    }
+
+    try {
+      const userAgent = navigator.userAgent;
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      const userEmail = (await supabase.auth.getUser()).data.user?.email;
+
+      // Soft delete
+      const { error: updateError } = await supabase
+        .from('evt_provisiones_erp')
+        .update({
+          activo: false,
+          deleted_at: new Date().toISOString(),
+          deleted_by: userId,
+          deleted_reason: motivo,
+          deleted_user_agent: userAgent
+        })
+        .eq('id', provision.id);
+
+      if (updateError) throw updateError;
+
+      // Registrar en auditoría
+      await supabase
+        .from('audit_eliminaciones_financieras')
+        .insert({
+          tabla_origen: 'evt_provisiones_erp',
+          registro_id: provision.id,
+          evento_id: provision.evento_id,
+          company_id: provision.company_id,
+          registro_snapshot: provision,
+          concepto: provision.concepto,
+          subtotal: provision.subtotal,
+          iva: provision.iva,
+          total: provision.total,
+          deleted_by: userId,
+          deleted_by_email: userEmail,
+          deleted_reason: motivo,
+          deleted_user_agent: userAgent
+        });
+
+      toast.success('Provisión eliminada');
+      onRefresh();
+    } catch (error) {
+      console.error('Error deleting provision:', error);
+      toast.error('Error al eliminar provisión');
     }
   };
 

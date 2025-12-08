@@ -6,7 +6,7 @@ import { logger } from '../../../core/utils/logger';
 export class EventsService {
   private static instance: EventsService;
 
-  private constructor() {}
+  private constructor() { }
 
   public static getInstance(): EventsService {
     if (!EventsService.instance) {
@@ -25,7 +25,7 @@ export class EventsService {
   }): Promise<EventoCompleto[]> {
     try {
       logger.debug('Intentando cargar eventos desde vw_eventos_completos_erp...');
-      
+
       let query = supabase
         .from('vw_eventos_completos_erp')
         .select('*')
@@ -34,13 +34,13 @@ export class EventsService {
       // Apply filters
       if (filters?.year) {
         query = query.gte('fecha_evento', `${filters.year}-01-01`)
-                    .lt('fecha_evento', `${filters.year + 1}-01-01`);
+          .lt('fecha_evento', `${filters.year + 1}-01-01`);
       }
 
       if (filters?.month) {
         const monthStr = filters.month.toString().padStart(2, '0');
         query = query.gte('fecha_evento', `${filters.year || new Date().getFullYear()}-${monthStr}-01`)
-                    .lt('fecha_evento', `${filters.year || new Date().getFullYear()}-${monthStr === '12' ? '01' : (parseInt(monthStr) + 1).toString().padStart(2, '0')}-01`);
+          .lt('fecha_evento', `${filters.year || new Date().getFullYear()}-${monthStr === '12' ? '01' : (parseInt(monthStr) + 1).toString().padStart(2, '0')}-01`);
       }
 
       if (filters?.status && filters.status.length > 0) {
@@ -60,23 +60,23 @@ export class EventsService {
       if (error) {
         logger.error('Error en vw_eventos_completos_erp:', error);
         logger.debug('Intentando cargar desde eventos_erp directamente...');
-        
+
         // Fallback: intentar cargar directamente de eventos_erp si la vista falla
         const { data: eventosData, error: eventosError } = await supabase
           .from('evt_eventos_erp')
           .select('*')
           .eq('activo', true)
           .order('fecha_evento', { ascending: false });
-        
+
         if (eventosError) {
           logger.error('Error también en eventos_erp:', eventosError);
           throw eventosError;
         }
-        
+
         logger.info('Eventos cargados desde eventos_erp:', eventosData?.length || 0);
         return eventosData || [];
       }
-      
+
       logger.info('Eventos cargados desde vw_eventos_completos_erp:', data?.length || 0);
       return data || [];
     } catch (error) {
@@ -313,6 +313,7 @@ export class EventsService {
           )
         `)
         .is('deleted_at', null)
+        .or('activo.eq.true,activo.is.null')
         .not('categoria_id', 'is', null);
 
       if (error) throw error;
@@ -327,7 +328,7 @@ export class EventsService {
         const categoryName = categoria.nombre;
         const categoryColor = categoria.color;
         const total = parseFloat(expense.total) || 0;
-        
+
         if (categoryMap.has(categoryId)) {
           const existing = categoryMap.get(categoryId);
           existing.monto_total += total;
@@ -345,16 +346,16 @@ export class EventsService {
           });
         }
       });
-      
+
       // Calculate averages and convert to array
       const result = Array.from(categoryMap.values()).map(category => ({
         ...category,
         promedio_gasto: category.monto_total / category.total_gastos
       }));
-      
+
       // Sort by total amount descending
       result.sort((a, b) => b.monto_total - a.monto_total);
-      
+
       return result;
     } catch (error) {
       console.error('Error fetching expenses by category:', error);
@@ -434,8 +435,8 @@ export class EventsService {
   subscribeToEvents(callback: (payload: any) => void) {
     return supabase
       .channel('events-changes')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'eventos_erp' }, 
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'eventos_erp' },
         callback
       )
       .subscribe();
