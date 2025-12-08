@@ -1,12 +1,13 @@
 /**
  * 🎯 DUAL OCR SERVICE - Supabase Edge Function O Node.js Local
- * 
+ *
  * Configuración via .env:
  * - VITE_OCR_PROVIDER='supabase' → Usa Edge Function (puede dar timeout)
  * - VITE_OCR_PROVIDER='nodejs' → Usa servidor local puerto 3001 (recomendado)
- * - VITE_OCR_PROVIDER='tesseract' → Solo Tesseract (sin Google Vision)
+ * - VITE_OCR_PROVIDER='tesseract' → Solo Tesseract en browser (sin backend)
  */
 
+import Tesseract from 'tesseract.js';
 
 interface OCRResult {
   texto_completo: string;
@@ -40,10 +41,10 @@ export async function processFileWithOCR(file: File): Promise<OCRResult> {
     case 'nodejs':
       return await processWithNodeJS(file);
     case 'tesseract':
-      throw new Error('Tesseract se usa como fallback automático');
+      return await processWithTesseract(file);
     default:
-      console.warn(`⚠️ Provider desconocido: ${provider}, usando nodejs`);
-      return await processWithNodeJS(file);
+      console.warn(`⚠️ Provider desconocido: ${provider}, usando tesseract`);
+      return await processWithTesseract(file);
   }
 }
 
@@ -200,6 +201,61 @@ async function processWithNodeJS(file: File): Promise<OCRResult> {
       throw new Error('Node.js OCR server no está corriendo. Ejecuta: node server/ocr-api.js');
     }
 
+    throw error;
+  }
+}
+
+/**
+ * Procesa con TesseractJS directamente en el navegador
+ * No requiere backend - funciona 100% en cliente
+ */
+async function processWithTesseract(file: File): Promise<OCRResult> {
+  try {
+    console.log('🔤 Usando TesseractJS en browser...');
+
+    // Crear URL del archivo para Tesseract
+    const imageUrl = URL.createObjectURL(file);
+
+    try {
+      // Reconocer texto con Tesseract - idioma español + inglés
+      const result = await Tesseract.recognize(imageUrl, 'spa+eng', {
+        logger: (info) => {
+          if (info.status === 'recognizing text') {
+            console.log(`   Progreso: ${Math.round(info.progress * 100)}%`);
+          }
+        },
+      });
+
+      // Liberar memoria
+      URL.revokeObjectURL(imageUrl);
+
+      const textoCompleto = result.data.text || '';
+      const confianza = Math.round(result.data.confidence || 0);
+
+      // Separar por líneas
+      const lineas = textoCompleto
+        .split('\n')
+        .filter((line: string) => line.trim().length > 0)
+        .map((line: string) => ({
+          texto: line.trim(),
+          confianza: confianza,
+        }));
+
+      console.log(`✅ TesseractJS: ${confianza}% confianza, ${lineas.length} líneas`);
+
+      return {
+        texto_completo: textoCompleto,
+        confianza_general: confianza,
+        lineas,
+        procesador: 'tesseract-browser',
+        timestamp: new Date().toISOString(),
+      };
+    } catch (tesseractError) {
+      URL.revokeObjectURL(imageUrl);
+      throw tesseractError;
+    }
+  } catch (error) {
+    console.error('❌ Error en TesseractJS:', error);
     throw error;
   }
 }
